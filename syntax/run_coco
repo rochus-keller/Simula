@@ -1,0 +1,10 @@
+../../Coco/Coco ./Simula67.atg -trace FP -o . -namespace Sim > ./coco_out.txt
+
+mv ./Parser.h ../SimParser.h
+mv ./Parser.cpp ../SimParser.cpp
+
+mv ./SimSynTree.h ..
+mv ./SimSynTree.cpp ..
+
+mv ./SimTokenType.h ..
+mv ./SimTokenType.cpp ..

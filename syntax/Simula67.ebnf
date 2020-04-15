@@ -1,0 +1,432 @@
+// Simula-67 EBNF from Base Language Report (1970)
+// Adapted and modified 2020 by Rochus Keller <mailto:me@rochus-keller.ch>
+// Modification steps:
+// Converted with EbnfStudio
+// added Algol60.ebnf version B_7 by 2020-04-01
+// commented out all double productions from Algol part
+// replaced all empty terminals by appropriate EBNF construct
+// commented out all lexer productions
+// extracted all keywords, upper cased keywords
+// uncommented all Algol productions used by Simula
+// undone statement and block refactorings from Algol
+// removed direct left recursions
+// added missing Simula productions, no unused production anymore
+// restarted from empty EBNF and gradually migrated elements in the following order from Simula67_3
+// unified expressions
+// unified variable, array and function designators
+// added declarations, normalized, LL prefixed
+// added blocks and compounds, normalized, LL prefixed
+// added statements
+// added elements from 1986 standard
+// more LL(1) disambiguations
+// Added elements from IBM/360 and 1986 standard Simula (experimental)
+
+#ifndef SIM70
+
+module ::= [ external_head ] (
+	\LL:2\ class_declaration
+	| procedure_declaration
+	| program ) [ ';' ]
+
+external_head ::= external_declaration ';' { external_declaration ';' }
+
+#endif
+
+program ::= { \LL:2\ label ':' } block 
+	// original: block | compound_statement
+
+while_statement ::= WHILE expression DO statement  // original with { label ':' } and Boolean_expression
+
+initial_operations- ::= 
+	BEGIN [ declaration { \LL:2\ ';' declaration } ]  statement  { \LL:2\ ';' statement } ';'
+	// original: BEGIN | blockhead ';' | initial_operations statement ';' 
+
+final_operations- ::= END |  ';' compound_tail 
+
+split_body- ::= initial_operations INNER final_operations
+	// original: initial_operations INNER final_operations 
+
+// moved label to caller, integrated prefixed_block
+block ::= [ block_prefix ] main_block
+	// main_block replaces unlabelled_block and unlabelled_compound
+	// original: unlabelled_block | label ':' block | prefixed_block 
+
+block_prefix ::=  class_identifier [ actual_parameter_part ]
+
+// moved [] to caller
+actual_parameter_part ::= '(' actual_parameter_list ')'
+
+// unlabelled_prefixed_block ::=  block_prefix main_block 
+
+// { label ':' } already in block
+// prefixed_block ::= unlabelled_prefixed_block
+	// original: unlabelled_prefixed_block |  label ':' prefixed_block 
+
+main_block ::= BEGIN 
+	[ \LA: 1:(ARRAY|BOOLEAN|CHARACTER|CLASS|EXTERNAL|INTEGER|LONG|PROCEDURE|REAL|REF|SHORT|SWITCH|TEXT) | ( 1:identifier & 2:CLASS ) \ 
+		declaration 
+	{ \LA: 1:';' & ( 2:(ARRAY|BOOLEAN|CHARACTER|CLASS|EXTERNAL|INTEGER|LONG|PROCEDURE|REAL|REF|SHORT|SWITCH|TEXT) | ( 2:identifier & 3:CLASS ) )\
+		';' declaration } ';' ] compound_tail
+	// original: unlabelled_block |  unlabelled_compound 
+
+// merged to main_block: 
+// unlabelled_compound ::= BEGIN compound_tail 
+
+// merged to main_block: 
+// unlabelled_block ::= block_head ';' compound_tail 
+
+// block_head ::= BEGIN declaration { ';' declaration } 
+	// original: BEGIN declaration | block_head ';' declaration 
+
+compound_tail ::= [ statement { \LA: 1:';' & 2:(!END&!INNER)\ ';' statement } ]
+	[ \LL:2\ ';' INNER { \LA: 1:';' & 2:!END\ ';' statement } ] [ ';' ] END
+	// empirically found in DEMOS that main_blocks with no statements are supported
+	// original: statement { ';' statement }  END
+
+// merged to block
+// compound_statement ::=  { label ':' } unlabelled_compound 
+	// original: unlabelled_compound | label ':' compound_statement 
+
+declaration ::= 
+	switch_declaration
+	| external_declaration
+	| \LA: 1:PROCEDURE | 2:PROCEDURE | (1:(SHORT|LONG) & 3:PROCEDURE ) | (1:REF & 5:PROCEDURE )\ 
+		procedure_declaration 
+	| \LA: 1:ARRAY | 2:ARRAY | (1:(SHORT|LONG) & 3:ARRAY ) | (1:REF & 5:ARRAY )\ 
+		array_declaration 
+	| \LA: 1:CLASS | 2:CLASS \ 
+		class_declaration
+	| type_declaration
+
+class_declaration ::= prefix main_part 
+
+prefix ::=  [ class_identifier ]
+
+main_part ::= CLASS class_identifier 
+	formal_parameter_part ';' 
+	[ value_part ] { \LL:2\ specification_part }
+	virtual_part class_body 
+
+class_body ::= [ statement ]
+	// empirically found in DEMOS that class_body with no statements are supported
+	// original: statement | split_body 
+
+virtual_part ::=  [ VIRTUAL ':' { \LL:2\ specification_part } ] // LL:2 required
+
+procedure_declaration ::= 
+	[ type ] PROCEDURE procedure_heading procedure_body 
+
+procedure_heading ::= procedure_identifier 
+	formal_parameter_part ';' 
+	[ mode_part ] { \LL:2\ specification_part } 
+
+procedure_identifier ::= identifier 
+
+mode_part ::= name_part [ value_part ] | value_part [ name_part ]
+
+value_part ::= VALUE identifier_list ';'
+
+name_part ::= NAME identifier_list ';'
+
+formal_parameter_part ::= [ '(' formal_parameter_list ')' ]
+
+formal_parameter_list ::= formal_parameter { parameter_delimiter formal_parameter }
+
+formal_parameter ::= identifier 
+
+parameter_delimiter ::= ',' 
+
+procedure_body ::= statement 
+
+statement ::= { \LL:2\ label ':' } [ Common_Base_statement | while_statement ]
+	// [] because of dummy-statement
+
+unconditional_statement ::=  unlabelled_basic_statement // block is implied by unlabelled_basic_statement: | block 
+	// original: basic_statement | compound_statement | block 
+
+Common_Base_statement ::= 
+	unconditional_statement | Common_Base_conditional_statement | for_statement
+	// original: unconditional_statement | conditional_statement | for_statement
+
+// conditional_statement ::=  Common_Base_conditional_statement |  if_clause while_statement 
+
+Common_Base_conditional_statement ::= 
+	if_clause { \LL:2\ label ':' } (
+	unconditional_statement [ ELSE statement ]
+	| ELSE statement // because of PC-Simula test batch
+	| for_statement
+	| while_statement // integrated from conditional_statement
+	)
+	// original if_statement | if_statement ELSE statement | if_clause for_statement | label ':' conditional_statement
+
+// if_statement ::= if_clause unconditional_statement 
+
+for_statement ::= for_clause statement
+
+for_clause ::= FOR simple_variable  for_right_part DO 
+
+for_right_part ::= 
+	':=' value_for_list
+	| ':-' object_for_list 
+
+value_for_list ::= value_for_list_element { ',' value_for_list_element }
+
+object_for_list ::= object_for_list_element { ',' object_for_list_element }
+
+value_for_list_element ::= expression // original: value_expression or arithmetic_expression
+	[
+		STEP expression UNTIL expression // original: arithmetic_expression
+		| WHILE expression  // original: Boolean_expression
+	]
+
+object_for_list_element ::= expression [ WHILE expression  ]
+	// original: object_expression | object_expression WHILE Boolean_expression 
+	
+go_to_statement ::= ( GOTO | GO TO ) expression  // original designational_expression
+
+// integrates basic_statement
+unlabelled_basic_statement ::=  
+	go_to_statement
+	| activation_statement
+	| connection_statement
+	| main_block // covers block in unconditional_statement
+	| primary [
+		 \LL:2\ main_block // covers block, procedure_statement, object_generator
+		 | ':=' expression // covers value_assignment
+#ifndef SIM70
+			{ ':=' expression }
+#endif
+		 | ':-' expression // covers reference_assignment
+#ifndef SIM70
+			{ ':-' expression }
+#endif	
+	] 
+
+when_clause ::=  WHEN class_identifier DO statement 
+
+// moved [] to caller
+otherwise_clause ::=  OTHERWISE statement
+
+connection_part ::= when_clause { when_clause }
+
+connection_statement ::= 
+	INSPECT expression // original: object_expression
+	( connection_part | DO statement )
+	[ otherwise_clause ]
+
+activator ::= ACTIVATE | 
+	REACTIVATE 
+
+activation_clause ::= activator expression // original: object_expression 
+
+simple_timing_clause ::= 
+	AT expression // original: arithmetic_expression
+	| DELAY expression // original: arithmetic_expression 
+
+timing_clause ::= simple_timing_clause [ PRIOR ]
+
+scheduling_clause ::= 
+	timing_clause 
+	| BEFORE expression // original: object_expression
+	| AFTER expression // original: object_expression
+
+activation_statement ::= activation_clause  [ scheduling_clause ]
+	
+// procedure_statement ::=  procedure_identifier_1 actual_parameter_part 
+
+specifier ::= 
+	SWITCH 
+	| LABEL
+	| \LA: 1:PROCEDURE | 2:PROCEDURE | 1:ARRAY | 2:ARRAY \ 
+		[ type ] ( ARRAY | PROCEDURE )
+	| type
+
+specification_part ::= specifier identifier_list ';'
+	// moved {} to caller
+	// original: [ specifier identifier_list ';' ] { specifier identifier_list }
+
+external_item ::=  [ \LL:2\ identifier '=' ] external_identifier 
+
+external_list ::= external_item { ',' external_item }
+
+external_declaration ::= EXTERNAL ( 
+	[ type ] PROCEDURE external_list
+	|  CLASS external_list )
+
+external_identifier ::= identifier
+
+switch_declaration ::= SWITCH switch_identifier ':=' switch_list 
+
+switch_identifier ::= identifier 
+
+switch_list ::= expression { ',' expression }
+	// original: designational_expression { ',' designational_expression }
+
+simple_variable ::= variable_identifier 
+
+variable_identifier ::= identifier 
+
+type_list ::= simple_variable { ',' simple_variable }
+
+type_declaration ::= type type_list 
+
+array_list ::= array_segment { ',' array_segment }
+
+array_segment ::= identifier { ',' identifier } 
+#ifdef SIM70
+	'[' bound_pair_list ']'
+#else
+	( '[' bound_pair_list ']' | '(' bound_pair_list ')' )
+#endif
+	// original: array_identifier ( [ bound_pair_list ] | ',' array_segment )
+
+bound_pair_list ::= bound_pair { ',' bound_pair }
+
+bound_pair ::= lower_bound ':' upper_bound 
+
+upper_bound ::= expression // original: arithmetic_expression 
+
+lower_bound ::= expression // original: arithmetic_expression 
+
+array_declaration ::= [ type ] ARRAY array_list
+
+type ::= value_type | 
+	reference_type 
+
+value_type ::= 
+	INTEGER
+	| REAL  
+#ifndef SIM70
+	| SHORT INTEGER
+	| LONG REAL  
+#endif
+	| BOOLEAN 
+	| CHARACTER 
+
+reference_type ::= object_reference | 
+	TEXT 
+
+object_reference ::= REF '(' qualification ')' 
+
+qualification ::= class_identifier 
+
+label ::= identifier 
+
+if_clause ::= IF expression THEN 
+	// original: IF Boolean_expression THEN
+
+local_object ::= THIS class_identifier 
+
+object_generator ::= NEW class_identifier // covered by selector_ [ actual_parameter_part ]
+
+// actual_parameter_part ::= [ '(' actual_parameter_list ')' ]
+
+actual_parameter_list ::= actual_parameter  { ',' actual_parameter }
+
+// covers array_identifier_1, switch_identifier, procedure_identifier_1
+actual_parameter ::= expression 
+
+// integrates arithmetic_expression, Boolean_expression, text_value, text_expression, designational_expression,
+//	reference_expression, object_expression, character_expression
+expression ::= 
+
+#ifdef SIM86
+	quaternary_  | if_clause quaternary_ ELSE expression 
+
+quaternary_ ::= tertiary_ { \LL:2\ OR ELSE tertiary_ }
+
+tertiary_ ::= equivalence_ { \LL:2\ AND THEN equivalence_ }
+
+#else
+	equivalence_  | if_clause equivalence_ ELSE expression 
+#endif
+
+// integrates simple_Boolean 
+equivalence_ ::= implication { equiv_sym_ implication }
+equiv_sym_ ::= EQUIV | '≡' | '==' | EQV
+
+implication ::= simple_expression_ { impl_sym_ simple_expression_ }
+impl_sym_ ::= IMPL | '⊃' | '->' | IMP
+
+// integrates simple_arithmetic_expression, Boolean_term
+simple_expression_ ::= [ adding_operator ] term { ( adding_operator | or_sym_ ) term } // TODO if SIM86 avoid OR ELSE
+
+adding_operator ::= '+' | '-' 
+or_sym_ ::= OR | '∨' | '|' 
+
+// integrates Boolean_factor
+term ::= factor { ( multiplying_operator | and_sym_ ) factor }  // TODO if SIM86 avoid AND THEN
+
+multiplying_operator ::= '*' | '/' | '%' | '÷' | '×' | DIV | MOD | '//'
+and_sym_ ::= AND | '∧' | '&'
+
+factor ::= secondary { power_sym_ secondary }
+
+power_sym_ ::= POWER | '↑' | '^' | '**'
+
+// integrates Boolean_secondary
+secondary ::= [ not_sym_ ] primary 
+
+not_sym_ ::= NOT | '¬' | '!' 
+
+// integrates Boolean_primary, simple_character_expression, text_value, simple_text_expression, function_designator,
+//    simple_object_expression, simple_designational_expression, qualified_object (via relation)
+// primary ::= unsigned_number | logical_value | character | string | NOTEXT | relation | '(' expression ')' ...
+// relation ::= simple_expression relational_operator simple_expression 
+
+primary ::=  unsigned_number primary_nlr_ | logical_value primary_nlr_  
+	| character primary_nlr_ | string primary_nlr_ | NOTEXT primary_nlr_ 
+	| NONE primary_nlr_  | local_object primary_nlr_ | object_generator primary_nlr_ 
+	| '(' expression ')' primary_nlr_ | identifier primary_nlr_
+
+// integrates relation, character_relation, text_value_relation, object_relation, reference_relation, qualified_object
+// removing indirect left recursion
+primary_nlr_* ::= [ ( relation_ | selector_ | qualified_ ) primary_nlr_ ] 
+
+// integrates relation, character_relation, text_value_relation, object_relation
+relation_ ::= relational_operator simple_expression_
+
+qualified_ ::= QUA class_identifier
+
+// integrates array_identifier_1, simple_variable_1 variable_identifier_1 identifier_1 function_designator variable,
+// 	remote_identifier, variable, procedure_identifier_1
+selector_ ::= '.' attribute_identifier | '[' subscript_list ']' | actual_parameter_part
+
+// integrates reference_comparator, object_relation
+relational_operator ::= '<' | '<=' | '=' | '>=' | '>' | '<>' |  '≤' | '≥' | '≠' | '!=' | '^=' | 
+	LESS | NOTGREATER | EQUAL | NOTLESS | GREATER | NOTEQUAL |
+	LT | LE | EQ | GE | GT | NE |
+	IS | IN | '==' | '=/='
+
+logical_value ::= TRUE | FALSE 
+
+unsigned_number ::= unsigned_integer | decimal_number
+
+class_identifier ::= identifier 
+
+identifier_list ::= identifier { ',' identifier }
+
+subscript_list ::= subscript_expression { ',' subscript_expression }
+
+subscript_expression ::= expression 
+	// original: arithmetic_expression 
+	
+attribute_identifier ::= identifier 
+
+decimal_number ::= 
+unsigned_integer ::= 
+string ::=
+character ::= // replaces '\'' character_designation '\'' in Simula
+identifier ::=
+
+// Helper
+#ifdef SIM70
+comment- ::= COMMENT
+#else
+comment- ::= COMMENT | '!'
+#endif
+Comment ::=
+
+/// Pragmas
+%module ::= 'Simula'
+%namespace ::= 'Sim' 
