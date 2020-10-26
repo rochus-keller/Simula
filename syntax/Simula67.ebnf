@@ -17,16 +17,17 @@
 // added declarations, normalized, LL prefixed
 // added blocks and compounds, normalized, LL prefixed
 // added statements
-// added elements from 1986 standard
 // more LL(1) disambiguations
-// Added elements from IBM/360 and 1986 standard Simula (experimental)
+// Added elements from 1975 and 1986 standard Simula 
 
 #ifndef SIM70
+#define SIM75
+#define SIM86
 
-module ::= [ external_head ] (
-	\LL:2\ class_declaration
-	| procedure_declaration
-	| program ) [ ';' ]
+module ::= [ external_head ] module_body_ { ';' [ module_body_ ] } 
+	// NOTE: the standard says ( program | procedure-declaration | class-declaration ), but containers.sim requires {}
+
+module_body_ ::= ( \LL:2\ class_declaration | procedure_declaration | program ) 
 
 external_head ::= external_declaration ';' { external_declaration ';' }
 
@@ -105,13 +106,28 @@ prefix ::=  [ class_identifier ]
 main_part ::= CLASS class_identifier 
 	formal_parameter_part ';' 
 	[ value_part ] { \LL:2\ specification_part }
+#ifdef SIM75
+	[ protection_part ';' ]
+#endif
 	virtual_part class_body 
+
+#ifdef SIM75
+protection_part ::= protection_specification { \LL:2\ ';' protection_specification }
+
+protection_specification ::= HIDDEN [ PROTECTED ] identifier_list
+	| PROTECTED [ HIDDEN ] identifier_list
+#endif
 
 class_body ::= [ statement ]
 	// empirically found in DEMOS that class_body with no statements are supported
 	// original: statement | split_body 
 
-virtual_part ::=  [ VIRTUAL ':' { \LL:2\ specification_part } ] // LL:2 required
+virtual_part ::=  [ VIRTUAL ':' virtual_spec ';' { \LL:2\ virtual_spec ';' } ] // LL:2 required
+
+virtual_spec ::= specifier identifier_list 
+#ifdef SIM86
+	[ procedure_specification ] // equals: procedure procedure-identifier procedure-specification
+#endif
 
 procedure_declaration ::= 
 	[ type ] PROCEDURE procedure_heading procedure_body 
@@ -237,7 +253,7 @@ activation_statement ::= activation_clause  [ scheduling_clause ]
 specifier ::= 
 	SWITCH 
 	| LABEL
-	| \LA: 1:PROCEDURE | 2:PROCEDURE | 1:ARRAY | 2:ARRAY \ 
+	| \LA: 1:PROCEDURE | 2:PROCEDURE | 1:REF&5:PROCEDURE | 1:ARRAY | 2:ARRAY |  1:REF&5:ARRAY \ 
 		[ type ] ( ARRAY | PROCEDURE )
 	| type
 
@@ -245,15 +261,28 @@ specification_part ::= specifier identifier_list ';'
 	// moved {} to caller
 	// original: [ specifier identifier_list ';' ] { specifier identifier_list }
 
+#ifdef SIM86
+procedure_specification ::= ( 'is' | 'IS' ) procedure_declaration
+#endif
+
 external_item ::=  [ \LL:2\ identifier '=' ] external_identifier 
 
 external_list ::= external_item { ',' external_item }
 
 external_declaration ::= EXTERNAL ( 
+#ifdef SIM86
+	[ identifier ] // kind
+#endif
 	[ type ] PROCEDURE external_list
+#ifdef SIM86
+		[ procedure_specification ]
+#endif
 	|  CLASS external_list )
 
 external_identifier ::= identifier
+#ifdef SIM86
+	| string
+#endif
 
 switch_declaration ::= SWITCH switch_identifier ':=' switch_list 
 
@@ -266,7 +295,13 @@ simple_variable ::= variable_identifier
 
 variable_identifier ::= identifier 
 
+#ifdef SIM86
+type_list_element ::= simple_variable [ '=' expression ] // original: value_expression | string
+
+type_list ::= type_list_element { ',' type_list_element }
+#else
 type_list ::= simple_variable { ',' simple_variable }
+#endif
 
 type_declaration ::= type type_list 
 
@@ -329,13 +364,13 @@ actual_parameter ::= expression
 // integrates arithmetic_expression, Boolean_expression, text_value, text_expression, designational_expression,
 //	reference_expression, object_expression, character_expression
 expression ::= 
-
 #ifdef SIM86
-	quaternary_  | if_clause quaternary_ ELSE expression 
+	quaternary_  
+	| if_clause quaternary_ ELSE expression 
 
-quaternary_ ::= tertiary_ { \LL:2\ OR ELSE tertiary_ }
+quaternary_ ::= tertiary_ { OR_ELSE tertiary_ }
 
-tertiary_ ::= equivalence_ { \LL:2\ AND THEN equivalence_ }
+tertiary_ ::= equivalence_ { AND_THEN equivalence_ }
 
 #else
 	equivalence_  | if_clause equivalence_ ELSE expression 
@@ -349,23 +384,27 @@ implication ::= simple_expression_ { impl_sym_ simple_expression_ }
 impl_sym_ ::= IMPL | '⊃' | '->' | IMP
 
 // integrates simple_arithmetic_expression, Boolean_term
-simple_expression_ ::= [ adding_operator ] term { ( adding_operator | or_sym_ ) term } // TODO if SIM86 avoid OR ELSE
+simple_expression_ ::= term { ( adding_operator | or_sym_ ) term } 
 
 adding_operator ::= '+' | '-' 
 or_sym_ ::= OR | '∨' | '|' 
 
 // integrates Boolean_factor
-term ::= factor { ( multiplying_operator | and_sym_ ) factor }  // TODO if SIM86 avoid AND THEN
+term ::= factor { ( multiplying_operator | and_sym_ ) factor }  
 
-multiplying_operator ::= '*' | '/' | '%' | '÷' | '×' | DIV | MOD | '//'
-and_sym_ ::= AND | '∧' | '&'
+multiplying_operator ::= '*' | '/' | '%' | '÷' | '×' | '//'
+#ifndef SIM86
+	| DIV | MOD 
+#endif
+
+and_sym_ ::=  AND | '∧' | '&'
 
 factor ::= secondary { power_sym_ secondary }
 
 power_sym_ ::= POWER | '↑' | '^' | '**'
 
 // integrates Boolean_secondary
-secondary ::= [ not_sym_ ] primary 
+secondary ::=  [ not_sym_ ] [ adding_operator ] primary  
 
 not_sym_ ::= NOT | '¬' | '!' 
 
@@ -374,10 +413,17 @@ not_sym_ ::= NOT | '¬' | '!'
 // primary ::= unsigned_number | logical_value | character | string | NOTEXT | relation | '(' expression ')' ...
 // relation ::= simple_expression relational_operator simple_expression 
 
-primary ::=  unsigned_number primary_nlr_ | logical_value primary_nlr_  
-	| character primary_nlr_ | string primary_nlr_ | NOTEXT primary_nlr_ 
-	| NONE primary_nlr_  | local_object primary_nlr_ | object_generator primary_nlr_ 
-	| '(' expression ')' primary_nlr_ | identifier primary_nlr_
+primary ::=  
+	unsigned_number primary_nlr_ 
+	| logical_value primary_nlr_  
+	| character primary_nlr_ 
+	| string_ primary_nlr_ 
+	| NOTEXT primary_nlr_ 
+	| NONE primary_nlr_  
+	| local_object primary_nlr_ 
+	| object_generator primary_nlr_ 
+	| '(' expression ')' primary_nlr_ 
+	| identifier primary_nlr_
 
 // integrates relation, character_relation, text_value_relation, object_relation, reference_relation, qualified_object
 // removing indirect left recursion
@@ -415,6 +461,7 @@ attribute_identifier ::= identifier
 
 decimal_number ::= 
 unsigned_integer ::= 
+string_ ::= string { string }
 string ::=
 character ::= // replaces '\'' character_designation '\'' in Simula
 identifier ::=

@@ -5,9 +5,9 @@ The goal of this project is to build a Simula 67 parser, code model, LuaJIT byte
 Simula 67 was the first object-oriented programming language and the pioneer for many concepts that were adopted years later in Smalltalk, C++ and Java - just to name a few. So to say it is the mother of all object-oriented programming languages existing today. 
 The original SIMULA 67 COMMON BASE DEFINITION appeared in June 1967. See here for more information: http://www.simula67.info/
 
-Just as C++ is based on C, Simula is an extension of Algol 60. Accordingly I have extended my Algol 60 parser (see https://github.com/rochus-keller/Algol60) with the syntax elements from the Common Base Language report (1970 edition, see http://simula67.at.ifi.uio.no/Standard-70/Simula-1970-NR-22.pdf). 
+Just as C++ is based on C, Simula is an extension of Algol 60. Accordingly I have extended my Algol 60 parser (see https://github.com/rochus-keller/Algol60) with the syntax elements from the Common Base Language report (1970 edition, see http://simula67.at.ifi.uio.no/Standard-70/Simula-1970-NR-22.pdf). Meanwhile I also added the elements introduced in che Common Base Language 1975 and 1984; there are the precompiler options SIM75 and SIM86 to enable and disable.  
 
-The lexer/parser works and successfully parses e.g. the DEMOS package (see http://staffwww.dcs.shef.ac.uk/people/G.Birtwistle/simulation.html).
+The lexer/parser works and successfully parses e.g. the DEMOS package (CBL70 compatible, see http://staffwww.dcs.shef.ac.uk/people/G.Birtwistle/simulation.html) and the PC-Simula TestBatch (CLB84 compatible, see https://github.com/portablesimula/TestBatch).
 
 This project is work in progress.
 

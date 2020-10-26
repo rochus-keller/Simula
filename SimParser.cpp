@@ -104,16 +104,13 @@ void Parser::module() {
 		if (la->kind == _T_EXTERNAL) {
 			external_head();
 		}
-		if (( peek(1) == _T_CLASS || peek(1) == _T_identifier ) && ( peek(2) == _T_CLASS || peek(2) == _T_identifier ) ) {
-			class_declaration();
-		} else if (StartOf(1)) {
-			procedure_declaration();
-		} else if (la->kind == _T_BEGIN || la->kind == _T_identifier) {
-			program();
-		} else SynErr(129,__FUNCTION__);
-		if (la->kind == _T_Semi) {
+		module_body_();
+		while (la->kind == _T_Semi) {
 			Get();
 			addTerminal(); 
+			if (StartOf(1)) {
+				module_body_();
+			}
 		}
 		d_stack.pop(); 
 }
@@ -131,6 +128,18 @@ void Parser::external_head() {
 		d_stack.pop(); 
 }
 
+void Parser::module_body_() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_module_body_, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		if (( peek(1) == _T_CLASS || peek(1) == _T_identifier ) && ( peek(2) == _T_CLASS || peek(2) == _T_identifier ) ) {
+			class_declaration();
+		} else if (StartOf(2)) {
+			procedure_declaration();
+		} else if (la->kind == _T_BEGIN || la->kind == _T_identifier) {
+			program();
+		} else SynErr(132,__FUNCTION__);
+		d_stack.pop(); 
+}
+
 void Parser::class_declaration() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_class_declaration, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
 		prefix();
@@ -140,7 +149,7 @@ void Parser::class_declaration() {
 
 void Parser::procedure_declaration() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_procedure_declaration, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		if (StartOf(2)) {
+		if (StartOf(3)) {
 			type();
 		}
 		Expect(_T_PROCEDURE,__FUNCTION__);
@@ -165,18 +174,25 @@ void Parser::external_declaration() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_external_declaration, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
 		Expect(_T_EXTERNAL,__FUNCTION__);
 		addTerminal(); 
-		if (StartOf(1)) {
-			if (StartOf(2)) {
+		if (StartOf(4)) {
+			if (la->kind == _T_identifier) {
+				Get();
+				addTerminal(); 
+			}
+			if (StartOf(3)) {
 				type();
 			}
 			Expect(_T_PROCEDURE,__FUNCTION__);
 			addTerminal(); 
 			external_list();
+			if (la->kind == _T_IS || la->kind == _T_is) {
+				procedure_specification();
+			}
 		} else if (la->kind == _T_CLASS) {
 			Get();
 			addTerminal(); 
 			external_list();
-		} else SynErr(130,__FUNCTION__);
+		} else SynErr(133,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -209,15 +225,15 @@ void Parser::while_statement() {
 
 void Parser::expression() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_expression, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		if (StartOf(3)) {
-			equivalence_();
+		if (StartOf(5)) {
+			quaternary_();
 		} else if (la->kind == _T_IF) {
 			if_clause();
-			equivalence_();
+			quaternary_();
 			Expect(_T_ELSE,__FUNCTION__);
 			addTerminal(); 
 			expression();
-		} else SynErr(131,__FUNCTION__);
+		} else SynErr(134,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -228,8 +244,8 @@ void Parser::statement() {
 			Expect(_T_Colon,__FUNCTION__);
 			addTerminal(); 
 		}
-		if (StartOf(4)) {
-			if (StartOf(5)) {
+		if (StartOf(6)) {
+			if (StartOf(7)) {
 				Common_Base_statement();
 			} else {
 				while_statement();
@@ -305,15 +321,15 @@ void Parser::declaration() {
 			array_declaration();
 		} else if (( peek(1) == _T_CLASS || peek(2) == _T_CLASS ) ) {
 			class_declaration();
-		} else if (StartOf(2)) {
+		} else if (StartOf(3)) {
 			type_declaration();
-		} else SynErr(132,__FUNCTION__);
+		} else SynErr(135,__FUNCTION__);
 		d_stack.pop(); 
 }
 
 void Parser::compound_tail() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_compound_tail, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		if (StartOf(6)) {
+		if (StartOf(8)) {
 			statement();
 			while (peek(1) == _T_Semi && !( peek(2) == _T_END ) && !( peek(2) == _T_INNER ) ) {
 				Expect(_T_Semi,__FUNCTION__);
@@ -354,7 +370,7 @@ void Parser::switch_declaration() {
 
 void Parser::array_declaration() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_array_declaration, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		if (StartOf(2)) {
+		if (StartOf(3)) {
 			type();
 		}
 		Expect(_T_ARRAY,__FUNCTION__);
@@ -392,6 +408,11 @@ void Parser::main_part() {
 		while (( peek(1) == _T_ARRAY || peek(1) == _T_BOOLEAN || peek(1) == _T_CHARACTER || peek(1) == _T_INTEGER || peek(1) == _T_LABEL || peek(1) == _T_LONG || peek(1) == _T_PROCEDURE || peek(1) == _T_REAL || peek(1) == _T_REF || peek(1) == _T_SHORT || peek(1) == _T_SWITCH || peek(1) == _T_TEXT ) && ( peek(2) == _T_ARRAY || peek(2) == _T_identifier || peek(2) == _T_INTEGER || peek(2) == _T_Lpar || peek(2) == _T_PROCEDURE || peek(2) == _T_REAL ) ) {
 			specification_part();
 		}
+		if (la->kind == _T_HIDDEN || la->kind == _T_PROTECTED) {
+			protection_part();
+			Expect(_T_Semi,__FUNCTION__);
+			addTerminal(); 
+		}
 		virtual_part();
 		class_body();
 		d_stack.pop(); 
@@ -428,6 +449,17 @@ void Parser::specification_part() {
 		d_stack.pop(); 
 }
 
+void Parser::protection_part() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_protection_part, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		protection_specification();
+		while (peek(1) == _T_Semi && ( peek(2) == _T_HIDDEN || peek(2) == _T_PROTECTED ) ) {
+			Expect(_T_Semi,__FUNCTION__);
+			addTerminal(); 
+			protection_specification();
+		}
+		d_stack.pop(); 
+}
+
 void Parser::virtual_part() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_virtual_part, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
 		if (la->kind == _T_VIRTUAL) {
@@ -435,8 +467,13 @@ void Parser::virtual_part() {
 			addTerminal(); 
 			Expect(_T_Colon,__FUNCTION__);
 			addTerminal(); 
-			while (( peek(1) == _T_ARRAY || peek(1) == _T_BOOLEAN || peek(1) == _T_CHARACTER || peek(1) == _T_INTEGER || peek(1) == _T_LABEL || peek(1) == _T_LONG || peek(1) == _T_PROCEDURE || peek(1) == _T_REAL || peek(1) == _T_REF || peek(1) == _T_SHORT || peek(1) == _T_SWITCH || peek(1) == _T_TEXT ) && ( peek(2) == _T_ARRAY || peek(2) == _T_identifier || peek(2) == _T_INTEGER || peek(2) == _T_Lpar || peek(2) == _T_PROCEDURE || peek(2) == _T_REAL ) ) {
-				specification_part();
+			virtual_spec();
+			Expect(_T_Semi,__FUNCTION__);
+			addTerminal(); 
+			while (( peek(1) == _T_ARRAY || peek(1) == _T_BOOLEAN || peek(1) == _T_CHARACTER || peek(1) == _T_INTEGER || peek(1) == _T_LABEL || peek(1) == _T_LONG || peek(1) == _T_PROCEDURE || peek(1) == _T_REAL || peek(1) == _T_REF || peek(1) == _T_SHORT || peek(1) == _T_SWITCH || peek(1) == _T_TEXT ) && ( peek(2) == _T_ARRAY || peek(2) == _T_identifier || peek(2) == _T_INTEGER || peek(2) == _T_Lpar || peek(2) == _T_PROCEDURE || peek(2) == _T_REAL || peek(2) == _T_Semi ) ) {
+				virtual_spec();
+				Expect(_T_Semi,__FUNCTION__);
+				addTerminal(); 
 			}
 		}
 		d_stack.pop(); 
@@ -444,19 +481,102 @@ void Parser::virtual_part() {
 
 void Parser::class_body() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_class_body, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		if (StartOf(4)) {
+		if (StartOf(6)) {
 			statement();
 		}
 		d_stack.pop(); 
 }
 
+void Parser::protection_specification() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_protection_specification, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		if (la->kind == _T_HIDDEN) {
+			Get();
+			addTerminal(); 
+			if (la->kind == _T_PROTECTED) {
+				Get();
+				addTerminal(); 
+			}
+			identifier_list();
+		} else if (la->kind == _T_PROTECTED) {
+			Get();
+			addTerminal(); 
+			if (la->kind == _T_HIDDEN) {
+				Get();
+				addTerminal(); 
+			}
+			identifier_list();
+		} else SynErr(136,__FUNCTION__);
+		d_stack.pop(); 
+}
+
+void Parser::identifier_list() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_identifier_list, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		Expect(_T_identifier,__FUNCTION__);
+		addTerminal(); 
+		while (la->kind == _T_Comma) {
+			Get();
+			addTerminal(); 
+			Expect(_T_identifier,__FUNCTION__);
+			addTerminal(); 
+		}
+		d_stack.pop(); 
+}
+
+void Parser::virtual_spec() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_virtual_spec, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		specifier();
+		identifier_list();
+		if (la->kind == _T_IS || la->kind == _T_is) {
+			procedure_specification();
+		}
+		d_stack.pop(); 
+}
+
+void Parser::specifier() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_specifier, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		if (la->kind == _T_SWITCH) {
+			Get();
+			addTerminal(); 
+		} else if (la->kind == _T_LABEL) {
+			Get();
+			addTerminal(); 
+		} else if (( peek(1) == _T_PROCEDURE || peek(2) == _T_PROCEDURE || peek(1) == _T_REF && peek(5) == _T_PROCEDURE || peek(1) == _T_ARRAY || peek(2) == _T_ARRAY || peek(1) == _T_REF && peek(5) == _T_ARRAY ) ) {
+			if (StartOf(3)) {
+				type();
+			}
+			if (la->kind == _T_ARRAY) {
+				Get();
+				addTerminal(); 
+			} else if (la->kind == _T_PROCEDURE) {
+				Get();
+				addTerminal(); 
+			} else SynErr(137,__FUNCTION__);
+		} else if (StartOf(3)) {
+			type();
+		} else SynErr(138,__FUNCTION__);
+		d_stack.pop(); 
+}
+
+void Parser::procedure_specification() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_procedure_specification, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		if (la->kind == _T_is) {
+			Get();
+			addTerminal(); 
+		} else if (la->kind == _T_IS) {
+			Get();
+			addTerminal(); 
+		} else SynErr(139,__FUNCTION__);
+		procedure_declaration();
+		d_stack.pop(); 
+}
+
 void Parser::type() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_type, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		if (StartOf(7)) {
+		if (StartOf(9)) {
 			value_type();
 		} else if (la->kind == _T_REF || la->kind == _T_TEXT) {
 			reference_type();
-		} else SynErr(133,__FUNCTION__);
+		} else SynErr(140,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -500,7 +620,7 @@ void Parser::mode_part() {
 			if (la->kind == _T_NAME) {
 				name_part();
 			}
-		} else SynErr(134,__FUNCTION__);
+		} else SynErr(141,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -511,19 +631,6 @@ void Parser::name_part() {
 		identifier_list();
 		Expect(_T_Semi,__FUNCTION__);
 		addTerminal(); 
-		d_stack.pop(); 
-}
-
-void Parser::identifier_list() {
-		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_identifier_list, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		Expect(_T_identifier,__FUNCTION__);
-		addTerminal(); 
-		while (la->kind == _T_Comma) {
-			Get();
-			addTerminal(); 
-			Expect(_T_identifier,__FUNCTION__);
-			addTerminal(); 
-		}
 		d_stack.pop(); 
 }
 
@@ -553,13 +660,13 @@ void Parser::parameter_delimiter() {
 
 void Parser::Common_Base_statement() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_Common_Base_statement, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		if (StartOf(8)) {
+		if (StartOf(10)) {
 			unconditional_statement();
 		} else if (la->kind == _T_IF) {
 			Common_Base_conditional_statement();
 		} else if (la->kind == _T_FOR) {
 			for_statement();
-		} else SynErr(135,__FUNCTION__);
+		} else SynErr(142,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -579,10 +686,10 @@ void Parser::unlabelled_basic_statement() {
 			connection_statement();
 		} else if (la->kind == _T_BEGIN) {
 			main_block();
-		} else if (StartOf(9)) {
+		} else if (StartOf(11)) {
 			primary();
 			if (la->kind == _T_ColonMinus || la->kind == _T_ColonEq || la->kind == _T_BEGIN) {
-				if (peek(1) == _T_BEGIN && ( peek(2) == _T_ACTIVATE || peek(2) == _T_ARRAY || peek(2) == _T_BEGIN || peek(2) == _T_BOOLEAN || peek(2) == _T_character || peek(2) == _T_CHARACTER || peek(2) == _T_CLASS || peek(2) == _T_decimal_number || peek(2) == _T_END || peek(2) == _T_EXTERNAL || peek(2) == _T_FALSE || peek(2) == _T_FOR || peek(2) == _T_GO || peek(2) == _T_GOTO || peek(2) == _T_identifier || peek(2) == _T_IF || peek(2) == _T_INSPECT || peek(2) == _T_INTEGER || peek(2) == _T_LONG || peek(2) == _T_Lpar || peek(2) == _T_NEW || peek(2) == _T_NONE || peek(2) == _T_NOTEXT || peek(2) == _T_PROCEDURE || peek(2) == _T_REACTIVATE || peek(2) == _T_REAL || peek(2) == _T_REF || peek(2) == _T_Semi || peek(2) == _T_SHORT || peek(2) == _T_string || peek(2) == _T_SWITCH || peek(2) == _T_TEXT || peek(2) == _T_THIS || peek(2) == _T_TRUE || peek(2) == _T_unsigned_integer || peek(2) == _T_WHILE ) ) {
+				if (peek(1) == _T_BEGIN && ( peek(2) == _T_ACTIVATE || peek(2) == _T_ARRAY || peek(2) == _T_BEGIN || peek(2) == _T_BOOLEAN || peek(2) == _T_CHARACTER || peek(2) == _T_character || peek(2) == _T_CLASS || peek(2) == _T_decimal_number || peek(2) == _T_END || peek(2) == _T_EXTERNAL || peek(2) == _T_FALSE || peek(2) == _T_FOR || peek(2) == _T_GO || peek(2) == _T_GOTO || peek(2) == _T_identifier || peek(2) == _T_IF || peek(2) == _T_INSPECT || peek(2) == _T_INTEGER || peek(2) == _T_LONG || peek(2) == _T_Lpar || peek(2) == _T_NEW || peek(2) == _T_NONE || peek(2) == _T_NOTEXT || peek(2) == _T_PROCEDURE || peek(2) == _T_REACTIVATE || peek(2) == _T_REAL || peek(2) == _T_REF || peek(2) == _T_Semi || peek(2) == _T_SHORT || peek(2) == _T_string || peek(2) == _T_SWITCH || peek(2) == _T_TEXT || peek(2) == _T_THIS || peek(2) == _T_TRUE || peek(2) == _T_unsigned_integer || peek(2) == _T_WHILE ) ) {
 					main_block();
 				} else if (la->kind == _T_ColonEq) {
 					Get();
@@ -604,7 +711,7 @@ void Parser::unlabelled_basic_statement() {
 					}
 				}
 			}
-		} else SynErr(136,__FUNCTION__);
+		} else SynErr(143,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -616,7 +723,7 @@ void Parser::Common_Base_conditional_statement() {
 			Expect(_T_Colon,__FUNCTION__);
 			addTerminal(); 
 		}
-		if (StartOf(8)) {
+		if (StartOf(10)) {
 			unconditional_statement();
 			if (la->kind == _T_ELSE) {
 				Get();
@@ -631,7 +738,7 @@ void Parser::Common_Base_conditional_statement() {
 			for_statement();
 		} else if (la->kind == _T_WHILE) {
 			while_statement();
-		} else SynErr(137,__FUNCTION__);
+		} else SynErr(144,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -679,7 +786,7 @@ void Parser::for_right_part() {
 			Get();
 			addTerminal(); 
 			object_for_list();
-		} else SynErr(138,__FUNCTION__);
+		} else SynErr(145,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -746,7 +853,7 @@ void Parser::go_to_statement() {
 			addTerminal(); 
 			Expect(_T_TO,__FUNCTION__);
 			addTerminal(); 
-		} else SynErr(139,__FUNCTION__);
+		} else SynErr(146,__FUNCTION__);
 		expression();
 		d_stack.pop(); 
 }
@@ -754,7 +861,7 @@ void Parser::go_to_statement() {
 void Parser::activation_statement() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_activation_statement, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
 		activation_clause();
-		if (StartOf(10)) {
+		if (StartOf(12)) {
 			scheduling_clause();
 		}
 		d_stack.pop(); 
@@ -771,7 +878,7 @@ void Parser::connection_statement() {
 			Get();
 			addTerminal(); 
 			statement();
-		} else SynErr(140,__FUNCTION__);
+		} else SynErr(147,__FUNCTION__);
 		if (la->kind == _T_OTHERWISE) {
 			otherwise_clause();
 		}
@@ -798,8 +905,7 @@ void Parser::primary() {
 			break;
 		}
 		case _T_string: {
-			Get();
-			addTerminal(); 
+			string_();
 			primary_nlr_();
 			break;
 		}
@@ -840,7 +946,7 @@ void Parser::primary() {
 			primary_nlr_();
 			break;
 		}
-		default: SynErr(141,__FUNCTION__); break;
+		default: SynErr(148,__FUNCTION__); break;
 		}
 		d_stack.pop(); 
 }
@@ -881,7 +987,7 @@ void Parser::activator() {
 		} else if (la->kind == _T_REACTIVATE) {
 			Get();
 			addTerminal(); 
-		} else SynErr(142,__FUNCTION__);
+		} else SynErr(149,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -902,7 +1008,7 @@ void Parser::simple_timing_clause() {
 			Get();
 			addTerminal(); 
 			expression();
-		} else SynErr(143,__FUNCTION__);
+		} else SynErr(150,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -928,32 +1034,7 @@ void Parser::scheduling_clause() {
 			Get();
 			addTerminal(); 
 			expression();
-		} else SynErr(144,__FUNCTION__);
-		d_stack.pop(); 
-}
-
-void Parser::specifier() {
-		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_specifier, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		if (la->kind == _T_SWITCH) {
-			Get();
-			addTerminal(); 
-		} else if (la->kind == _T_LABEL) {
-			Get();
-			addTerminal(); 
-		} else if (( peek(1) == _T_PROCEDURE || peek(2) == _T_PROCEDURE || peek(1) == _T_ARRAY || peek(2) == _T_ARRAY ) ) {
-			if (StartOf(2)) {
-				type();
-			}
-			if (la->kind == _T_ARRAY) {
-				Get();
-				addTerminal(); 
-			} else if (la->kind == _T_PROCEDURE) {
-				Get();
-				addTerminal(); 
-			} else SynErr(145,__FUNCTION__);
-		} else if (StartOf(2)) {
-			type();
-		} else SynErr(146,__FUNCTION__);
+		} else SynErr(151,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -971,8 +1052,13 @@ void Parser::external_item() {
 
 void Parser::external_identifier() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_external_identifier, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		Expect(_T_identifier,__FUNCTION__);
-		addTerminal(); 
+		if (la->kind == _T_identifier) {
+			Get();
+			addTerminal(); 
+		} else if (la->kind == _T_string) {
+			Get();
+			addTerminal(); 
+		} else SynErr(152,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -1012,13 +1098,24 @@ void Parser::variable_identifier() {
 		d_stack.pop(); 
 }
 
+void Parser::type_list_element() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_type_list_element, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		simple_variable();
+		if (la->kind == _T_Eq) {
+			Get();
+			addTerminal(); 
+			expression();
+		}
+		d_stack.pop(); 
+}
+
 void Parser::type_list() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_type_list, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		simple_variable();
+		type_list_element();
 		while (la->kind == _T_Comma) {
 			Get();
 			addTerminal(); 
-			simple_variable();
+			type_list_element();
 		}
 		d_stack.pop(); 
 }
@@ -1056,7 +1153,7 @@ void Parser::array_segment() {
 			bound_pair_list();
 			Expect(_T_Rpar,__FUNCTION__);
 			addTerminal(); 
-		} else SynErr(147,__FUNCTION__);
+		} else SynErr(153,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -1129,7 +1226,7 @@ void Parser::value_type() {
 			addTerminal(); 
 			break;
 		}
-		default: SynErr(148,__FUNCTION__); break;
+		default: SynErr(154,__FUNCTION__); break;
 		}
 		d_stack.pop(); 
 }
@@ -1141,7 +1238,7 @@ void Parser::reference_type() {
 		} else if (la->kind == _T_TEXT) {
 			Get();
 			addTerminal(); 
-		} else SynErr(149,__FUNCTION__);
+		} else SynErr(155,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -1185,10 +1282,32 @@ void Parser::actual_parameter() {
 		d_stack.pop(); 
 }
 
+void Parser::quaternary_() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_quaternary_, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		tertiary_();
+		while (la->kind == _T_OR_ELSE) {
+			Get();
+			addTerminal(); 
+			tertiary_();
+		}
+		d_stack.pop(); 
+}
+
+void Parser::tertiary_() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_tertiary_, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		equivalence_();
+		while (la->kind == _T_AND_THEN) {
+			Get();
+			addTerminal(); 
+			equivalence_();
+		}
+		d_stack.pop(); 
+}
+
 void Parser::equivalence_() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_equivalence_, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
 		implication();
-		while (StartOf(11)) {
+		while (StartOf(13)) {
 			equiv_sym_();
 			implication();
 		}
@@ -1198,7 +1317,7 @@ void Parser::equivalence_() {
 void Parser::implication() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_implication, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
 		simple_expression_();
-		while (StartOf(12)) {
+		while (StartOf(14)) {
 			impl_sym_();
 			simple_expression_();
 		}
@@ -1219,17 +1338,14 @@ void Parser::equiv_sym_() {
 		} else if (la->kind == _T_EQV) {
 			Get();
 			addTerminal(); 
-		} else SynErr(150,__FUNCTION__);
+		} else SynErr(156,__FUNCTION__);
 		d_stack.pop(); 
 }
 
 void Parser::simple_expression_() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_simple_expression_, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		if (la->kind == _T_Plus || la->kind == _T_Minus) {
-			adding_operator();
-		}
 		term();
-		while (StartOf(13)) {
+		while (StartOf(15)) {
 			if (la->kind == _T_Plus || la->kind == _T_Minus) {
 				adding_operator();
 			} else {
@@ -1254,7 +1370,21 @@ void Parser::impl_sym_() {
 		} else if (la->kind == _T_IMP) {
 			Get();
 			addTerminal(); 
-		} else SynErr(151,__FUNCTION__);
+		} else SynErr(157,__FUNCTION__);
+		d_stack.pop(); 
+}
+
+void Parser::term() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_term, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		factor();
+		while (StartOf(16)) {
+			if (StartOf(17)) {
+				multiplying_operator();
+			} else {
+				and_sym_();
+			}
+			factor();
+		}
 		d_stack.pop(); 
 }
 
@@ -1266,21 +1396,7 @@ void Parser::adding_operator() {
 		} else if (la->kind == _T_Minus) {
 			Get();
 			addTerminal(); 
-		} else SynErr(152,__FUNCTION__);
-		d_stack.pop(); 
-}
-
-void Parser::term() {
-		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_term, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
-		factor();
-		while (StartOf(14)) {
-			if (StartOf(15)) {
-				multiplying_operator();
-			} else {
-				and_sym_();
-			}
-			factor();
-		}
+		} else SynErr(158,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -1295,14 +1411,14 @@ void Parser::or_sym_() {
 		} else if (la->kind == _T_Bar) {
 			Get();
 			addTerminal(); 
-		} else SynErr(153,__FUNCTION__);
+		} else SynErr(159,__FUNCTION__);
 		d_stack.pop(); 
 }
 
 void Parser::factor() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_factor, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
 		secondary();
-		while (StartOf(16)) {
+		while (StartOf(18)) {
 			power_sym_();
 			secondary();
 		}
@@ -1337,22 +1453,12 @@ void Parser::multiplying_operator() {
 			addTerminal(); 
 			break;
 		}
-		case _T_DIV: {
-			Get();
-			addTerminal(); 
-			break;
-		}
-		case _T_MOD: {
-			Get();
-			addTerminal(); 
-			break;
-		}
 		case _T_2Slash: {
 			Get();
 			addTerminal(); 
 			break;
 		}
-		default: SynErr(154,__FUNCTION__); break;
+		default: SynErr(160,__FUNCTION__); break;
 		}
 		d_stack.pop(); 
 }
@@ -1368,7 +1474,7 @@ void Parser::and_sym_() {
 		} else if (la->kind == _T_Amp) {
 			Get();
 			addTerminal(); 
-		} else SynErr(155,__FUNCTION__);
+		} else SynErr(161,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -1376,6 +1482,9 @@ void Parser::secondary() {
 		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_secondary, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
 		if (la->kind == _T_Bang || la->kind == _T_Unot || la->kind == _T_NOT) {
 			not_sym_();
+		}
+		if (la->kind == _T_Plus || la->kind == _T_Minus) {
+			adding_operator();
 		}
 		primary();
 		d_stack.pop(); 
@@ -1395,7 +1504,7 @@ void Parser::power_sym_() {
 		} else if (la->kind == _T_2Star) {
 			Get();
 			addTerminal(); 
-		} else SynErr(156,__FUNCTION__);
+		} else SynErr(162,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -1410,7 +1519,7 @@ void Parser::not_sym_() {
 		} else if (la->kind == _T_Bang) {
 			Get();
 			addTerminal(); 
-		} else SynErr(157,__FUNCTION__);
+		} else SynErr(163,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -1422,13 +1531,13 @@ void Parser::unsigned_number() {
 		} else if (la->kind == _T_decimal_number) {
 			Get();
 			addTerminal(); 
-		} else SynErr(158,__FUNCTION__);
+		} else SynErr(164,__FUNCTION__);
 		d_stack.pop(); 
 }
 
 void Parser::primary_nlr_() {
-		if (StartOf(17)) {
-			if (StartOf(18)) {
+		if (StartOf(19)) {
+			if (StartOf(20)) {
 				relation_();
 			} else if (la->kind == _T_Lpar || la->kind == _T_Dot || la->kind == _T_Lbrack) {
 				selector_();
@@ -1447,7 +1556,18 @@ void Parser::logical_value() {
 		} else if (la->kind == _T_FALSE) {
 			Get();
 			addTerminal(); 
-		} else SynErr(159,__FUNCTION__);
+		} else SynErr(165,__FUNCTION__);
+		d_stack.pop(); 
+}
+
+void Parser::string_() {
+		Sim::SynTree* n = new Sim::SynTree( Sim::SynTree::R_string_, d_next ); d_stack.top()->d_children.append(n); d_stack.push(n); 
+		Expect(_T_string,__FUNCTION__);
+		addTerminal(); 
+		while (la->kind == _T_string) {
+			Get();
+			addTerminal(); 
+		}
 		d_stack.pop(); 
 }
 
@@ -1472,7 +1592,7 @@ void Parser::selector_() {
 			addTerminal(); 
 		} else if (la->kind == _T_Lpar) {
 			actual_parameter_part();
-		} else SynErr(160,__FUNCTION__);
+		} else SynErr(166,__FUNCTION__);
 		d_stack.pop(); 
 }
 
@@ -1622,7 +1742,7 @@ void Parser::relational_operator() {
 			addTerminal(); 
 			break;
 		}
-		default: SynErr(161,__FUNCTION__); break;
+		default: SynErr(167,__FUNCTION__); break;
 		}
 		d_stack.pop(); 
 }
@@ -1751,7 +1871,7 @@ void Parser::Parse() {
 }
 
 Parser::Parser(PARSER_NS::Lexer *scanner, PARSER_NS::Errors* err) {
-	maxT = 128;
+	maxT = 131;
 
 	ParserInitCaller<Parser>::CallInit(this);
 	la = &d_dummy;
@@ -1765,26 +1885,28 @@ bool Parser::StartOf(int s) {
 	const bool T = true;
 	const bool x = false;
 
-	static bool set[19][130] = {
-		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, T,T,T,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,T,T,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,T,x, x,x,T,x, x,x,T,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, T,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,T,x,x, x,x,x,x, T,T,T,T, T,x,x,x, x,x},
-		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, T,x,T,T, x,x,T,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,T, x,T,x,x, x,x,T,x, T,T,T,T, T,x,x,x, x,x},
-		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, T,x,T,T, x,x,T,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,T, x,T,x,x, x,x,x,x, T,T,T,T, T,x,x,x, x,x},
-		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, T,x,x,x, x,x,x,x, x,T,x,x, x,x,x,T, T,x,T,T, x,x,T,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,T, x,T,x,x, x,x,T,x, T,T,T,T, T,x,x,x, x,x},
-		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,T,T, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,T, x,T,x,x, x,x,x,x, T,T,T,T, T,x,x,x, x,x},
-		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,T,x,x, x,x,x,x, T,T,T,T, T,x,x,x, x,x},
-		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,T,T, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, x,x,x,x, x,x,T,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, T,T,x,x, T,x,x,x, x,x,x,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, T,x,T,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, T,x,x,x, T,x,x,x, x,x,x,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,T, x,x,T,x, x,x,x,x, x,x,T,x, x,x,x,x, x,T,T,T, T,T,T,T, T,T,x,x, T,x,x,x, x,x,x,x, T,x,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,x,x, x,T,x,x, T,T,x,x, x,T,x,x, x,T,x,T, T,x,T,x, x,T,x,x, x,T,x,T, T,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x},
-		{x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,T,T, T,T,T,T, T,x,x,x, T,x,x,x, x,x,x,x, T,x,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,x,x, x,T,x,x, T,T,x,x, x,T,x,x, x,T,x,T, T,x,T,x, x,T,x,x, x,T,x,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x}
+	static bool set[21][133] = {
+		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,T,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,T,T, T,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,T,T, T,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, T,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,T,T, T,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x},
+		{x,x,T,x, x,x,T,x, x,x,T,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, T,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,T, x,x,x,x, x,x,x,T, T,T,T,T, x,x,x,x, x},
+		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,T, T,x,T,T, x,x,x,T, x,x,x,x, T,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,T,x,T, x,x,x,x, T,x,x,T, T,T,T,T, x,x,x,x, x},
+		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,T, T,x,T,T, x,x,x,T, x,x,x,x, T,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,T,x,T, x,x,x,x, x,x,x,T, T,T,T,T, x,x,x,x, x},
+		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,T,x,x, x,x,x,x, x,T,x,x, x,x,x,T, T,x,T,T, x,x,x,T, x,x,x,x, T,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,T,x,T, x,x,x,x, T,x,x,T, T,T,T,T, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,T,T, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,T,x,T, x,x,x,x, x,x,x,T, T,T,T,T, x,x,x,x, x},
+		{x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,T, x,x,x,x, x,x,x,T, T,T,T,T, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,T, T,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,x,T,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, T,T,x,x, T,x,x,x, x,x,x,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, T,x,T,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, T,x,x,x, T,x,x,x, x,x,x,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,x, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,T, x,x,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,T, x,x,T,x, x,x,x,x, x,x,T,x, x,x,x,x, x,T,T,T, T,T,T,T, T,T,x,x, T,x,x,x, x,x,x,x, T,x,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,x,x, x,T,x,x, T,T,x,x, x,x,T,x, x,x,T,x, T,T,x,T, x,T,x,x, x,T,x,T, T,x,x,x, x,x,x,x, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x},
+		{x,x,x,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,T,T,T, T,T,T,T, T,x,x,x, T,x,x,x, x,x,x,x, T,x,T,T, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,T,T, x,x,x,x, x,T,x,x, T,T,x,x, x,x,T,x, x,x,T,x, T,T,x,T, x,T,x,x, x,T,x,T, T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x}
 	};
 
 
@@ -1858,16 +1980,16 @@ void Parser::SynErr(const QString& sourcePath, int line, int col, int n, PARSER_
 			case 46: s = coco_string_create(L"T_ACTIVATE expected"); break;
 			case 47: s = coco_string_create(L"T_AFTER expected"); break;
 			case 48: s = coco_string_create(L"T_AND expected"); break;
-			case 49: s = coco_string_create(L"T_ARRAY expected"); break;
-			case 50: s = coco_string_create(L"T_AT expected"); break;
-			case 51: s = coco_string_create(L"T_BEFORE expected"); break;
-			case 52: s = coco_string_create(L"T_BEGIN expected"); break;
-			case 53: s = coco_string_create(L"T_BOOLEAN expected"); break;
-			case 54: s = coco_string_create(L"T_CHARACTER expected"); break;
-			case 55: s = coco_string_create(L"T_CLASS expected"); break;
-			case 56: s = coco_string_create(L"T_COMMENT expected"); break;
-			case 57: s = coco_string_create(L"T_DELAY expected"); break;
-			case 58: s = coco_string_create(L"T_DIV expected"); break;
+			case 49: s = coco_string_create(L"T_AND_THEN expected"); break;
+			case 50: s = coco_string_create(L"T_ARRAY expected"); break;
+			case 51: s = coco_string_create(L"T_AT expected"); break;
+			case 52: s = coco_string_create(L"T_BEFORE expected"); break;
+			case 53: s = coco_string_create(L"T_BEGIN expected"); break;
+			case 54: s = coco_string_create(L"T_BOOLEAN expected"); break;
+			case 55: s = coco_string_create(L"T_CHARACTER expected"); break;
+			case 56: s = coco_string_create(L"T_CLASS expected"); break;
+			case 57: s = coco_string_create(L"T_COMMENT expected"); break;
+			case 58: s = coco_string_create(L"T_DELAY expected"); break;
 			case 59: s = coco_string_create(L"T_DO expected"); break;
 			case 60: s = coco_string_create(L"T_ELSE expected"); break;
 			case 61: s = coco_string_create(L"T_END expected"); break;
@@ -1883,20 +2005,20 @@ void Parser::SynErr(const QString& sourcePath, int line, int col, int n, PARSER_
 			case 71: s = coco_string_create(L"T_GOTO expected"); break;
 			case 72: s = coco_string_create(L"T_GREATER expected"); break;
 			case 73: s = coco_string_create(L"T_GT expected"); break;
-			case 74: s = coco_string_create(L"T_IF expected"); break;
-			case 75: s = coco_string_create(L"T_IMP expected"); break;
-			case 76: s = coco_string_create(L"T_IMPL expected"); break;
-			case 77: s = coco_string_create(L"T_IN expected"); break;
-			case 78: s = coco_string_create(L"T_INNER expected"); break;
-			case 79: s = coco_string_create(L"T_INSPECT expected"); break;
-			case 80: s = coco_string_create(L"T_INTEGER expected"); break;
-			case 81: s = coco_string_create(L"T_IS expected"); break;
-			case 82: s = coco_string_create(L"T_LABEL expected"); break;
-			case 83: s = coco_string_create(L"T_LE expected"); break;
-			case 84: s = coco_string_create(L"T_LESS expected"); break;
-			case 85: s = coco_string_create(L"T_LONG expected"); break;
-			case 86: s = coco_string_create(L"T_LT expected"); break;
-			case 87: s = coco_string_create(L"T_MOD expected"); break;
+			case 74: s = coco_string_create(L"T_HIDDEN expected"); break;
+			case 75: s = coco_string_create(L"T_IF expected"); break;
+			case 76: s = coco_string_create(L"T_IMP expected"); break;
+			case 77: s = coco_string_create(L"T_IMPL expected"); break;
+			case 78: s = coco_string_create(L"T_IN expected"); break;
+			case 79: s = coco_string_create(L"T_INNER expected"); break;
+			case 80: s = coco_string_create(L"T_INSPECT expected"); break;
+			case 81: s = coco_string_create(L"T_INTEGER expected"); break;
+			case 82: s = coco_string_create(L"T_IS expected"); break;
+			case 83: s = coco_string_create(L"T_LABEL expected"); break;
+			case 84: s = coco_string_create(L"T_LE expected"); break;
+			case 85: s = coco_string_create(L"T_LESS expected"); break;
+			case 86: s = coco_string_create(L"T_LONG expected"); break;
+			case 87: s = coco_string_create(L"T_LT expected"); break;
 			case 88: s = coco_string_create(L"T_NAME expected"); break;
 			case 89: s = coco_string_create(L"T_NE expected"); break;
 			case 90: s = coco_string_create(L"T_NEW expected"); break;
@@ -1907,70 +2029,76 @@ void Parser::SynErr(const QString& sourcePath, int line, int col, int n, PARSER_
 			case 95: s = coco_string_create(L"T_NOTGREATER expected"); break;
 			case 96: s = coco_string_create(L"T_NOTLESS expected"); break;
 			case 97: s = coco_string_create(L"T_OR expected"); break;
-			case 98: s = coco_string_create(L"T_OTHERWISE expected"); break;
-			case 99: s = coco_string_create(L"T_POWER expected"); break;
-			case 100: s = coco_string_create(L"T_PRIOR expected"); break;
-			case 101: s = coco_string_create(L"T_PROCEDURE expected"); break;
-			case 102: s = coco_string_create(L"T_QUA expected"); break;
-			case 103: s = coco_string_create(L"T_REACTIVATE expected"); break;
-			case 104: s = coco_string_create(L"T_REAL expected"); break;
-			case 105: s = coco_string_create(L"T_REF expected"); break;
-			case 106: s = coco_string_create(L"T_SHORT expected"); break;
-			case 107: s = coco_string_create(L"T_STEP expected"); break;
-			case 108: s = coco_string_create(L"T_SWITCH expected"); break;
-			case 109: s = coco_string_create(L"T_TEXT expected"); break;
-			case 110: s = coco_string_create(L"T_THEN expected"); break;
-			case 111: s = coco_string_create(L"T_THIS expected"); break;
-			case 112: s = coco_string_create(L"T_TO expected"); break;
-			case 113: s = coco_string_create(L"T_TRUE expected"); break;
-			case 114: s = coco_string_create(L"T_UNTIL expected"); break;
-			case 115: s = coco_string_create(L"T_VALUE expected"); break;
-			case 116: s = coco_string_create(L"T_VIRTUAL expected"); break;
-			case 117: s = coco_string_create(L"T_WHEN expected"); break;
-			case 118: s = coco_string_create(L"T_WHILE expected"); break;
-			case 119: s = coco_string_create(L"T_Specials_ expected"); break;
-			case 120: s = coco_string_create(L"T_decimal_number expected"); break;
-			case 121: s = coco_string_create(L"T_unsigned_integer expected"); break;
-			case 122: s = coco_string_create(L"T_string expected"); break;
-			case 123: s = coco_string_create(L"T_character expected"); break;
-			case 124: s = coco_string_create(L"T_identifier expected"); break;
-			case 125: s = coco_string_create(L"T_Comment expected"); break;
-			case 126: s = coco_string_create(L"T_Eof expected"); break;
-			case 127: s = coco_string_create(L"T_MaxToken_ expected"); break;
-			case 128: s = coco_string_create(L"??? expected"); break;
-			case 129: s = coco_string_create(L"invalid module"); break;
-			case 130: s = coco_string_create(L"invalid external_declaration"); break;
-			case 131: s = coco_string_create(L"invalid expression"); break;
-			case 132: s = coco_string_create(L"invalid declaration"); break;
-			case 133: s = coco_string_create(L"invalid type"); break;
-			case 134: s = coco_string_create(L"invalid mode_part"); break;
-			case 135: s = coco_string_create(L"invalid Common_Base_statement"); break;
-			case 136: s = coco_string_create(L"invalid unlabelled_basic_statement"); break;
-			case 137: s = coco_string_create(L"invalid Common_Base_conditional_statement"); break;
-			case 138: s = coco_string_create(L"invalid for_right_part"); break;
-			case 139: s = coco_string_create(L"invalid go_to_statement"); break;
-			case 140: s = coco_string_create(L"invalid connection_statement"); break;
-			case 141: s = coco_string_create(L"invalid primary"); break;
-			case 142: s = coco_string_create(L"invalid activator"); break;
-			case 143: s = coco_string_create(L"invalid simple_timing_clause"); break;
-			case 144: s = coco_string_create(L"invalid scheduling_clause"); break;
-			case 145: s = coco_string_create(L"invalid specifier"); break;
-			case 146: s = coco_string_create(L"invalid specifier"); break;
-			case 147: s = coco_string_create(L"invalid array_segment"); break;
-			case 148: s = coco_string_create(L"invalid value_type"); break;
-			case 149: s = coco_string_create(L"invalid reference_type"); break;
-			case 150: s = coco_string_create(L"invalid equiv_sym_"); break;
-			case 151: s = coco_string_create(L"invalid impl_sym_"); break;
-			case 152: s = coco_string_create(L"invalid adding_operator"); break;
-			case 153: s = coco_string_create(L"invalid or_sym_"); break;
-			case 154: s = coco_string_create(L"invalid multiplying_operator"); break;
-			case 155: s = coco_string_create(L"invalid and_sym_"); break;
-			case 156: s = coco_string_create(L"invalid power_sym_"); break;
-			case 157: s = coco_string_create(L"invalid not_sym_"); break;
-			case 158: s = coco_string_create(L"invalid unsigned_number"); break;
-			case 159: s = coco_string_create(L"invalid logical_value"); break;
-			case 160: s = coco_string_create(L"invalid selector_"); break;
-			case 161: s = coco_string_create(L"invalid relational_operator"); break;
+			case 98: s = coco_string_create(L"T_OR_ELSE expected"); break;
+			case 99: s = coco_string_create(L"T_OTHERWISE expected"); break;
+			case 100: s = coco_string_create(L"T_POWER expected"); break;
+			case 101: s = coco_string_create(L"T_PRIOR expected"); break;
+			case 102: s = coco_string_create(L"T_PROCEDURE expected"); break;
+			case 103: s = coco_string_create(L"T_PROTECTED expected"); break;
+			case 104: s = coco_string_create(L"T_QUA expected"); break;
+			case 105: s = coco_string_create(L"T_REACTIVATE expected"); break;
+			case 106: s = coco_string_create(L"T_REAL expected"); break;
+			case 107: s = coco_string_create(L"T_REF expected"); break;
+			case 108: s = coco_string_create(L"T_SHORT expected"); break;
+			case 109: s = coco_string_create(L"T_STEP expected"); break;
+			case 110: s = coco_string_create(L"T_SWITCH expected"); break;
+			case 111: s = coco_string_create(L"T_TEXT expected"); break;
+			case 112: s = coco_string_create(L"T_THEN expected"); break;
+			case 113: s = coco_string_create(L"T_THIS expected"); break;
+			case 114: s = coco_string_create(L"T_TO expected"); break;
+			case 115: s = coco_string_create(L"T_TRUE expected"); break;
+			case 116: s = coco_string_create(L"T_UNTIL expected"); break;
+			case 117: s = coco_string_create(L"T_VALUE expected"); break;
+			case 118: s = coco_string_create(L"T_VIRTUAL expected"); break;
+			case 119: s = coco_string_create(L"T_WHEN expected"); break;
+			case 120: s = coco_string_create(L"T_WHILE expected"); break;
+			case 121: s = coco_string_create(L"T_is expected"); break;
+			case 122: s = coco_string_create(L"T_Specials_ expected"); break;
+			case 123: s = coco_string_create(L"T_decimal_number expected"); break;
+			case 124: s = coco_string_create(L"T_unsigned_integer expected"); break;
+			case 125: s = coco_string_create(L"T_string expected"); break;
+			case 126: s = coco_string_create(L"T_character expected"); break;
+			case 127: s = coco_string_create(L"T_identifier expected"); break;
+			case 128: s = coco_string_create(L"T_Comment expected"); break;
+			case 129: s = coco_string_create(L"T_Eof expected"); break;
+			case 130: s = coco_string_create(L"T_MaxToken_ expected"); break;
+			case 131: s = coco_string_create(L"??? expected"); break;
+			case 132: s = coco_string_create(L"invalid module_body_"); break;
+			case 133: s = coco_string_create(L"invalid external_declaration"); break;
+			case 134: s = coco_string_create(L"invalid expression"); break;
+			case 135: s = coco_string_create(L"invalid declaration"); break;
+			case 136: s = coco_string_create(L"invalid protection_specification"); break;
+			case 137: s = coco_string_create(L"invalid specifier"); break;
+			case 138: s = coco_string_create(L"invalid specifier"); break;
+			case 139: s = coco_string_create(L"invalid procedure_specification"); break;
+			case 140: s = coco_string_create(L"invalid type"); break;
+			case 141: s = coco_string_create(L"invalid mode_part"); break;
+			case 142: s = coco_string_create(L"invalid Common_Base_statement"); break;
+			case 143: s = coco_string_create(L"invalid unlabelled_basic_statement"); break;
+			case 144: s = coco_string_create(L"invalid Common_Base_conditional_statement"); break;
+			case 145: s = coco_string_create(L"invalid for_right_part"); break;
+			case 146: s = coco_string_create(L"invalid go_to_statement"); break;
+			case 147: s = coco_string_create(L"invalid connection_statement"); break;
+			case 148: s = coco_string_create(L"invalid primary"); break;
+			case 149: s = coco_string_create(L"invalid activator"); break;
+			case 150: s = coco_string_create(L"invalid simple_timing_clause"); break;
+			case 151: s = coco_string_create(L"invalid scheduling_clause"); break;
+			case 152: s = coco_string_create(L"invalid external_identifier"); break;
+			case 153: s = coco_string_create(L"invalid array_segment"); break;
+			case 154: s = coco_string_create(L"invalid value_type"); break;
+			case 155: s = coco_string_create(L"invalid reference_type"); break;
+			case 156: s = coco_string_create(L"invalid equiv_sym_"); break;
+			case 157: s = coco_string_create(L"invalid impl_sym_"); break;
+			case 158: s = coco_string_create(L"invalid adding_operator"); break;
+			case 159: s = coco_string_create(L"invalid or_sym_"); break;
+			case 160: s = coco_string_create(L"invalid multiplying_operator"); break;
+			case 161: s = coco_string_create(L"invalid and_sym_"); break;
+			case 162: s = coco_string_create(L"invalid power_sym_"); break;
+			case 163: s = coco_string_create(L"invalid not_sym_"); break;
+			case 164: s = coco_string_create(L"invalid unsigned_number"); break;
+			case 165: s = coco_string_create(L"invalid logical_value"); break;
+			case 166: s = coco_string_create(L"invalid selector_"); break;
+			case 167: s = coco_string_create(L"invalid relational_operator"); break;
 
 		default:
 		{

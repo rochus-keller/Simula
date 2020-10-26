@@ -51,6 +51,7 @@ namespace Sim {
 			case Tok_ACTIVATE: return "ACTIVATE";
 			case Tok_AFTER: return "AFTER";
 			case Tok_AND: return "AND";
+			case Tok_AND_THEN: return "AND_THEN";
 			case Tok_ARRAY: return "ARRAY";
 			case Tok_AT: return "AT";
 			case Tok_BEFORE: return "BEFORE";
@@ -60,7 +61,6 @@ namespace Sim {
 			case Tok_CLASS: return "CLASS";
 			case Tok_COMMENT: return "COMMENT";
 			case Tok_DELAY: return "DELAY";
-			case Tok_DIV: return "DIV";
 			case Tok_DO: return "DO";
 			case Tok_ELSE: return "ELSE";
 			case Tok_END: return "END";
@@ -76,6 +76,7 @@ namespace Sim {
 			case Tok_GOTO: return "GOTO";
 			case Tok_GREATER: return "GREATER";
 			case Tok_GT: return "GT";
+			case Tok_HIDDEN: return "HIDDEN";
 			case Tok_IF: return "IF";
 			case Tok_IMP: return "IMP";
 			case Tok_IMPL: return "IMPL";
@@ -89,7 +90,6 @@ namespace Sim {
 			case Tok_LESS: return "LESS";
 			case Tok_LONG: return "LONG";
 			case Tok_LT: return "LT";
-			case Tok_MOD: return "MOD";
 			case Tok_NAME: return "NAME";
 			case Tok_NE: return "NE";
 			case Tok_NEW: return "NEW";
@@ -100,10 +100,12 @@ namespace Sim {
 			case Tok_NOTGREATER: return "NOTGREATER";
 			case Tok_NOTLESS: return "NOTLESS";
 			case Tok_OR: return "OR";
+			case Tok_OR_ELSE: return "OR_ELSE";
 			case Tok_OTHERWISE: return "OTHERWISE";
 			case Tok_POWER: return "POWER";
 			case Tok_PRIOR: return "PRIOR";
 			case Tok_PROCEDURE: return "PROCEDURE";
+			case Tok_PROTECTED: return "PROTECTED";
 			case Tok_QUA: return "QUA";
 			case Tok_REACTIVATE: return "REACTIVATE";
 			case Tok_REAL: return "REAL";
@@ -121,6 +123,7 @@ namespace Sim {
 			case Tok_VIRTUAL: return "VIRTUAL";
 			case Tok_WHEN: return "WHEN";
 			case Tok_WHILE: return "WHILE";
+			case Tok_is: return "is";
 			case Tok_decimal_number: return "decimal_number";
 			case Tok_unsigned_integer: return "unsigned_integer";
 			case Tok_string: return "string";
@@ -180,6 +183,7 @@ namespace Sim {
 			case Tok_ACTIVATE: return "Tok_ACTIVATE";
 			case Tok_AFTER: return "Tok_AFTER";
 			case Tok_AND: return "Tok_AND";
+			case Tok_AND_THEN: return "Tok_AND_THEN";
 			case Tok_ARRAY: return "Tok_ARRAY";
 			case Tok_AT: return "Tok_AT";
 			case Tok_BEFORE: return "Tok_BEFORE";
@@ -189,7 +193,6 @@ namespace Sim {
 			case Tok_CLASS: return "Tok_CLASS";
 			case Tok_COMMENT: return "Tok_COMMENT";
 			case Tok_DELAY: return "Tok_DELAY";
-			case Tok_DIV: return "Tok_DIV";
 			case Tok_DO: return "Tok_DO";
 			case Tok_ELSE: return "Tok_ELSE";
 			case Tok_END: return "Tok_END";
@@ -205,6 +208,7 @@ namespace Sim {
 			case Tok_GOTO: return "Tok_GOTO";
 			case Tok_GREATER: return "Tok_GREATER";
 			case Tok_GT: return "Tok_GT";
+			case Tok_HIDDEN: return "Tok_HIDDEN";
 			case Tok_IF: return "Tok_IF";
 			case Tok_IMP: return "Tok_IMP";
 			case Tok_IMPL: return "Tok_IMPL";
@@ -218,7 +222,6 @@ namespace Sim {
 			case Tok_LESS: return "Tok_LESS";
 			case Tok_LONG: return "Tok_LONG";
 			case Tok_LT: return "Tok_LT";
-			case Tok_MOD: return "Tok_MOD";
 			case Tok_NAME: return "Tok_NAME";
 			case Tok_NE: return "Tok_NE";
 			case Tok_NEW: return "Tok_NEW";
@@ -229,10 +232,12 @@ namespace Sim {
 			case Tok_NOTGREATER: return "Tok_NOTGREATER";
 			case Tok_NOTLESS: return "Tok_NOTLESS";
 			case Tok_OR: return "Tok_OR";
+			case Tok_OR_ELSE: return "Tok_OR_ELSE";
 			case Tok_OTHERWISE: return "Tok_OTHERWISE";
 			case Tok_POWER: return "Tok_POWER";
 			case Tok_PRIOR: return "Tok_PRIOR";
 			case Tok_PROCEDURE: return "Tok_PROCEDURE";
+			case Tok_PROTECTED: return "Tok_PROTECTED";
 			case Tok_QUA: return "Tok_QUA";
 			case Tok_REACTIVATE: return "Tok_REACTIVATE";
 			case Tok_REAL: return "Tok_REAL";
@@ -250,6 +255,7 @@ namespace Sim {
 			case Tok_VIRTUAL: return "Tok_VIRTUAL";
 			case Tok_WHEN: return "Tok_WHEN";
 			case Tok_WHILE: return "Tok_WHILE";
+			case Tok_is: return "Tok_is";
 			case Tok_decimal_number: return "Tok_decimal_number";
 			case Tok_unsigned_integer: return "Tok_unsigned_integer";
 			case Tok_string: return "Tok_string";
@@ -404,7 +410,19 @@ namespace Sim {
 				break;
 			case 'N':
 				if( at(str,i+2) == 'D' ){
-					res = Tok_AND; i += 3;
+					if( at(str,i+3) == '_' ){
+						if( at(str,i+4) == 'T' ){
+							if( at(str,i+5) == 'H' ){
+								if( at(str,i+6) == 'E' ){
+									if( at(str,i+7) == 'N' ){
+										res = Tok_AND_THEN; i += 8;
+									}
+								}
+							}
+						}
+					} else {
+						res = Tok_AND; i += 3;
+					}
 				}
 				break;
 			case 'R':
@@ -510,11 +528,6 @@ namespace Sim {
 							res = Tok_DELAY; i += 5;
 						}
 					}
-				}
-				break;
-			case 'I':
-				if( at(str,i+2) == 'V' ){
-					res = Tok_DIV; i += 3;
 				}
 				break;
 			case 'O':
@@ -627,6 +640,19 @@ namespace Sim {
 				break;
 			}
 			break;
+		case 'H':
+			if( at(str,i+1) == 'I' ){
+				if( at(str,i+2) == 'D' ){
+					if( at(str,i+3) == 'D' ){
+						if( at(str,i+4) == 'E' ){
+							if( at(str,i+5) == 'N' ){
+								res = Tok_HIDDEN; i += 6;
+							}
+						}
+					}
+				}
+			}
+			break;
 		case 'I':
 			switch( at(str,i+1) ){
 			case 'F':
@@ -714,13 +740,6 @@ namespace Sim {
 				break;
 			}
 			break;
-		case 'M':
-			if( at(str,i+1) == 'O' ){
-				if( at(str,i+2) == 'D' ){
-					res = Tok_MOD; i += 3;
-				}
-			}
-			break;
 		case 'N':
 			switch( at(str,i+1) ){
 			case 'A':
@@ -800,7 +819,19 @@ namespace Sim {
 		case 'O':
 			switch( at(str,i+1) ){
 			case 'R':
-				res = Tok_OR; i += 2;
+				if( at(str,i+2) == '_' ){
+					if( at(str,i+3) == 'E' ){
+						if( at(str,i+4) == 'L' ){
+							if( at(str,i+5) == 'S' ){
+								if( at(str,i+6) == 'E' ){
+									res = Tok_OR_ELSE; i += 7;
+								}
+							}
+						}
+					}
+				} else {
+					res = Tok_OR; i += 2;
+				}
 				break;
 			case 'T':
 				if( at(str,i+2) == 'H' ){
@@ -842,7 +873,8 @@ namespace Sim {
 					}
 					break;
 				case 'O':
-					if( at(str,i+3) == 'C' ){
+					switch( at(str,i+3) ){
+					case 'C':
 						if( at(str,i+4) == 'E' ){
 							if( at(str,i+5) == 'D' ){
 								if( at(str,i+6) == 'U' ){
@@ -854,6 +886,20 @@ namespace Sim {
 								}
 							}
 						}
+						break;
+					case 'T':
+						if( at(str,i+4) == 'E' ){
+							if( at(str,i+5) == 'C' ){
+								if( at(str,i+6) == 'T' ){
+									if( at(str,i+7) == 'E' ){
+										if( at(str,i+8) == 'D' ){
+											res = Tok_PROTECTED; i += 9;
+										}
+									}
+								}
+							}
+						}
+						break;
 					}
 					break;
 				}
@@ -1030,6 +1076,11 @@ namespace Sim {
 				res = Tok_HatEq; i += 2;
 			} else {
 				res = Tok_Hat; i += 1;
+			}
+			break;
+		case 'i':
+			if( at(str,i+1) == 's' ){
+				res = Tok_is; i += 2;
 			}
 			break;
 		case '|':

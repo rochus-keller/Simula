@@ -67,16 +67,16 @@ private:
 		_T_ACTIVATE=46,
 		_T_AFTER=47,
 		_T_AND=48,
-		_T_ARRAY=49,
-		_T_AT=50,
-		_T_BEFORE=51,
-		_T_BEGIN=52,
-		_T_BOOLEAN=53,
-		_T_CHARACTER=54,
-		_T_CLASS=55,
-		_T_COMMENT=56,
-		_T_DELAY=57,
-		_T_DIV=58,
+		_T_AND_THEN=49,
+		_T_ARRAY=50,
+		_T_AT=51,
+		_T_BEFORE=52,
+		_T_BEGIN=53,
+		_T_BOOLEAN=54,
+		_T_CHARACTER=55,
+		_T_CLASS=56,
+		_T_COMMENT=57,
+		_T_DELAY=58,
 		_T_DO=59,
 		_T_ELSE=60,
 		_T_END=61,
@@ -92,20 +92,20 @@ private:
 		_T_GOTO=71,
 		_T_GREATER=72,
 		_T_GT=73,
-		_T_IF=74,
-		_T_IMP=75,
-		_T_IMPL=76,
-		_T_IN=77,
-		_T_INNER=78,
-		_T_INSPECT=79,
-		_T_INTEGER=80,
-		_T_IS=81,
-		_T_LABEL=82,
-		_T_LE=83,
-		_T_LESS=84,
-		_T_LONG=85,
-		_T_LT=86,
-		_T_MOD=87,
+		_T_HIDDEN=74,
+		_T_IF=75,
+		_T_IMP=76,
+		_T_IMPL=77,
+		_T_IN=78,
+		_T_INNER=79,
+		_T_INSPECT=80,
+		_T_INTEGER=81,
+		_T_IS=82,
+		_T_LABEL=83,
+		_T_LE=84,
+		_T_LESS=85,
+		_T_LONG=86,
+		_T_LT=87,
 		_T_NAME=88,
 		_T_NE=89,
 		_T_NEW=90,
@@ -116,36 +116,39 @@ private:
 		_T_NOTGREATER=95,
 		_T_NOTLESS=96,
 		_T_OR=97,
-		_T_OTHERWISE=98,
-		_T_POWER=99,
-		_T_PRIOR=100,
-		_T_PROCEDURE=101,
-		_T_QUA=102,
-		_T_REACTIVATE=103,
-		_T_REAL=104,
-		_T_REF=105,
-		_T_SHORT=106,
-		_T_STEP=107,
-		_T_SWITCH=108,
-		_T_TEXT=109,
-		_T_THEN=110,
-		_T_THIS=111,
-		_T_TO=112,
-		_T_TRUE=113,
-		_T_UNTIL=114,
-		_T_VALUE=115,
-		_T_VIRTUAL=116,
-		_T_WHEN=117,
-		_T_WHILE=118,
-		_T_Specials_=119,
-		_T_decimal_number=120,
-		_T_unsigned_integer=121,
-		_T_string=122,
-		_T_character=123,
-		_T_identifier=124,
-		_T_Comment=125,
-		_T_Eof=126,
-		_T_MaxToken_=127
+		_T_OR_ELSE=98,
+		_T_OTHERWISE=99,
+		_T_POWER=100,
+		_T_PRIOR=101,
+		_T_PROCEDURE=102,
+		_T_PROTECTED=103,
+		_T_QUA=104,
+		_T_REACTIVATE=105,
+		_T_REAL=106,
+		_T_REF=107,
+		_T_SHORT=108,
+		_T_STEP=109,
+		_T_SWITCH=110,
+		_T_TEXT=111,
+		_T_THEN=112,
+		_T_THIS=113,
+		_T_TO=114,
+		_T_TRUE=115,
+		_T_UNTIL=116,
+		_T_VALUE=117,
+		_T_VIRTUAL=118,
+		_T_WHEN=119,
+		_T_WHILE=120,
+		_T_is=121,
+		_T_Specials_=122,
+		_T_decimal_number=123,
+		_T_unsigned_integer=124,
+		_T_string=125,
+		_T_character=126,
+		_T_identifier=127,
+		_T_Comment=128,
+		_T_Eof=129,
+		_T_MaxToken_=130
 	};
 	int maxT;
 
@@ -197,6 +200,7 @@ Sim::SynTree d_root;
 
 	void module();
 	void external_head();
+	void module_body_();
 	void class_declaration();
 	void procedure_declaration();
 	void program();
@@ -221,15 +225,20 @@ Sim::SynTree d_root;
 	void formal_parameter_part();
 	void value_part();
 	void specification_part();
+	void protection_part();
 	void virtual_part();
 	void class_body();
+	void protection_specification();
+	void identifier_list();
+	void virtual_spec();
+	void specifier();
+	void procedure_specification();
 	void type();
 	void procedure_heading();
 	void procedure_body();
 	void procedure_identifier();
 	void mode_part();
 	void name_part();
-	void identifier_list();
 	void formal_parameter_list();
 	void formal_parameter();
 	void parameter_delimiter();
@@ -258,13 +267,13 @@ Sim::SynTree d_root;
 	void simple_timing_clause();
 	void timing_clause();
 	void scheduling_clause();
-	void specifier();
 	void external_item();
 	void external_identifier();
 	void external_list();
 	void switch_identifier();
 	void switch_list();
 	void variable_identifier();
+	void type_list_element();
 	void type_list();
 	void array_list();
 	void array_segment();
@@ -279,13 +288,15 @@ Sim::SynTree d_root;
 	void local_object();
 	void object_generator();
 	void actual_parameter();
+	void quaternary_();
+	void tertiary_();
 	void equivalence_();
 	void implication();
 	void equiv_sym_();
 	void simple_expression_();
 	void impl_sym_();
-	void adding_operator();
 	void term();
+	void adding_operator();
 	void or_sym_();
 	void factor();
 	void multiplying_operator();
@@ -296,6 +307,7 @@ Sim::SynTree d_root;
 	void unsigned_number();
 	void primary_nlr_();
 	void logical_value();
+	void string_();
 	void relation_();
 	void selector_();
 	void qualified_();

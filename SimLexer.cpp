@@ -100,6 +100,19 @@ Token Lexer::nextToken()
         t = nextTokenImp();
     if( t.d_type == Tok_Comment && d_ignoreComments )
         t = nextToken();
+    else if( t.d_type == Tok_OR && peekToken(1).d_type == Tok_ELSE )
+    {
+        Token t2 = nextToken();
+        t.d_type = Tok_OR_ELSE;
+        if( t.d_lineNr == t2.d_lineNr )
+            t.d_len = t2.d_colNr - t.d_colNr + t2.d_len;
+    }else if( t.d_type == Tok_AND && peekToken(1).d_type == Tok_THEN )
+    {
+        Token t2 = nextToken();
+        t.d_type = Tok_AND_THEN;
+        if( t.d_lineNr == t2.d_lineNr )
+            t.d_len = t2.d_colNr - t.d_colNr + t2.d_len;
+    }
     return t;
 }
 
@@ -202,8 +215,21 @@ Token Lexer::nextTokenImp()
         if( ch.isLetter() )
             return identifier();
         if( ch == '.' )
-            return token( Tok_Dot, 1, d_line.mid(d_colNr,1).toUtf8() );
-        if( ch.isDigit() || ch == '.' || ch == L'⏨' || ch == '#' ) // exponential_part starting with 'E' are not supported because ambiguity with ident
+        {
+            if( lookAhead(1).isDigit() )
+                return number();
+            else
+                return token( Tok_Dot, 1, d_line.mid(d_colNr,1).toUtf8() );
+        }
+        if( ch == '&' )
+        {
+            const char ch2 = lookAhead(1).toLatin1();
+            if( ch2 == '&' || ::isdigit(ch2) || ch2 == '+' || ch2 == '-' )
+                return number(); // in SIM84 & and && are used as exponential symbol
+        }
+        if( ch == L'⏨' || ch == '#' )
+            return number(); // exponential_part starting with 'E' are not supported because ambiguity with ident
+        if( ch.isDigit() )
             return number();
         // else
         int pos = 0;
@@ -229,7 +255,7 @@ Token Lexer::nextTokenImp()
 int Lexer::skipWhiteSpace()
 {
     const int colNr = d_colNr;
-    while( d_colNr < d_line.size() && d_line[d_colNr].isSpace() )
+    while( d_colNr < d_line.size() && ( d_line[d_colNr].isSpace() || d_line[d_colNr].unicode() == 0x1a ) )
         d_colNr++;
     return d_colNr - colNr;
 }
@@ -349,7 +375,7 @@ Token Lexer::number()
         isReal = true;
         off += explen;
     }else if( explen < 0 )
-        return token( Tok_Invalid, off, "invalid decimal_number" );
+        return token( Tok_Invalid, qMax(off,1), "invalid decimal_number" );
 
     const QString str = d_line.mid(d_colNr, off );
     Q_ASSERT( !str.isEmpty() );
@@ -479,35 +505,68 @@ Token Lexer::string()
     {
         const QChar c = lookAhead(off);
         off++;
-        if( c == other && lookAhead(off) != other )
-            break;
+        if( c == other )
+        {
+            const QChar c2 = lookAhead(off);
+            if( c2 != other )
+                break;
+            else
+                off++;
+        }
         if( c.isNull() )
             return token( Tok_Invalid, off, "non-terminated string" );
     }
-    QString doubleQuote = other;
-    doubleQuote += other;
     QString str = d_line.mid(d_colNr + 1, off - 2 );
+    const QString doubleQuote = QString(2, other);
     str.replace(doubleQuote, other);
-    return token( Tok_string, off, str.toUtf8() );
+    return token( Tok_string, off, str.toUtf8() ); // lenght of the whole string including double quotes
 }
 
 Token Lexer::character()
 {
+    const QChar other = lookAhead(0);
     int off = 1;
-    const QChar ch = lookAhead(1);
-    if( lookAhead(2).unicode() != '\'' )
-        return token( Tok_Invalid, off, "non-terminated character" );
-    return token( Tok_character, 3, QString(ch).toUtf8() );
+    while( true )
+    {
+        const QChar c = lookAhead(off);
+        off++;
+        if( c == other && lookAhead(off) != other)
+            break;
+        if( c.isNull() )
+            return token( Tok_Invalid, off, "non-terminated character" );
+    }
+    const QString str = d_line.mid(d_colNr + 1, off - 2 );
+    if( str.isEmpty() )
+        return token( Tok_Invalid, off, "empty character" );
+    if( str.size() > 1 )
+    {
+        if( str[0] != '!' || str[ str.size() - 1 ] != '!' )
+            return token( Tok_Invalid, off, "invalid character format" );
+        for( int i = 1; i < str.size() - 1; i++ )
+        {
+            if( !str[i].isDigit() )
+                return token( Tok_Invalid, off, "invalid character format" );
+        }
+    }
+    return token( Tok_character, off, str.toUtf8() );
 }
 
 int Lexer::exponential_part(int off)
 {
     int origOff = off;
     QChar o1 = lookAhead(off);
-    if( o1 == 'E' || o1 == 'e' || o1 == L'⏨' || o1 == '#' )
+    if( o1 == 'E' || o1 == 'e' || o1 == L'⏨' || o1 == '#'
+            || o1 == '&' // SIM84
+            )
     {
         off++;
         QChar o = lookAhead(off);
+        if( o1 == '&' && o == '&' )
+        {
+            // SIM84 accepts & and && as exponent mark
+            off++;
+            o = lookAhead(off);
+        }
         if( o == '+' || o == '-' )
         {
             off++;

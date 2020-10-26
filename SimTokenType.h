@@ -5,6 +5,9 @@
 
 #include <QByteArray>
 
+#define SIM_SIM75
+#define SIM_SIM86
+
 namespace Sim {
 	enum TokenType {
 		Tok_Invalid = 0,
@@ -58,6 +61,7 @@ namespace Sim {
 		Tok_ACTIVATE,
 		Tok_AFTER,
 		Tok_AND,
+		Tok_AND_THEN,
 		Tok_ARRAY,
 		Tok_AT,
 		Tok_BEFORE,
@@ -67,7 +71,6 @@ namespace Sim {
 		Tok_CLASS,
 		Tok_COMMENT,
 		Tok_DELAY,
-		Tok_DIV,
 		Tok_DO,
 		Tok_ELSE,
 		Tok_END,
@@ -83,6 +86,7 @@ namespace Sim {
 		Tok_GOTO,
 		Tok_GREATER,
 		Tok_GT,
+		Tok_HIDDEN,
 		Tok_IF,
 		Tok_IMP,
 		Tok_IMPL,
@@ -96,7 +100,6 @@ namespace Sim {
 		Tok_LESS,
 		Tok_LONG,
 		Tok_LT,
-		Tok_MOD,
 		Tok_NAME,
 		Tok_NE,
 		Tok_NEW,
@@ -107,10 +110,12 @@ namespace Sim {
 		Tok_NOTGREATER,
 		Tok_NOTLESS,
 		Tok_OR,
+		Tok_OR_ELSE,
 		Tok_OTHERWISE,
 		Tok_POWER,
 		Tok_PRIOR,
 		Tok_PROCEDURE,
+		Tok_PROTECTED,
 		Tok_QUA,
 		Tok_REACTIVATE,
 		Tok_REAL,
@@ -128,6 +133,7 @@ namespace Sim {
 		Tok_VIRTUAL,
 		Tok_WHEN,
 		Tok_WHILE,
+		Tok_is,
 
 		TT_Specials,
 		Tok_decimal_number,
