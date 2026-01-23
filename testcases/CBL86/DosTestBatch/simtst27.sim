@@ -1,0 +1,126 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   SIMULA A/S - SIMULA TEST NO 27
+%
+%  PURPOSE:     Test while-loops.
+%
+%  WRITTEN BY:  BEH   18/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   text t ;
+   integer i, j, n;
+   Boolean b ;
+
+   Outtext ("--- START Simula a.s. TEST 27") ;
+   Outimage ;
+   Outtext ("--- Test of while-loops.") ;
+   Outimage ; Outimage ;
+
+
+   while b do n := n+1 ;
+
+   if n <> 0 then
+   begin
+      Outtext ("*** ERROR : Number of iterations in while-loop (1).") ;
+      Outimage ;
+      Outtext ("            Number of iterations : ") ;
+      Outint (n, 5) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   n := 0 ;
+   t :- "12345678" ;
+
+   while t.more do begin t.getchar ; n := n+1 end ;
+
+   if n <> 8 then
+   begin
+      Outtext ("*** ERROR : Number of iterations in while-loop (2).") ;
+      Outimage ;
+      Outtext ("            Number of iterations : ") ;
+      Outint (n, 5) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   i := 5 ;
+   n := 0 ;
+
+   while j < i and not b do
+   if j < 3 then
+   begin
+      j := j+1 ;
+      n := n+1
+   end else
+   begin
+      b := true ;
+      n := n+1 ;
+   end ;
+
+   if n <> 4 then
+   begin
+      Outtext ("*** ERROR : Number of iterations in while-loop (3).") ;
+      Outimage ;
+      Outtext ("            Number of iterations : ") ;
+      Outint (n, 5) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   n := 0 ;
+
+   while j < 15 do
+   for i := 1 step j until 20 do
+   begin
+      j := j+1 ;
+      if i+j > 20 then n := n+1
+   end ;
+
+   if n <> 5 then
+   begin
+      Outtext ("*** ERROR : Number of iterations in while-loop (4).") ;
+      Outimage ;
+      Outtext ("            Number of iterations : ") ;
+      Outint (n, 5) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   n := 0;
+   i := j := 1 ;
+
+   while i < 64 do
+   begin
+      while j < i do j := j+1 ;
+      i := i+j ;
+      n := n+1
+   end ;
+
+
+   if n <> 6 then
+   begin
+      Outtext ("*** ERROR : Number of iterations in while-loop (5).") ;
+      Outimage ;
+      Outtext ("            Number of iterations : ") ;
+      Outint (n, 5) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 27") ;
+   Outimage
+ END

@@ -1,0 +1,231 @@
+% ==========================================================
+%	  UNIX.SRC:  v1.2
+%	--------------------------
+%	Set of procedures which give access to the parameters
+%	on the command line and to the environment variables
+%	( UNIX environment )
+% --------------------------------------------------------
+%	Jean Vaucher (Univ de Montreal)  8 July 1991
+%          
+%	Reviewed in aug 1997: handles both CIM and LUND
+%   - in CIM,  both argc and argv are defined
+%   - in LUND, argc and argv are specified as external library procedures
+% --------------------------------------------------------------------------
+
+% FUNCTIONS:
+
+%   - integer proc ARGC;
+%   - text    proc ARG(n);  
+%       returns text values of Argv[n] for n in [0:argc-1]
+
+%   - text proc ENV(T);  
+%       returns value of environment variable T (if it exists)
+%       NOTEXT otherwise
+
+%   - text procedure EnvArg(n);    
+%       returns values of Nth entry in ENV table in format
+%       "TERM=vt100" for n in [1..Max] 
+%		
+%	Note: no checking done on addressing 
+
+%   - text proc SYSTEM("Shell commands....")
+%
+%   - text proc GETPWNAM(T):  retourne 6 champs du PassWd file
+%                             separes par des ":" 
+%          "USER:UID:GID:User_Name:Home_Dir:Shell"
+%
+%   - Boolean procedure TTY_INPUT:  retourne TRUE si Sysin viend du
+%       terminal; False autrement (i.e. sysin redirige vers fichier)
+%
+%   - TEXT proc HOME_OF (Login_name): retourne repertoire HOME 
+%        de l'usager specifie.
+
+% USES:
+%	from standard C library:  
+%				- strlen, strncmp & strncpy
+%	SIMULA Library:	
+%				- argc, argv
+%	Other C procedure:
+%				- like "c_peek32" from our "bits.c"
+%
+% ==========================================================
+
+
+class UNIX; ! bidon ;  ;
+	
+
+#ifndef CIM
+	integer procedure ARGC;
+	begin
+		external library procedure argc is integer procedure ac;;
+		argc := ac;
+	end;
+#endif
+
+
+	text procedure Arg(n);    integer n;
+! ------------------------------------------------- ;		
+	if n>=0 and n < ArgC then
+	begin
+	
+#ifndef CIM
+      external library procedure argv = "ARGV" 
+        is integer procedure argv;;
+#endif
+	    integer Args, A;
+	    Args := ArgV;
+	    A  := peek(Args + 4*n);
+	    Arg :- CtoSText(A);
+	end;
+	    
+#ifndef CIM
+	text procedure Argv(n);integer n;  argv :- arg(n);
+! ---------------------------------------------------;		
+#endif
+
+	text procedure Env(T);    Text T;
+! ------------------------------------------------- ;
+	begin
+	
+		External C procedure getenv is
+		   integer procedure getenv(t); text t;;
+		
+		integer ADR;
+				
+		ADR := getenv(T);
+		if ADR = 0 
+			then Env :- notext
+			else Env :- CtoSText(ADR)
+		
+	end *** Env ***;
+
+
+	text procedure EnvArg(n);    integer n;
+! ------------------------------------------------- ;
+	if n<0 then Error("Argument < 0 in EnvArg")
+	else begin
+	
+		External C procedure envp is integer procedure EP;;
+		integer EN, P;
+		
+		EN := EP;
+		P := peek(EN+4*n);
+		
+		if P = 0 
+			then envArg :- notext
+			else envArg :- CtoSText(P)
+	end *** EnvArg ***;
+	
+
+! -------------------------------------------- ;
+    Boolean procedure tty_input; 
+! -------------------------------------------- ;
+    begin
+       	external C procedure isatty is
+	   integer procedure isatty(n); integer n;;
+
+        tty_input := isatty(0) = 1;
+    end;
+   
+EXTERNAL class TextUtil;
+
+! -------------------------------------------- ;
+	Text procedure GetPWnam(T); Text T;
+! -------------------------------------------- ;
+	begin
+	
+		External C procedure getpwnam is
+		   integer procedure pwnam(t); text t; ;
+		   
+		Integer Adr;
+		Text    Rep, 
+		        Colon = ":" ;
+		
+		Adr:=pwnam( T & "!0!");
+		GetPWnam
+		  :- CtoSText(peek( Adr ))     & Colon &
+		     Int_as_Text(peek(Adr+8 )) & Colon &
+		     Int_as_Text(peek(Adr+12)) & Colon &
+		     CtoSText(peek(Adr + 24 )) & Colon &
+		     CtoSText(peek(Adr + 28 )) & Colon &
+		     CtoSText(peek(Adr + 32)) ;
+	end;
+		
+
+! -------------------------------------------- ;
+    text procedure home_of( Login ); Text Login;
+! -------------------------------------------- ;
+    begin
+        External C procedure getpwnam is
+	   integer procedure getpwnam(t); text t; ;
+	
+	Integer Adr;
+
+	Adr:= getpwnam( Login & "!0!");
+	if Adr <> 0 then
+	home_of :- CtoSText(peek(Adr + 28 )) ;
+
+    end;
+
+    
+   Integer procedure System(T); text T;
+! ======================================= ;
+   begin
+       external C procedure system is integer procedure sys(T); text T;;
+       System := sys( T & "!0!");
+   end;
+      
+    
+! --------------------------------------------
+	CtoSText:  from the address of a zero terminated 
+	"C" string, this function creates a SIMULA TEXT with the 
+	same value. The ZERO terminator is stripped off.
+------------------------------------------------------ ;
+	
+text procedure CtoSText( Adr ); integer Adr;
+begin
+	external C procedure strlen is
+	   integer procedure STRLEN(t); integer t;;
+	external C procedure strncpy is
+	   integer procedure STRNCPY(t,t2,n); text t;
+			                           integer t2,n ; ;
+	text 	t;
+	integer len, res;
+	
+    len  := strlen(Adr);
+    t    :- blanks(len);
+    res  := strncpy(t,Adr,len);
+    CtoSText :- t;
+end  *** CtoSText *** ;
+
+
+	integer procedure PEEK(adr); integer adr;
+! ------------------------------------------------- ;
+	begin
+		external C procedure c_peek32 is
+		   integer procedure cpeek(adr); integer adr;;
+		   
+		peek := cpeek(adr);
+	end;
+	
+	integer procedure PEEK16(adr); integer adr;
+! ------------------------------------------------- ;
+	begin
+		external C procedure c_peek16 is
+		   integer procedure cpeek(adr); integer adr;;
+		   
+		peek16 := cpeek(adr);
+	end;
+	
+	integer procedure PEEK8(adr); integer adr;
+! ------------------------------------------------- ;
+	begin
+		external C procedure c_peek8 is
+		   integer procedure cpeek(adr); integer adr;;
+		   
+		peek8 := cpeek(adr);
+	end;
+			
+
+! ============== Fin de UNIX ========================= ;
+

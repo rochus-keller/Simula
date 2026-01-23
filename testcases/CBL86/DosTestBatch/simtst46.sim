@@ -1,0 +1,62 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 46
+%
+%  PURPOSE:     Test the qualification of a function designator.
+%
+%  WRITTEN BY:  BEH   29/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Class A ;
+   begin
+      integer procedure iP ;
+         iP := 65 ;
+
+   end class A ;
+
+   A Class B ;
+   begin
+      integer procedure iP ;
+         iP := 66 ;
+   end class B ;
+
+   ref (B) rb ;
+   integer ia, ib ;
+
+   ref (A) procedure rP (ra) ; ref (A) ra ;
+      rP :- ra ;
+
+   Outtext ("--- START Simula a.s. TEST 46") ;
+   Outimage ;
+   Outtext ("--- Test qualification of function designators.") ;
+   Outimage ; Outimage ;
+
+   rb :- new B ;
+
+   ia := rP (new A).iP ;
+   ib := rP (rb).iP ;
+
+   if ia = ib then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong qualification of function procedure.") ;
+      Outimage ;
+      Outtext ("            Erroneus values : ia = ") ;
+      Outint (ia, 3) ;
+      Outtext ("  ib = ") ;
+      Outint (ib, 3) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 46") ;
+   Outimage
+ END

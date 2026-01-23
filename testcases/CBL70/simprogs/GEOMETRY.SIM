@@ -1,0 +1,106 @@
+!	      OOP in the Simula language	      ;
+!						      ;
+!   The program defines the main class "geometry".    ;
+!   It represents a theory with terms:		      ;
+!    "point,rectangle,circle,line".		      ;
+!   The life of geometry generates the origin and     ;
+!   the axes x and y.				      ;
+!   Later the class geometry will be used as prefix.  ;
+
+Class Geometry;
+Begin
+  !Definition of classes (terms) local in geometry: ;
+
+  Class Point(X,Y); Real X,Y;  ! Cartesian coordinates;
+  Begin
+    Procedure Print;           ! Displaying the location;
+    Begin
+      OutText("Point: ");
+      OutFix(x,1,4); OutText(",");
+      OutFix(y,1,4);
+    End of Print;
+
+    Procedure Shift(Dx,Dy);    ! Dx, Dy are increments of the shift;
+    Real Dx,Dy;
+    Begin
+      X := X + Dx; Y := Y + Dy;
+    End of Shift;
+
+    Print; 	               ! Life of point;
+    OutText(" created"); OutImage
+  End of Point;
+
+  Class Rectangle(RecName,Width,Height);  ! Class with 3 parameters;
+  Text RecName;  Real Width, Height;      ! Specification of parameters;
+  Begin
+    Real Area, Perimeter;         ! Attributes;
+
+    Procedure Update;	          ! Method;
+    Begin
+      Area := Width * Height;
+      Perimeter := 2*(Width + Height)
+    End of update;
+
+    Procedure Show;	          ! Method;
+    Begin
+       OutText(" I am a rectangle "); OutText(RecName); OutImage;
+       OutText(" Width: "); OutFix(Width,2,6);
+       OutText(" Height: "); OutFix(Height,2,6);
+       OutText(" Area: "); OutFix(Area,2,7);
+       OutText(" Perimeter: "); OutFix(Perimeter,2,6); OutImage
+    end of Show;
+
+   Update;		          ! Life of rectangle;
+   OutText("Rectangle created."); OutImage;
+   Show;
+  End of rectangle;
+
+  Class Circle(Radius, Center);
+  Real Radius; Ref(Point) Center;
+  Begin
+    Procedure Shift(Dx,Dy); Real Dx,Dy;
+    Begin
+      Center.Shift(Dx,Dy);
+      OutText("Circle shifted to ");
+      OutFix(Center.X,1,4); OutFix(Center.Y,1,4); OutImage
+    End of Shift;
+
+    Outtext("Circle created at ");   ! Life of circle;
+    Center.Print;
+    OutText("  with radius "); OutFix(Radius,1,5); OutImage
+  End of Circle;
+
+  Class Line(M,N); Ref(Point) M,N;  ! Line defined by two points;
+  Begin
+    Real Slope;
+
+    Slope := If M.X=N.X Then MaxReal               ! Life of line;
+                        Else (N.Y-M.Y)/(N.X-M.X);
+    OutText("Line (");
+    M.Print;
+    OutText("),(");
+    N.Print;
+    OutText(") with slope =");
+    If Slope=MaxReal Then OutText(" 90 degrees ")
+                     Else OutFix(Slope,2,12);
+    OutText(" created"); OutImage
+  End of Line;
+
+
+  !Variables declared in geometry: ;
+
+  Ref(Point) Origin,A,B;
+  Ref(Line) X,Y;
+
+  !Life of geometry: ;
+
+  Origin :- New Point(0,0);    !creating the origin;
+  A :- New Point(1,0);
+  B :- New Point(0,1);
+  X :- New Line(Origin,A);     !creating the axes;
+  Y :- New Line(Origin,B);
+  OutText("*** Geometry initialized ***"); OutImage;
+
+End of Geometry;
+
+

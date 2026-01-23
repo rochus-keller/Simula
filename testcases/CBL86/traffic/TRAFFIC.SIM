@@ -1,0 +1,980 @@
+%REUSE ON
+begin short integer Grm;
+external class TrafGraph;
+% outtext("vilken oppl|sning: "); breakoutimage; Grm:= inint;
+grm:= 14;
+TrafGraph(Grm) begin
+
+Simulation begin
+    external class Terminal;
+    ref(Terminal) term;
+
+    ref(PCrossing) array kryss(1:2);
+    ref(Head) carpool;                  ! Freelist of passive cars;
+
+    real simtime;
+    integer seed, carno;
+
+    short integer straight=0;
+    real carl=4.5, carw=2.0;
+
+%+O integer nobs, nd;
+%+O Boolean obson;    
+
+    text array frmtxt(1:4),
+               dirtxt(-1:1);
+
+    Head Class Queue(from,dst,glim,rtp,ltp,icross,ocross,qind);
+        short integer from;    ! Direction from which the queue goes;
+        real dst,              ! Length of the street for this queue;
+             glim;             ! Graphical limitation of this queue;
+        real ltp,rtp;          ! Position for left and right turn;
+        ref(PCrossing) icross, ! The cross which this queue leads into;
+                       ocross; ! The cross which this queue leads out of;
+        ref(QueueInd) qind;    ! Used to indicate the lane for this queue;
+    begin 
+        short integer prr,     ! Percent of the cars turning right;
+                      prl;     ! Percent of the cars turning left;
+        integer       nrej;    ! No of cars which have been rejected;
+        integer array nthrough(-1:1); ! No of cars which have driven through;
+                               ! this queue;
+        real array    tthrough(-1:1); ! Time used by the cars which have driven;
+                               ! through this queue;
+        Boolean green;         ! True when the light at the end of this road is;
+                               ! green, or when there is no light at the end;
+
+        Procedure Init;
+        if qind=/=none then inspect term do begin
+            ClearFrom(1);
+            qind.ShowQueue(from);
+            Outtext("Give the propabilities (%) for the directions of");
+            Position(2);
+            Outtext("the cars in this lane:                          ");
+            Position(3);
+            Outtext("           Right:    "); prr:= Inint(3);
+            Position(4);
+            Outtext("           Left:     "); prl:= Inint(3);
+            Position(5);
+            Outtext("Straight: "); 
+            Outint(100-prr-prl,0); inimage;
+            qind.DelShow(from);
+        end init;
+
+        Procedure Stat(sfile); ref(outfile) sfile;
+        inspect sfile do begin short integer i,csum; real tsum;
+            Outtext("    " & frmtxt(from) & "ern queue:");    
+            Outimage;
+            Outtext("                  Number of cars    Average no. of sec."); 
+            Outimage;
+            for i:=straight,left,right do begin
+                Outtext("    " & dirtxt(i) & ":");
+                SetPos(25); Outint(nthrough(i),5);
+                SetPos(43); 
+                if nthrough(i)=0 then Outtext("    --")
+                else Outfix(tthrough(i)/nthrough(i),2,8);
+                Outimage;
+                csum:=csum+nthrough(i); tsum:=tsum+tthrough(i);
+            end;
+            Outtext("    Total:");
+            SetPos(25); Outint(csum,5);
+            SetPos(43); 
+            if csum=0 then Outtext("    --") else Outfix(tsum/csum,2,8);
+            Outimage;
+            Outtext("    Number of cars which have been rejected: ");
+            Outint(nrej,5);
+            Outimage; Outimage;
+        end stat;
+
+        Procedure Default(inifil); ref(Infile) inifil;
+        inspect inifil do
+          if qind=/=none then begin
+            Inimage; prr:=Inint;
+            Inimage; prl:=Inint;
+        end init;
+
+        Boolean Procedure Incl(xcar); ref(pcar) xcar; 
+        if (last in pcar and then last qua pcar.adst>carl) or else
+           not last in pcar 
+        then begin incl:=true;
+            xcar.aQ:-this queue; xcar.aC:-icross;
+            xcar.Into(this queue);
+        end else begin nrej:=nrej+1;
+        end incl; 
+
+        Procedure AccStat(dir,arr); short integer dir; real arr; begin
+            nthrough(dir):=nthrough(dir)+1;
+            tthrough(dir):=tthrough(dir)+Time-arr;
+        end accstat;
+
+        Short integer Procedure GenDir; begin short integer d;
+            d:=Randint(1,100,seed); 
+            if d>prr then begin
+                if d>prr+prl then gendir:=straight
+                             else gendir:=left
+            end else gendir:=right;
+        end gendir;
+
+        Procedure StartCars; begin
+            green:=true;
+        end startcars;
+
+        Procedure StopCars; begin
+            green:=false;
+        end stopcars;
+
+        Real Procedure TimeFree; begin
+        if green then begin  
+            inspect first
+            when pcar do begin
+                if dir=left then timefree:=100 else
+                if adst>dst+3 then timefree:=0 else
+                   timefree:=3.0*(dst+3-adst)/max(0.1,spd);
+            end otherwise timefree:=100;
+        end else timefree:=100;
+        end timefree;
+ 
+        Boolean Procedure RoadTaken(f,t); real f,t;
+        ! Checks if there are any cars in the interval f to t of this road;
+        begin ref(PCar) xcar;
+            if pred in pcar then xcar:-pred qua pcar;
+            while xcar=/=none and then xcar.adst<f do
+                if xcar.pred in pcar then xcar:-xcar.pred qua pcar
+                                     else xcar:-none;
+            inspect xcar when pcar do roadtaken:=adst-carl<t
+            otherwise roadtaken:=false;
+        end roadtaken;
+
+        Boolean Procedure CrossFree; begin
+            crossfree:=icross.QOut(FromLeft).LastDist>14;
+        end crossfree;
+
+        Procedure DTo_and_SOf_Last(mdst,mspd,dir);
+            ! Distance to and speed of last;
+            name mdst, mspd; real mdst, mspd; short integer dir;
+        begin real md,ms,d;
+            ! if recursive, the driver would look trough a sequence of;
+            ! crossing roads;
+            md:=dst; ms:=if icross==none then 15.0 else 0.0;
+            inspect pred when pcar do
+                begin md:=adst-carl; ms:=spd end;
+            if rtp<>0 and md>rtp and then ocross.QOut(FromLeft).LastDist<14 then
+                begin md:=rtp-carw; ms:=0.0; goto set; end;
+            if dir=right and md>rtp then begin md:=rtp; ms:=0.0; goto set; end;
+            if ltp<>0 and md>ltp then begin
+                d:=ocross.QOut(FromRight).LastDist;
+                if d>2 and d<11 then begin md:=ltp-carw; ms:=0.0; goto set; end;
+            end;    
+            if dir=left and md>ltp then begin md:=ltp; ms:=0.0 end;
+        set:mdst:=md; mspd:=ms;
+        end dto_and_sof_last;
+
+
+        Real Procedure DistToCrossing(p); real p; begin real d;
+            inspect ocross do begin 
+                if p+carw/2<rtp and then QOut(FromLeft).RoadTaken(6,10) then 
+                     disttocrossing:=rtp-carw else
+                if p+carw/2<ltp and then QOut(FromRight).RoadTaken(3.9,6.5) then
+                     disttocrossing:=ltp-carw
+                else disttocrossing:=dst
+            end otherwise disttocrossing:=dst;
+        end disttocrossing;
+
+        Real Procedure LastDist; begin
+            if pred in pcar then lastdist:=pred qua pcar.adst
+                            else lastdist:=dst;
+        end lastdist;
+
+        Short Integer Procedure Against; begin
+            against:=if from<3 then from+2 else from-2;
+        end against;
+   
+        Short Integer Procedure FromLeft; begin
+            fromleft:=if from=1 then 4 else from-1;
+        end fromleft;
+   
+        Short integer Procedure FromRight; begin
+            fromright:=if from=4 then 1 else from+1;
+        end fromright;
+
+    end queue;
+
+
+    Process Class PCar; begin
+        ref(Queue)     aQ;        ! Ref. to queue which we are in;
+        ref(PCrossing) aC;        ! Ref. to cross ahead;
+        short integer dir,        ! Direction of car;
+                      no,         ! Car number;
+                      from,       ! Where the car comes from;
+                      pdir;       ! Direction of last turn;
+        real          arr,        ! Time of arrival;
+                      adst,       ! Distance driven at the current road;
+                      spd,        ! Speed of car;
+                      disp,       ! Accumulated displacement;
+                      rdst,mdst,rspd;
+        Boolean       passed,     ! dir=left  and adst>aQ.ltp or;
+                                  ! dir=right and adst>aQ.rtp;
+                      turning,    ! adist=aQ.tp , ready to turn;
+                      turned,     ! The turn is finished, and dir.ind. is on;
+                      indon,      ! True when dir.ind. is on;
+                      astat;      ! Statistics should be accumulated when;
+                                  ! driving out of the crossing;
+        real          dlim=0.50,  ! Min.disp for car to move;
+                      ionlim=14.0,  ! Max.dist from cross for setting of ind;
+                      iofflim=15.0, ! Min.dist from cross for resetting of ind;
+                      tspd=4.0,     ! Speed when turning;
+                      flim=2.0;     ! Min.no of sec. of free time for left turn;
+        ref(Car)      gcar;       ! Reference to graphical car;
+
+        Real procedure AdjSpd(s,d,rs); real s,d,rs; begin
+            real nacc=0.5, pacc=0.25, maxs=15.0,    mins=0.3,
+                 sfak=1.5, dfak=1.0,    rsfak=0.75, maxac=8.0;
+            real ddif; 
+            rs:=s-rs;
+            ddif:=d*dfak-rs*rsfak-s*sfak; ddif:=min(maxac,ddif);
+            if ddif>0 then s:=s+ddif*pacc !else s:=s+ddif*nacc;
+                      else begin s:=s+ddif*nacc; if s<mins then s:=0.0; end;
+            adjspd:=min(min(maxs,s),d);
+        end adjspd;
+
+        Short Integer Procedure Against; begin
+            against:=if from<3 then from+2 else from-2;
+        end against;
+   
+        Short Integer Procedure FromLeft; begin
+            fromleft:=if from=1 then 4 else from-1;
+        end fromleft;
+   
+        Short integer Procedure FromRight; begin
+            fromright:=if from=4 then 1 else from+1;
+        end fromright;
+
+        Procedure Init; begin
+            arr:=Time;
+
+            from:=aQ.from; dir:=aQ.GenDir; passed:=dir<>straight;
+            turning:=turned:=indon:=astat:=false; pdir:=straight;
+            adst:=0;
+            if pred=/=none then begin
+                rdst:=100-pred qua pcar.adst-4.5;
+                spd:=AdjSpd(0,rdst,pred qua pcar.spd);
+            end else spd:=15;
+
+            gcar.Init(from,aQ.dst-adst,if aC==kryss(1) then 1 else 2);
+        end init;
+
+        dir:=Randint(1,15,seed);
+        if dir=blue then dir:=lblue else
+        if dir=yellow then dir:=white;
+        gcar:-new Car(0,0,dir); dir:=0;
+
+        while true do begin
+            Init;
+                            
+         while aQ=/=none do begin
+            while adst<aQ.dst+1 do begin
+         setspd:if dir=straight or passed then begin
+                    if adst>aQ.ltp then begin ! No crossing road: ;
+                        if pred in pcar then begin         ! other car ahead;
+                            rdst:=pred qua pcar.adst-carl;
+                            rspd:=pred qua pcar.spd; end
+                        else if aQ.icross==none then begin ! on the high-way;
+                            rdst:=200; rspd:=15.0; end
+                        else ! driving forward to a road crossing;
+                        if aQ.green then begin
+                            if aQ.CrossFree then begin 
+                                aC.QOut(from).DTo_and_SOf_Last(rdst,rspd,dir);
+                                rdst:=rdst+aQ.dst; end
+                            else begin rdst:=aQ.dst+1; rspd:=0.0; end;
+                        end else ! Driving forward to red/yellow light;
+                            begin rdst:=aQ.dst; rspd:=0.0; end;
+                    end else begin ! Have to check crossing road;
+                        rdst:=aQ.DistToCrossing(adst);
+                        if pred in pcar then begin ! Other car ahead;
+                            mdst:=pred qua pcar.adst-carl;
+                            if rdst<mdst then ! Turning car ahead;
+                                rspd:=tspd
+                            else begin          ! The other car is nearer;
+                                rdst:=mdst; rspd:=pred qua pcar.spd; end
+                        end else 
+                        if rdst>aQ.ltp then ! No turning car ahead;
+                             rspd:=15.0
+                        else rspd:=tspd; !0;
+                    end;
+                    spd:=AdjSpd(spd,rdst-adst,rspd);
+                end else
+                if dir=right then begin
+                    if turning then begin ! Ready to turn the car;
+                        while aQ.ocross.QOut(FromLeft).RoadTaken(8,12) do
+                        begin
+%+O                         Obs(gcar,"Waiting for the cross to be free");
+                            spd:=0; Hold(0.2);
+                        end;
+                            ! Check if there is room for the turned car;
+%+O                         Obs(gcar,"Turning right!!");
+                            gcar.TurnCar(right); turned:=true; 
+                            pdir:=right;
+                            from:=FromLeft;
+                            aQ.ocross.QOut(from).Incl(this pcar);
+                            adst:=11.6;
+                            dir:=aQ.GenDir;passed:=astat:=true; turning:=false; 
+                            goto setspd;
+                    end else begin        ! Driving forward to turn position;
+                        mdst:=aQ.DistToCrossing(adst);
+                        if pred in pcar then rdst:=pred qua pcar.adst-carl
+                                        else rdst:=1000;
+                        if mdst<rdst and mdst<aQ.rtp then ! Turning car ahead;
+                        begin 
+%+O                         Obs(gcar,"Turning car ahead");
+                            spd:=AdjSpd(spd,mdst-adst,0 !tspd;)
+                        end
+                        else if rdst<aQ.rtp then          ! Other car ahead;
+                        begin 
+%+O                         Obs(gcar,"Other car ahead");
+                            spd:=AdjSpd(spd,rdst-adst,pred qua pcar.spd)
+                        end     
+                        else if adst+tspd>aQ.rtp then begin  ! Positioning for;
+%+O                         Obs(gcar,"Positioning for a turn");
+                            spd:=aQ.rtp-adst; turning:=true; ! a turn;
+                        end else
+                        begin 
+%+O                         Obs(gcar,"Driving forward to turn position");
+                            spd:=AdjSpd(spd,aQ.rtp-adst,tspd);
+                        end;        
+                    end;
+                end else !dir=left; begin
+                    if turning then begin  ! Ready to turn;
+                        while aQ.ocross.QOut(Against).LastDist<11 or else
+                                                 ! Cars in opposite lane;
+                              aQ.ocross.QIn(Against).TimeFree<flim
+                        do begin
+%+O                         Obs(gcar,"Waiting for the cross to be free");
+                            spd:=0; Hold(0.2);
+                        end;
+%+O                     Obs(gcar,"Turning left!!");
+                        gcar.TurnCar(left); turned:=true;
+                        pdir:=left;
+                        from:=FromRight;
+                        aQ.ocross.QOut(from).Incl(this pcar);
+                        adst:=8;
+                        dir:=aQ.GenDir; passed:=astat:=true; 
+                        turning:=false;    
+                        goto setspd;
+                    end else begin        ! Driving forward to turn position;
+                        mdst:=aQ.DistToCrossing(adst);
+                        if pred in pcar then rdst:=pred qua pcar.adst-carl
+                                        else rdst:=1000;
+                        if mdst<rdst and mdst<aQ.ltp then ! Turning car ahead;
+                        begin 
+%+O                         Obs(gcar,"Turning car ahead");
+                            spd:=AdjSpd(spd,mdst-adst,0 !tspd;)
+                        end
+                        else if rdst<aQ.ltp then          ! Other car ahead;
+                        begin 
+%+O                         Obs(gcar,"Other car ahead");
+                            spd:=AdjSpd(spd,rdst-adst,pred qua pcar.spd)
+                        end     
+                        else if adst+tspd>aQ.ltp then begin  ! Positioning for;
+%+O                         Obs(gcar,"Positioning for a turn");
+                            spd:=aQ.ltp-adst; turning:=true; ! a turn;
+                        end else
+                        begin 
+%+O                         Obs(gcar,"Driving forward to turn position");
+                            spd:=AdjSpd(spd,aQ.ltp-adst,tspd);
+                end;end;end;        
+                
+                if spd>0 then begin
+                    adst:=adst+spd;
+                    if astat and then adst>iofflim then begin
+                        if pdir=left then begin
+                            inspect aQ.ocross do begin
+                                QIn(FromLeft).AccStat(left,arr);
+                                TLeft(FromLeft):=TLeft(FromLeft)-1;
+                        end; end else        
+                        if pdir=right 
+                        then aQ.ocross.QIn(FromRight).AccStat(right,arr)
+                        else aQ.ocross.QIn(from).AccStat(straight,arr);  
+                        gcar.SetDirInd(0); astat:=indon:=turned:=false; 
+                        arr:=Time; pdir:=dir;
+                    end else
+                    if not indon and then dir<>straight and passed and
+                        aQ.dst-adst<ionlim then
+                        begin gcar.SetDirInd(dir); indon:=true; end;
+                    disp:=disp+spd;
+                    if disp>dlim and adst>aQ.glim then begin
+                        gcar.MoveCar(disp); disp:=0;
+                    end;    
+                end;
+%               Hold(1);
+                Hold(0.125);
+            end;
+
+            if aQ.icross=/=none then begin
+                while aC.Qout(from).RoadTaken(0,carl)
+                    do Hold(0.2);
+                if passed and dir=left then begin
+                   inspect aQ.icross do begin
+                       while TLeft(Against)>0 do begin
+%+O                        Obs(gcar, "Waiting to turn left");
+                           spd:=0; Hold(1);
+                       end;
+                       TLeft(from):=TLeft(from)+1;
+                end;end;
+%+O             Obs(gcar,"Shifting queue");
+                adst:=adst-aQ.dst;
+                aQ.icross.QOut(from).Incl(this pcar);
+                if dir=straight or not passed then begin
+                    dir:=aQ.GenDir; passed:=true;
+                end else passed:=false;
+                if aC=/=none then 
+                    gcar.ShiftCross(if aC==kryss(1) then 1 else 2);
+                turned:=turning:=false; astat:=true;
+            end else begin
+                aQ:-none; gcar.ClearCar;
+            end;
+         end;
+
+         gcar.ClearCar;
+         Wait(carpool);
+        end;
+    end pcar;
+
+    Class PLight(xq,glight);
+        ref(Queue) xq;     ! The queue which this traffic light controls;
+        ref(Light) glight; ! Ref. to object for graphical representation;
+                           ! of the traffic light;
+    begin
+        short integer state;
+
+        Procedure Init(green); Boolean green; begin
+            state:=0;
+            if green then begin call(this plight); call(this plight) end;    
+        end;
+
+        Detach;
+        while true do begin
+            state:=1; glight.ShiftRY;               Detach;
+            state:=2; glight.ShiftYG; xq.StartCars; Detach;
+            state:=3; glight.ShiftGY; xq.StopCars;  Detach;
+            state:=0; glight.ShiftYR;               Detach;
+        end;
+    end plight;
+
+    Process Class PCrossing(lights,QIn,QOut);
+        ref(PLight) array lights;     ! The 4 traffic lights for this crossing;
+        ref(Queue) array  QIn, QOut;
+    begin
+        real array levt(0:30);        ! The periods of time between the;
+                                      ! switching of lights;
+        Boolean array lact(0:30,0:4); ! Which lights to switch each time;
+        short integer nevt,           ! The number of switches;
+                      evt;
+        Short Integer array TLeft(1:4); 
+
+        Procedure Init; inspect term do begin
+            short integer il; character ans;
+
+            ClearFrom(1);
+            Outtext("Describe the cycle of the traffic lights"); 
+            
+            Position(3);
+            Outtext("The initial state of each light:        "); 
+            for il:=north,south,east,west do begin
+                Position(4);
+                Outtext(frmtxt(il)); Outtext(" (R-ed/G-reen): ");
+                for il:=il,il,il,il do call(lights(il));
+                Lastitem; ans:=inchar;
+                lights(il).Init(ans='g' or ans='G');
+            end;
+
+            DefCycle(true);
+        end init;
+
+        Procedure Stat(id,sfile); text id; ref(Outfile) sfile; 
+        inspect sfile do begin short integer i, csum; real wsum;
+            Outtext(id); Outtext(" - Statistics"); Outimage;
+            for i:=north, south, east, west do begin
+                QIn(i).Stat(sfile);                                           
+                csum:=csum+QIn(i).nthrough(left);
+                csum:=csum+QIn(i).nthrough(straight);
+                csum:=csum+QIn(i).nthrough(right);
+                wsum:=wsum+QIn(i).tthrough(left);
+                wsum:=wsum+QIn(i).tthrough(straight);
+                wsum:=wsum+QIn(i).tthrough(right);
+            end;    
+            Outtext("  Total number of cars through this crossing: ");
+            Outint(csum,5); Outimage;
+            Outtext("  Average number of sec. used to get through: ");
+            if csum=0 then Outtext("    --") 
+            else Outfix(wsum/csum,2,8); 
+            Outimage;    
+            Outimage;
+        end stat;
+
+        Procedure DefCycle(initially); Boolean initially;
+        inspect term do begin
+            short integer array istates(0:4);
+            text sw;  
+
+            Boolean Procedure Act(d); character d;
+            begin sw.Setpos(1);
+                while sw.more do begin
+                    if mod(rank(sw.Getchar),32)=mod(rank(d),32) then act:=true;
+                end;
+            end act;
+
+            istates(north):=lights(north).state;
+            istates(south):=lights(south).state;
+            istates(east) :=lights(east).state;
+            istates(west) :=lights(west).state;
+            ClearFrom(3); nevt:=0;
+      more: Outtext("Give the period of time and which lights to switch: ");
+            Position(4);
+            Outtext("   (a lights switches between R-RY-G-Y-R)");
+            Position(5);
+            Outtext("Time: "); levt(nevt+1):= inreal(4);
+            while levt(nevt+1)>0 do begin
+                nevt:=nevt+1;
+                Position(6);
+                Outtext("Lights (NSEW): "); sw:- Intext(4);
+                if Act('N') then 
+                    begin lact(nevt,north):=true; call(lights(north)); end
+                    else  lact(nevt,north):=false;
+                if Act('S') then
+                    begin lact(nevt,south):=true; call(lights(south)); end
+                    else  lact(nevt,south):=false;
+                if Act('E') then
+                    begin lact(nevt,east):=true; call(lights(east)); end
+                    else  lact(nevt,east):=false;
+                if Act('W') then 
+                    begin lact(nevt,west):=true; call(lights(west)); end
+                    else  lact(nevt,west):=false;
+                Position(5);
+                Outtext("Time: "); levt(nevt+1):= inreal(4);
+            end;
+            if istates(north)<>lights(north).state or
+               istates(south)<>lights(south).state or
+               istates(east) <>lights(east).state  or
+               istates(west) <>lights(west).state  then begin
+                Message("The final state should be equal to the initial"
+                             " state");
+                inimage; ClearMessage;
+                Position(3);
+                goto more;
+            end;
+            if not initially then begin
+                evt:=1; Activate this pcrossing delay levt(1);
+            end;    
+        end defcycle;
+
+        Procedure Default(inifil); ref(Infile) inifil;
+        inspect inifil do begin
+            short integer il; character ans;
+            short integer array istates(0:4);
+            text sw;  
+
+            Boolean Procedure Act(d); character d;
+            begin sw.Setpos(1);
+                while sw.more do begin
+                    if mod(rank(sw.Getchar),32)=mod(rank(d),32) then act:=true;
+                end;
+            end act;
+
+            Inimage;
+            for il:=north,south,east,west do begin
+                Inimage; ans:=inchar;
+                lights(il).Init(ans='g' or ans='G');
+                istates(il):=lights(il).state;
+            end;
+
+            Inimage; levt(nevt+1):=Inreal;
+            while levt(nevt+1)>0 do begin
+                nevt:=nevt+1;
+                Inimage; sw:-Intext(4);
+                if Act('N') then 
+                    begin lact(nevt,north):=true; call(lights(north)); end;
+                if Act('S') then
+                    begin lact(nevt,south):=true; call(lights(south)); end;
+                if Act('E') then
+                    begin lact(nevt,east):=true; call(lights(east)); end;
+                if Act('W') then 
+                    begin lact(nevt,west):=true; call(lights(west)); end;
+                Inimage; levt(nevt+1):=Inreal;
+            end;
+            if istates(north)<>lights(north).state or
+               istates(south)<>lights(south).state or
+               istates(east) <>lights(east).state  or
+               istates(west) <>lights(west).state  then begin
+               term.Message("The final state should be equal to the initial"
+                             " state - error in init.file");
+                close; 
+                sysin.Inimage; term.ClearMessage;
+                goto exit;
+            end;
+        end init;
+
+        while true do begin
+            evt:=evt+1;
+            Hold(levt(evt));
+            if lact(evt,north) then call(lights(north));
+            if lact(evt,south) then call(lights(south));
+            if lact(evt,east)  then call(lights(east));
+            if lact(evt,west)  then call(lights(west));
+            if evt=nevt then evt:=0;
+        end;
+    end pligth;
+
+    Process Class CarGen(xq);
+        ref(Queue) xq;      ! The queue in which the cars should be inserted;
+    begin
+        real a,             ! Mean number of seconds between each car;
+             b;             ! Standard deviation;
+        ref(PCar) xcar;
+
+        Procedure Init; inspect term do begin
+            xq.qind.ShowQueue(xq.from);
+            ClearFrom(1);     
+            Outtext("Give the parameters for arrival of cars of      ");
+            Position(2);
+            Outtext("this lane:                                      "); 
+            Position(3);
+            Outtext("  Mean number of seconds between each car: ");
+            a:= Inreal(5);
+            Position(4);
+            Outtext("  Standard deviation in number of seconds: ");
+            b:= Inreal(5);
+            xq.qind.DelShow(xq.from);
+        end init;
+
+        Procedure Default(inifil); ref(Infile) inifil;
+        inspect inifil do begin
+            Inimage; a:=Inreal;
+            Inimage; b:=Inreal;
+        end init;
+
+        while true do begin
+            Hold(Normal(a,b,seed));
+            if carpool.Empty then xcar:-new PCar 
+            else begin
+                xcar:-carpool.first qua pcar;
+                xcar.Out;
+            end;
+            if xq.Incl(xcar) then begin
+                xcar.no:=carno:=carno+1;
+                Activate xcar after this cargen;
+            end else begin
+                xcar.Into(carpool);
+            end;
+        end;
+    end cargen;
+ 
+%+O Process Class Observer; begin
+%+O     short integer odelay;
+%+O     odelay:=1;
+%+O     while true do begin
+%+O         Position(1);
+%+O         term.Outtext("Observer delay: "); Inimage;
+%+O         if sysin.image.strip=/=notext then begin
+%+O             odelay:=inint;
+%+O         end;    
+%+O         ClearFrom(1);
+%+O         Hold(odelay);
+%+O     end;
+%+O end observer;
+  
+%+O Procedure Obs(gcar,msg); ref(Car) gcar; text msg; 
+%+O if obson then begin
+%+O     Outtext("!27!!91!1;1H Observe called:     !8!!8!!8!!8!");
+%+O     Outtext(msg);
+%+O     Breakoutimage;
+%+O     gcar.MoveCar(0); gcar.MoveCar(0);
+%+O     gcar.MoveCar(0); gcar.MoveCar(0); 
+%+O     Inimage; nobs:=nobs+1;
+%+O end obs;
+         
+     Process Class TimeCheck(dt); real dt; 
+     begin real start,simt,nsec; short integer int,cno;
+         character order;
+         Boolean runreal;  
+%+O      ref(Observer) xobs;
+
+         external assembly procedure CINBT="MS@CINBT" is
+         short integer procedure CINBT; ;
+
+         start:=ClockTime; simt:=0; runreal:=true;
+         while true do begin
+             if runreal and then start+simt+dt>ClockTime then begin
+                 Hold(0); 
+%+O              nd:=nd+1;
+             end
+             else inspect term do begin 
+                 simt:=simt+dt;
+                 Setpos(21,35); 
+                 Outtext("Time: "); Outint(Entier(simt),5);
+                 int:=CINBT;
+                 if int>0 then begin
+                     Position(1);
+                     Outtext(" 1 - Change traffic lights  ");
+                     Position(2);  
+                     if runreal then
+                      Outtext(" 2 - Run freely             ")
+                 else Outtext(" 2 - Run in real time       ");
+                     Position(3);
+                     Outtext(" 3 - Terminate              ");
+                     Position(4);
+%+O                  Outtext(" 4 - Observe                ");
+%+O                  Position(5);
+                     Outtext("Give order: ");
+                     order:= Inchar;
+                     if order='1' then begin
+                         ClearFrom(1);
+                         Outtext("     Change traffic lights              ");
+                         Position(2);
+                         Outtext(" 1 - Redefine cycle of traffic lights   ");
+                         Position(3);
+                         Outtext(" 2 - Set time for next switch of lights ");
+                         Position(4);
+                         Outtext("Give order: ");
+                         order:= Inchar;
+                         if order='1' then begin
+                             ClearFrom(1);
+                             Outtext("Which crossing do you want"
+                                          " to redefine (1/2): ");
+                             cno:= Inint(1);
+                             if cno=1 then kryss(1).DefCycle(false)
+                                      else kryss(2).DefCycle(false);
+                         end else
+                         if order='2' then begin    
+                             ClearFrom(1); 
+                             Outtext("Which crossing do you want to "
+                                          "schedule (1/2): ");
+                             cno:= Inint(1);
+                             Position(2);
+                             Outtext("Give no of seconds to next switch: ");
+                             nsec:= InReal(5);
+                             if cno=1 then Reactivate kryss(1) delay nsec
+                                      else Reactivate kryss(2) delay nsec;
+                         end;
+                     end else
+                     if order='2' then runreal:=not runreal 
+                     else if order='3' then this Timecheck.Detach
+%+O                  else if order='4' then begin
+%+O                      ClearFrom(1);
+%+O                      Outtext("     Observatory            ");
+%+O                      Position(2);
+%+O                      Outtext(" 1 - Enter SimOb            ");
+%+O                      Position(3);
+%+O                      Outtext(" 2 - Activate Observer      ");
+%+O                      Position(4);
+%+O                      Outtext(" 3 - Observe car events ");
+%+O                      if obson then Outtext("off ")
+%+O                               else Outtext("on  ");
+%+O                      Position(5);
+%+O                      Outtext("Give order: ");
+%+O                      order:= Inchar;
+%+O                      if order='1' then Rts_Utility(1,0) else
+%+O                      if order='2' then begin
+%+O                          if xobs==none then xobs:-new Observer;
+%+O                          Activate xobs after this timecheck;
+%+O                      end else 
+%+O                      if order='3' then obson:=not obson;
+%+O                  end   
+                     ;
+                     ClearFrom(1);
+                     start:=ClockTime-simt;
+                 end else Hold(dt); 
+             end;
+         end;
+     end timecheck;
+ 
+    Procedure Position(l); short integer l;
+    inspect term do begin
+        if l<=4 then begin
+            Setpos(l,20); 
+            EraseLine;
+            Setpos(l,20);
+        end else begin
+            if l>9 then l:=9;
+            Setpos(l,31); Outtext("                      ");
+            Setpos(l,31);
+        end;
+    end position;
+ 
+    Procedure ClearFrom(l); short integer l;
+    inspect term do begin short integer i;
+        for i:=l step 1 until 4 do begin
+            Setpos(i,20); 
+            EraseLine;
+        end;
+        for i:=max(l,5) step 1 until 9 do begin
+            Setpos(i,31); Outtext("                      ");
+        end;
+        Setpos(l,20);
+    end clearfrom;
+
+    Procedure Initiate; begin
+        character ans;
+        ref(PLight) array lights1,lights2(0:4);
+        ref(Queue) array QIn1,QOut1,QIn2,Qout2(1:4);
+        ref(CarGen) cgn1,cgw1,cgs1,cgn2,cge2,cgs2;
+
+        term:-new Terminal("OWN",24,79);
+        inspect term do begin
+            Open; 
+            MessageLine(1); SetMessageGRM("37");
+            SetEditGRM("34");
+        end;
+
+        carpool:-new Head;
+
+        frmtxt(north):-"North"; frmtxt(south):-"South";
+        frmtxt(east) :-"East";  frmtxt(west) :-"West";
+
+        dirtxt(left):-"Left"; dirtxt(straight):-"Straight"; 
+        dirtxt(right):-"Right";
+%       seed:= SetColour(0); term.ErasePage; SetColour(seed);
+        ErasePage;
+        seed:=1239;
+!       INITGR(14); !!!!!!!;
+        Gcross(1):- new Cross(190,180,0);
+        Gcross(2):- new Cross(450,180,0);
+
+        gcross(1).Draw; gcross(2).Draw;
+
+        kryss(1):-new PCrossing(lights1,QIn1,QOut1);
+        kryss(2):-new PCrossing(lights2,QIn2,QOut2);
+
+        QIn1(north):-new Queue(north, 50, 25,   0,   0, 
+                               kryss(1),none,gcross(1).N.qind);
+        QIn1(south):-new Queue(south, 50, 25,   0,   0,
+                               kryss(1),none,gcross(1).S.qind);
+        QIn1(east) :-new Queue(east,  52,  0, 5.8,  10,
+                               kryss(1),kryss(2),gcross(1).E.qind);
+        QIn1(west) :-new Queue(west,  50, 25,   0,   0,
+                               kryss(1),none,gcross(1).W.qind);
+
+        QIn2(north):-new Queue(north, 50, 25,   0,   0,
+                               kryss(2),none,gcross(2).N.qind);
+        QIn2(south):-new Queue(south, 50, 25,   0,   0,
+                               kryss(2),none,gcross(2).S.qind);
+        QIn2(east) :-new Queue(east,  50, 25,   0,   0,
+                               kryss(2),none,gcross(2).E.qind);
+        QIn2(west) :-new Queue(west,  52,  0, 5.8,  10,
+                               kryss(2),kryss(1),gcross(2).W.qind);
+
+        QOut1(north):-new Queue(north, 32, 0, 5.8,  10,
+                                none,kryss(1),none);
+        QOut1(south):-new Queue(south, 32, 0, 5.8,  10,
+                                none,kryss(1),none);
+        QOut1(east) :-new Queue(east,  32, 0, 5.8,  10,
+                                none, kryss(1),none);
+        QOut1(west) :-QIn2(west);
+
+        QOut2(north):-new Queue(north, 32, 0, 5.8,  10,
+                                none,kryss(2),none);
+        QOut2(south):-new Queue(south, 32, 0, 5.8,  10,
+                                none,kryss(2),none);
+        QOut2(east) :-QIn1(east);
+        QOut2(west) :-new Queue(west,  32, 0, 5.8,  10,
+                                none,kryss(2),none);
+
+        cgn1:-new CarGen(QIn1(north));
+        cgs1:-new CarGen(QIn1(south));
+        cgw1:-new CarGen(QIn1(west));
+
+        cgn2:- new CarGen(QIn2(north));
+        cgs2:- new CarGen(QIn2(south));
+        cge2:- new CarGen(QIn2(east));
+
+        lights1(north):-new PLight(QIn1(north),gcross(1).N.trafl);
+        lights1(south):-new PLight(QIn1(south),gcross(1).S.trafl);
+        lights1(east) :-new PLight(QIn1(east), gcross(1).E.trafl); 
+        lights1(west) :-new PLight(QIn1(west), gcross(1).W.trafl);
+
+        lights2(north):-new PLight(QIn2(north),gcross(2).N.trafl);
+        lights2(south):-new PLight(QIn2(south),gcross(2).S.trafl);
+        lights2(east) :-new PLight(QIn2(east), gcross(2).E.trafl); 
+        lights2(west) :-new PLight(QIn2(west), gcross(2).W.trafl);
+
+        ClearFrom(1);
+        term.Outtext("Do you want to use default values (Y/n): ");
+        ans:= term.Inchar;
+        if ans='n' or ans='N' then begin
+            kryss(1).Init; kryss(2).Init;
+
+            QIn1(north).Init; cgn1.Init;
+            QIn1(south).Init; cgs1.Init;
+            QIn1(east).Init; 
+            QIn1(west).Init; cgw1.Init;
+ 
+            QIn2(north).Init; cgn2.Init;
+            QIn2(south).Init; cgs2.Init;
+            QIn2(east).Init;  cge2.Init;
+            QIn2(west).Init; 
+        end else 
+        inspect new Infile("Traffic.ini") do 
+            if open(blanks(100)) then begin
+                Position(3);
+                term.Outtext("Setting parameters according to Traffic.Ini");
+                kryss(1).Default(this infile); kryss(2).Default(this infile);
+
+                Inimage;
+                QIn1(north).Default(this infile); cgn1.Default(this infile);
+                QIn1(south).Default(this infile); cgs1.Default(this infile);
+                QIn1(east).Default(this infile); 
+                QIn1(west).Default(this infile); cgw1.Default(this infile);
+ 
+                Inimage;
+                QIn2(north).Default(this infile); cgn2.Default(this infile);
+                QIn2(south).Default(this infile); cgs2.Default(this infile);
+                QIn2(east).Default(this infile);  cge2.Default(this infile);
+                QIn2(west).Default(this infile); 
+                close;
+            end else begin
+                term.Message("*** Not able to open Traffic.ini");
+                sysin.Inimage;
+                term.ClearMessage;
+                goto exit;
+          end;
+
+        ClearFrom(1);
+        term.Outtext("For how long do you want to simulate: ");
+        simtime:= term.inreal(6);
+
+        Activate kryss(1) after main;
+        Activate kryss(2) after main;
+%       Activate new TimeCheck(1) after main;
+        Activate new TimeCheck(0.125) after main;
+
+        Activate cgn1 after main;
+        Activate cgs1 after main;
+        Activate cgw1 after main;
+
+        Activate cgn2 after main;
+        Activate cgs2 after main;
+        Activate cge2 after main;
+
+        ClearFrom(1);
+    end initiate;
+
+    Procedure Terminate;
+    inspect new Outfile("Traffic.sta") do begin 
+        open(blanks(80));
+        kryss(1).Stat("Left most crossing",this outfile);
+        kryss(2).Stat("Right most crossing",this outfile);
+        close; term.close;
+    end terminate;    
+
+    Open;
+    Initiate;
+    Hold(simtime);
+    Terminate;
+%+O ClearFrom(1);
+%+O Outtext("Obs was called "); Outint(nobs,0); Outtext(" times."); Outimage;
+%+O Position(2);
+%+O Outtext("TimeCheck ex. Hold(0) "); Outint(nd,0);Outtext(" times.");Outimage;
+%+O inimage;
+exit:close;
+end;
+end;
+end;
+

@@ -1,0 +1,85 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 77
+%
+%  PURPOSE:     Test infile using two infile objects reading from the same
+%               external file.
+%
+%  WRITTEN BY:  BEH   26/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Class Les (n, andre); Integer n; Ref (Les) andre;
+   Begin Text array linjer (1:300);
+         Integer lnr, i;
+         Ref (infile) fil;
+
+         Procedure Sammenlign;
+         Begin Boolean Procedure OK (i); integer i;
+                     OK:= if i<=lnr and i<=andre.lnr then
+                               linjer(i) = andre.linjer(i)
+                          else false;
+
+               For i:= 1, i+1 while i<=lnr, i+1 while i<=andre.lnr do
+               If not OK(i) then found_error := true;
+
+               If found_error then
+               Begin Outtext ("*** NOTE : Did not work.");
+                     Outimage;
+                     Outtext ("       Records read from file:");
+                     Outimage;
+                     For i:= 1, i+1 while i<=lnr, i+1 while i<=andre.lnr do
+                     Begin Setpos(5);
+                           if i<=lnr then Outtext(linjer(i));
+                           Setpos(40);
+                           if i<=andre.lnr then Outtext(andre.linjer(i));
+                           Outimage
+                     End;
+                     Outimage
+               End
+         End pros. sammenlign;
+
+         If andre =/= none then
+               andre.andre :- this Les;
+
+         Detach;
+
+         fil :- new infile ("any77");
+         if not fil.open (blanks (30)) then
+                Error("Can't open infile: any77");
+         fil.Inrecord;
+
+         While not fil.Endfile do
+         Begin i:= n+1;
+               For i:= i-1 while not fil.Endfile and i>0 and lnr<301 do
+               Begin lnr:= lnr+1; linjer(lnr):- copy (fil.image);
+                     fil.Inrecord
+               End;
+               Resume (andre)
+         End;
+
+         While not andre.fil.endfile do resume (andre);
+
+         fil.Close; andre.fil.Close;
+         Sammenlign;
+   End;
+
+   Outtext ("--- START Simula a.s. TEST 77") ;
+   Outimage ;
+   Outtext ("--- Test infile using two infile objects reading from the") ;
+   Outimage ;
+   Outtext ("--- same external file (""any77"").") ;
+   Outimage ; Outimage ;
+
+   Resume (New Les(3, New Les(7, none)));
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 77") ;
+   Outimage
+ END

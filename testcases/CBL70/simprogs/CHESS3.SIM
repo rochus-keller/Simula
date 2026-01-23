@@ -1,0 +1,10 @@
+! Chess control - using the package Chess;
+External Class Chess;
+
+Chess Begin
+    OutText("Resuming the Master"); OutImage;
+    Resume(Master);
+    OutText("Finish: "); OutText(Winner.PName);
+    OutText(" won in move"); OutInt(Winner.Move,3); OutImage;
+End of Program;
+

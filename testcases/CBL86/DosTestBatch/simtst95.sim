@@ -1,0 +1,106 @@
+% =============================================   Main   program =====
+%  PROGRAM NAME:   Simula a.s - SIMULA TEST NO 95
+%
+%  PURPOSE:     Test nested declaration of classes and prefixing.
+%
+%  WRITTEN BY:  BEH   13/01-87
+%
+% ====================================================================
+
+BEGIN
+
+   Boolean found_error ;
+
+   Procedure obs(i); integer i;
+   Begin nr:=nr+1; seq(nr):=i end;
+
+   Integer nr,i; Integer array seq(1:50);
+
+   Class A1 (Pa1); Boolean Pa1;
+   Begin Class A2(Pa2); Boolean Pa2;
+         Begin Class A3(Pa3); Boolean Pa3;
+               Begin Class A4(Pa4); Boolean Pa4;
+                     Begin Class A5(Pa5); Boolean Pa5;
+                           Begin if Pa5 then obs(13);
+                                 inner;
+                                 if Pa5 then obs(15)
+                                 else begin new B1(true); obs(24); end;
+                           End class a5;
+                           if Pa4 then obs(11)
+                           else begin obs(4); new A5(false) end;
+                           inner;
+                           if Pa4 then obs(17)
+                           else obs(25);
+                     End class a4;
+                     if Pa3 then obs(9)
+                     else begin new A4(false); obs(23); end;
+                     inner;
+                     if Pa3 then obs(19)
+                     else obs(26);
+               End class a3;
+               if Pa2 then obs(7)
+               else obs(3);
+               inner;
+               if Pa2 then obs(21)
+               else begin new A3(false); obs(27) end;
+         End class a2;
+
+         if Pa1 then obs(5)
+         else obs(1);
+         inner;
+         if Pa1 then obs(23)
+         else begin obs(2); new A2(false); obs(28) end;
+   End class a1;
+
+   A1 Class B1;
+   Begin A2 Class B2;
+         Begin A3 Class B3;
+               Begin A4 Class B4;
+                     Begin A5 Class B5; obs(14);
+                           obs(12);
+                           new B5(true);
+                           obs(16);
+                     End class b4;
+                     obs(10);
+                     new B4(true);
+                     obs(18);
+               End class b3;
+               obs(8);
+               new B3(true);
+               obs(20);
+         End class b2;
+         obs(6);
+         new B2(true);
+         obs(22);
+   End class b1;
+
+   Outtext ("--- START Simula a.s TEST 95"); Outimage ;
+   Outtext ("--- Test nested declaration of classes and prefixing.") ;
+   Outimage ; Outimage ;
+
+   New A1(false);
+
+   for i:=1 step 1 until nr do if seq(i)<>i then found_error:=false;
+
+   IF found_error THEN
+   Begin
+      Outtext("*** ERROR : Sequence of statements"); Outimage;
+      Outtext("            Call of procedure obs:"); Outimage;
+      Outtext("                ");
+      for i:=1 step 1 until nr do
+      begin
+         if mod(i,5)=1 then
+            begin Outimage; Outtext("                "); end;
+         outint(seq(i),5);
+      end;
+      Outimage;
+    end
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage;
+   END ;
+
+   Outtext ("--- END Simula a.s TEST 95") ;
+   Outimage;
+ END

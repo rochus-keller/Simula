@@ -1,0 +1,160 @@
+% =====================================   Main   program =============
+%  PROGRAM NAME:   SIMULA A/S - SIMULA TEST NO 26
+%
+%  PURPOSE:     Test designational expressions, the goto statement
+%               and switch declaration.
+%
+%  Flow:        t0 -> l1 -> t1 -> l2 -> t2 -> l3.
+%
+%  WRITTEN BY:  BEH   18/07-86
+% ====================================================================
+BEGIN
+   Boolean found_error;
+
+   integer i, j, t;
+   Boolean b;
+
+   Outtext("--- START Simula a.s. TEST 26");
+   Outimage;
+   Outtext("--- Test designational expressions, goto statement");
+   Outimage;
+   Outtext("--- and complex switch declaration");
+   Outimage;
+
+   i := 5;
+
+   begin
+      switch st := t1, t2;
+      switch s := l1, l2, q(i), if b imp j > i then q(2) else l1;
+      switch q := s(1), q(4), q(2),
+                  if if j=i then not b else b eqv b then l3 else s(2),
+                  q(1);
+
+  t0: if t <> 0 or i <> 5 or j <> 0 or b then
+      begin
+         Outtext("*** ERROR: Evaluation of designational expression,");
+         Outimage;
+         Outtext("           goto statement or program sequence ");
+         Outtext           ("control (1)."); 
+         Outimage;
+         Outtext("           Value of significant variables :");
+         Outimage;
+         Outtext("           ");
+         Outint(t, 3); Outint(i, 3); Outint(j, 3);
+         Outtext(if b then " true" else " false");
+         Outimage;
+         found_error := true;
+      end;
+
+      t := 1;
+      go to q(i);
+
+
+  t1: if t <> 1 then
+      begin
+         Outtext("*** ERROR: Evaluation of designational expression,");
+         Outimage;
+         Outtext("           goto statement or program sequence ");
+         Outtext           ("control (2).");
+         Outimage;
+         Outtext("           Value of significant variables :");
+         Outimage;
+         Outtext("           ");
+         Outint(t, 3); Outint(i, 3); Outint(j, 3);
+         Outtext(if b then " true" else " false");
+         Outimage;
+         found_error := true;
+      end;
+
+      t := 2;
+      j := 5;
+      goto s(4);
+
+  t2: if t <> 2 or i <> 5 or j <> 5 or not b then
+      begin
+         Outtext("*** ERROR: Evaluation of designational expression,");
+         Outimage;
+         Outtext("           goto statement or program sequence ");
+         Outtext           ("control (3).");
+         Outimage;
+         Outtext("           Value of significant variables :");
+         Outimage;
+         Outtext("           ");
+         Outint(t, 3); Outint(i, 3); Outint(j, 3);
+         Outtext(if b then " true" else " false");
+         Outimage;
+         found_error := true;
+      end;
+
+      t := j := i := 3;
+      goto  s(3);
+
+
+  l1: if t <> 1 or i <> 5 or j <> 0 or b then
+      begin
+         Outtext("*** ERROR: Evaluation of designational expression,");
+         Outimage;
+         Outtext("           goto statement or program sequence ");
+         Outtext           ("control (4).");
+         Outimage;
+         Outtext("           Value of significant variables :");
+         Outimage;
+         Outtext("           ");
+         Outint(t, 3); Outint(i, 3); Outint(j, 3);
+         Outtext(if b then " true" else " false");
+         Outimage;
+         found_error := true;
+      end;
+
+      begin switch r := s(1), q(4), s(3);
+         begin character c; goto st(t) end;
+      end;
+
+  l2: if t <> 2 or i <> 5 or j <> 5 or b then
+      begin
+         Outtext("*** ERROR: Evaluation of designational expression,");
+         Outimage;
+         Outtext("           goto statement or program sequence ");
+         Outtext           ("control (5).");
+         Outimage;
+         Outtext("           Value of significant variables :");
+         Outimage;
+         Outtext("           ");
+         Outint(t, 3); Outint(i, 3); Outint(j, 3);
+         Outtext(if b then " true" else " false");
+         Outimage;
+         found_error := true;
+      end;
+
+      b := true;
+      goto st(t);
+
+
+  l3: if t <> 3 or i <> 3 or j <> 3 or not b then
+      begin
+         Outtext("*** ERROR: Evaluation of designational expression,");
+         Outimage;
+         Outtext("           goto statement or program sequence ");
+         Outtext           ("control (6).");
+         Outimage;
+         Outtext("           Value of significant variables :");
+         Outimage;
+         Outtext("           ");
+         Outint(t, 3); Outint(i, 3); Outint(j, 3);
+         Outtext(if b then " true" else " false");
+         Outimage;
+         found_error := true;
+      end;
+   end;
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage;
+   END;
+
+   Outtext("--- END Simula a.s. TEST 26");
+   Outimage;
+ END

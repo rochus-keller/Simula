@@ -1,0 +1,1133 @@
+%%0111
+% ===========================================================
+%	SAFEIO.SIM
+% ===========================================================
+%	Useful procedures for interactive IO & text handling
+%
+%	Use as PREFIX:  external class SAFEIO;
+%                  SAFEIO begin ..... end
+% -----------------------------------------------------------
+% Origins:	around 1975
+%
+%  Author: 
+%		Mats Ohlin, foa 1, fack, s-104 50 stockholm 80,      
+%  		Sweden. 
+%                                         
+%	Included in Dec-10 Simula library
+%	Documented by Stefan Arnborg, Lars Enderin, Martin Nilsson, 
+%	Mats Ohlin, Stephan Oldgren and Jacob Palme of The Swedish
+%		National Defence Research Institute
+%
+%	Obtained as part of the SIMDBM Package 
+%		"A Codasyl-type DBMS package in Simula" by Kalle Makila
+%		Swedish Institute of National Defense,  FOA 1 report
+%		C 10038-M3(E5) aug. 1975
+%
+%	Universite de Montreal developement
+%		(supervised by J. Vaucher, professor, 
+%		       Dep. d'Informatique & RO)
+%	- 1981 adapted for CDC Cyber by L. Langlois
+%	- 1982 major revision JF Lamy
+%		- for several years SIMDBM served as the database
+%		  for the Department's equipment inventory
+%	- 1992 adaptation to New Simula Standard and Lund Simula 
+%		   on Sun and major revision
+%		(N. Anquetil & N. Masse)
+%		SimDbm was brought out of mothballs for use in a large
+%		project on software reutilisation (Macroscope Project)
+%		Used with a TCP interface for dataservers in a
+%		distributed "intelligent" information retrieval system
+%	- 1994 reorganisation, cleanup and documentation (minimal)
+%		with a view of returning the software to the Simula
+%		community
+% -----------------------------------------------------------
+%   Version 3.0 - sept 1994 (J. Vaucher)
+%           
+%	    - Major reorganisation of Safeio v2.3
+%	    - Many procedures specific to SIMDBM, such as encoding 
+%	      and decoding Data structures in the Montreal Format
+%	      have been removed from SAFEIO into module MCODE
+%	    - Procedures have been re-grouped functionally
+%	    - Marginally useful procedures have been removed
+%      - New procedures added:
+%        	- getWord,  inWord
+%        	- inPassWd  (requires Lund Simula library)
+%      - MENU   redefined & much improved 
+%              (Old MENU now called: DECmenu )
+%	    - SEARCH redefined & rewritten
+%      - Safeio was tested on SUN and SGI. It tries to be 
+%        machine-independent but for a new environment, check:
+%          - CHECKINT/ CHECKREAL
+%		     - SCANINT / SCANREAL
+%      - It should also work for MPW/MAC. Main body of SAFEIO
+%        tests SimulaID to see if we are running on a Mac and sets
+%        MAC Flag.  This is used in interactive Input procedures 
+%        to skip prompt and return only user-entered data. See:
+%         "inline" and "request"
+% -----------------------------------------------------------
+%	Dependencies:
+%		
+%		- "character_io" CLASS from SIMLIB (Lund environment)
+%		    for one procedure, INPASSWD, to get passwords without 
+%		    echo on terminal (minor part of safeio & simdbm)
+% -----------------------------------------------------------
+
+
+% ***************************************************************
+% ***************************************************************
+%                         CONTENTS
+% ***************************************************************
+% ***************************************************************
+%      BASIC TEXT HANDLING PROCEDURES
+% ---------------------------------------------------------------
+%	- front( t )      -> t
+%	- frontstrip( t ) -> t
+%	- from( t,i)      -> t
+%	- tsub( t,pos,len)      -> t
+
+% ***************************************************************
+%       Other TEXT UTILITIES
+% ---------------------------------------------------------------
+%  - loctext: 	Find text in array
+%  - search: 	Find sub-text in text
+%  - scanto:	Find substring delimited by C
+%  - splitc:	Split Text delimited by DEL characters
+%	        	   into array of sub-parts	
+%  - getWord(T)  Returns the next "word" in T
+%  - blank(C)   True if C is space or TAB
+
+% ***************************************************************
+%      CONVERSIONS:  text -> numeric
+% ---------------------------------------------------------------
+%	- checkint(T)	--> integer CODE (-1, 0, 1)
+%	- checkreal(T)	--> integer CODE (-1, 0, 1)
+%	- scanint(T)	--> integer 
+%	- scanreal(T)	--> real
+% ---------------------------------------------------------------
+%	            numeric -> text
+% ---------------------------------------------------------------
+%	- putint(I)		--> text
+%	- putreal(R)	--> text
+
+% ***************************************************************
+%      IO Procedures
+% ---------------------------------------------------------------
+%	- outline(t):		Writes T & outimage
+%	- inline(question):	Returns answer to question
+%	- InPassWd( Prompt):	Like "inline" but the characters
+%	                     	typed by the user do not appear
+
+% ***************************************************************
+%		REQUEST	 Procedures for safe IO
+% ---------------------------------------------------------------
+%  - Request ( prompt, default, validresult, errmessage, help)
+% ---------------------------------------------------------------
+%   REQUEST with its associated procedures is designed to enable 
+%     a safe question-and-answer dialogue with a terminal.  
+%	  The procedures allow you to ask the user for variables of
+%     various SIMULA types.  The user answers are checked for
+%     correct type and for acceptance according to criteria
+%     specified by the programmer.  Help and error messages are
+%     given.  
+
+% ***************************************************************
+%        MENU Procedures
+% ---------------------------------------------------------------
+%	- Menu (Choix, Default) --> text
+%	- DECmenu(t,i,table,n) --> Bool
+% ***************************************************************
+
+
+% ***************************************************************
+% *************  start of Main Program   ************************
+% ***************************************************************
+
+EXTERNAL class Character_IO = "simlib/character_io";
+
+SimSet CLASS SAFEIO ;
+virtual:   
+    PROCEDURE InitDebug is
+        INTEGER PROCEDURE InitDebug;;
+
+BEGIN     
+
+    TEXT		VERSION =" version 3.0 ";	
+
+% ======= Default Virtuals ====================
+
+    INTEGER PROCEDURE InitDebug;
+           DebugLevel := 1;
+% =============================================
+
+   INTEGER	DebugLevel;
+   BOOLEAN MAC;
+
+
+% ***************************************************************
+% ***************************************************************
+%      BASIC TEXT HANDLING PROCEDURES
+% ---------------------------------------------------------------
+%	- front( t )      -> t
+%	- from( t,i)      -> t
+%	- rest( T )       -> t
+%	- frontstrip( t ) -> t
+%	- tsub( t,pos,len)      -> t
+% ***************************************************************
+% ***************************************************************
+
+! ----------------------------------------------------------- ;
+   TEXT PROCEDURE front(t);
+   TEXT t;
+! ----------------------------------------------------------- ;
+!  returns a reference to the part of T before POS ;
+! ----------------------------------------------------------- ;
+
+   IF t =/= notext THEN
+	  front :- t.sub( 1, t.Pos - 1);
+
+
+! ----------------------------------------------------------- ;
+   TEXT PROCEDURE from( t, i);
+   TEXT t;
+   INTEGER i;
+! ----------------------------------------------------------- 
+   returns a reference to the end part of T starting at
+   POS = i.
+! ----------------------------------------------------------- ;
+
+   IF i <= t.length THEN
+	  from :- IF i <= 0 THEN t ELSE t.sub( i, t.Length - i + 1);
+   
+! ----------------------------------------------------------- ;
+   TEXT PROCEDURE rest(t);    TEXT t;
+! ----------------------------------------------------------- ;
+!	returns a subtext reference of a text starting at POS.    ;
+! ----------------------------------------------------------- ;
+
+   IF t =/= NOTEXT THEN
+	  rest :- t.Sub( t.Pos, t.Length - t.Pos + 1);
+
+
+! ----------------------------------------------------------- ;
+   TEXT PROCEDURE frontstrip(t);
+   TEXT t;
+! ----------------------------------------------------------- 
+   returns a reference to the longest subtext of T starting
+   with the first non-blank character.
+ ----------------------------------------------------------- ;
+   BEGIN
+	  t.setpos(1);
+	  WHILE t.more DO
+	     IF t.getchar <> ' ' THEN
+			BEGIN
+			   frontstrip :- t.sub(t.pos - 1, t.Length - t.pos + 2);
+			   t.setpos(0);
+			END;
+   END  of  frontstrip;
+
+! -------------------------------------------------------- ;
+   TEXT PROCEDURE tsub( t, p, l);
+   TEXT t;
+   INTEGER p, l;
+! -------------------------------------------------------- ;
+!  Safe version of SUB. In cases where t.sub(p,l) would have 
+   caused a run time error, NOTEXT is returned.
+   ----------------------------------------------------------;
+
+   IF p >= 1 AND l >= 0 AND p + l <= t.length + 1
+	  THEN  tsub:- t.sub( p, l);
+
+
+
+
+% ***************************************************************
+% ***************************************************************
+%       Other TEXT UTILITIES
+% ---------------------------------------------------------------
+%  - loctext: 	Find text in array
+%  - search: 	Find sub-text in text
+%  - scanto:	Find substring delimited by C
+%  - splitc:	Split Text delimited by DEL characters
+%	        	   into array of sub-parts	
+%  - getWord(T)  Returns the next "word" in T
+%  - blank(C)   True if C is space or TAB
+% ***************************************************************
+% ***************************************************************
+
+
+! ----------------------------------------------------------- ;
+   INTEGER PROCEDURE loctext( t, a);
+   TEXT t;
+   TEXT ARRAY a;
+! -------------------------------------------------
+   Locate text T in array A, if present return index
+   for it otherwise return zero.  Stop search at first
+   NOTEXT table entry
+   ---------------------------------------------------------;
+   BEGIN
+	  INTEGER n, ub;
+	  
+	  ub := upperbound( a, 1);
+	  n := 1;
+	  WHILE n   <= ub       and then 
+            a(n) =/= NOTEXT and then
+            a(n) <> T 
+      DO
+         N := N+1;
+
+      IF n <= ub and then a(n) = t 
+      THEN loctext := n;
+   END of locTEXT;
+   
+! ----------------------------------------------------------- ;
+   integer procedure SEARCH ( Master, STRING);
+   Name Master;
+   TEXT Master, STRING;
+! ----------------------------------------------------------- ;
+!  
+   Searches for the string STRING in the text MASTER.  Search
+   starts at POS and returns the position of the first occurence 
+   of STRING.  If no STRING is found then the result is Zero
+.
+   Master.pos = master.length+1  if STRING is not found
+   Master.pos = foundPOS+1       if STRING is     found
+   ------------------------------------------------------------;
+   BEGIN Integer MaxPos, Len;
+
+      Len    := STRING.length;
+      MaxPos := master.length - Len + 1;
+	  WHILE master.pos <= MaxPos DO
+         IF master.sub(master.pos, STRING.length) = STRING
+         Then Begin
+             search := master.pos;
+             master.getchar ;
+             goto EXIT;
+         End
+         Else master.getchar;    ! == master.Setpos(master.pos + 1);
+
+      master.setpos(0);
+EXIT:
+   END of search;
+
+
+
+! ----------------------------------------------------------- ;
+   TEXT PROCEDURE scanto(tt,c);
+! ----------------------------------------------------------- ;
+   NAME tt; 
+   TEXT tt;
+   CHARACTER c;
+!
+	Returns the a portion of the text in TT (starting at POS)
+    and delimited by the character C ( or until the end of text).  
+	The delimiter C is not included in the returned text.  
+	POS is set just past the delimiter.
+Uses:
+	- FROM
+   ----------------------------------------------------------- ;
+   BEGIN
+	  TEXT t;
+	  INTEGER p;
+	  
+	  t:- tt;
+	  p:= t.pos;
+	  WHILE t.more DO
+		 IF t.getchar = c THEN
+			BEGIN
+			   scanto:- t.sub(p,t.pos-p-1);
+			   goto out;
+			END;
+	  scanto:- from(t,p);
+out:  
+	  tt.setpos(t.pos);
+   END of scanto;
+ 
+
+! ----------------------------------------------------------- ;
+   integer procedure SPLITC( t, del, ta);
+! ----------------------------------------------------------- ;
+   TEXT t;
+   CHARACTER del;
+   TEXT ARRAY ta;
+!
+   this procedure splits the text T into parts separated
+   by the character delimiter DEL and makes the elements of
+   ta[1:n] denote the different parts of t (without DEL).
+   the returned value splitc is the number of parts found.
+   however, if more than n parts are found, the value -1 is
+   returned.
+   
+   original author: mats ohlin, foa 1, fack, 
+                    s-104 50 stockholm 80, sweden.
+  -----------------------------------------------------------
+  Uses:
+	- scanto
+  -----------------------------------------------------------  ;
+   BEGIN
+	  INTEGER i, n;
+	   
+	  n := upperbound( ta, 1);	
+	  t.setpos(1);
+	  FOR i:= i+1 WHILE t.more DO
+		 IF i>n THEN
+			BEGIN
+			   splitc := -1;
+			   GOTO exit
+			END
+		 ELSE ta(i) :- scanto( t, del);
+	  splitc:= i - 1;
+	  FOR i := i STEP 1 UNTIL n DO
+		 ta(i) :- NOTEXT;
+exit:
+   END of splitc;
+
+
+! ================================================= ;
+	text procedure GetWord( T ); name T; Text T; 
+! -------------------------------------------------
+  Returns the next "word" in a text. Where WORD is
+  defined as either a quoted string or a sequence
+  of non-blank characters.
+     1) BLANK includes SPACE and TAB
+     2) The quotes ( ' or " ) are not considered 
+	    part of the WORD
+	 3) End-of-Line acts as a terminator
+  -------------------------------------------------  ;
+  Begin
+      character C, C2;
+
+      C := ' ';
+      while T.more and blank(C) do 
+	     C := T.getchar;
+		 
+      if not Blank(C) then 
+      begin
+         integer i,Len;
+
+         if C= ''' or C = '"' then 
+		 begin
+            i := T.pos;
+            while T.more and C2 <> C 
+			   do C2 := inchar;
+            Len := IF C = C2
+               THEN T.Pos-i-1
+               ELSE T.Pos-i;
+           
+         end else begin 
+            i := T.pos-1;
+            while T.more and not Blank(C) 
+               do C := inchar;
+            Len := IF Blank(C)
+               THEN T.Pos-i-1
+               ELSE T.Pos-i;
+         end;
+         GetWord :- copy(T.sub(i,Len));
+      end
+    end  *** GetWd ***;
+
+! ================================================= ;
+  Boolean procedure Blank(C) ; character C;
+! ------------------------------------------------- ;
+	Blank := C <= ' ' or else 
+	         C = '!127!';
+
+
+
+% ***************************************************************
+% ***************************************************************
+%      CONVERSIONS:  text -> numeric
+% ---------------------------------------------------------------
+%
+%	- checkint(T)	--> integer CODE (-1, 0, 1)
+%	- checkreal(T)	--> integer CODE (-1, 0, 1)
+%	- scanint(T)	--> integer 
+%	- scanreal(T)	--> real
+% ---------------------------------------------------------------
+%	            numeric -> text
+% ---------------------------------------------------------------
+%	- putint(I)		--> text
+%	- putreal(R)	--> text
+% ***************************************************************
+% ***************************************************************
+
+% VARIABLES used by the conversion routines 
+% ---------
+
+   TEXT    t15,	
+           MaxintText;
+   INTEGER MaxintLength; 	
+
+
+% -----------------------------------------------------------
+      integer procedure CHECKINT(T);  TEXT T;
+% -----------------------------------------------------------
+   ! Checkint analyses the text T from T.pos to see if a "getint"
+     operation from this point (T.rest.getint) would be legal.
+  
+     Return Code:
+         1 :    Legal integer fills remaining text
+         0 :    Legal integer followed by other text
+        -1 :    Not an integer
+    ------------------------------------------------------------;
+  
+   BEGIN
+	  CHARACTER c;   
+	  INTEGER p, L;   
+
+	  c:= ' ';  
+	  WHILE (c = ' ' OR c = Char(9)) AND T.More DO c := T.GetChar;
+	  IF (c = '+' OR c = '-') AND T.More THEN      c := T.GetChar;
+          
+	  IF NOT Digit(c) THEN checkint := -1 
+	  ELSE 
+		 BEGIN
+			Checkint := 1;
+			
+			WHILE c = '0' AND T.More DO  c := T.GetChar;
+			
+			p := T.Pos - 1;
+			
+			WHILE Digit(c) AND T.More DO c := T.GetChar;
+			
+			IF Digit(C) THEN L := T.Pos - P
+			ELSE
+			   BEGIN
+				  L := T.Pos - P - 1;
+				  Checkint := 0;
+			   END;
+                
+			IF  L <  MaxintLength  THEN ! .... rien...;
+		    ELSE IF L >  MaxintLength OR ELSE
+                T.Sub(p,L) > MaxintText THEN checkint :=  -1 ;
+		 END;    
+EXIT: 
+   END of checkint;
+
+
+! ----------------------------------------------------------- ;
+   integer procedure CHECKREAL(t);
+                          NAME t;  
+                          TEXT t;
+! ----------------------------------------------------------- ;
+!  verification limitee au debut de la ligne .
+  ------------------------------------------------------------;
+  
+   IF t.strip.length < t.pos 
+   THEN t.setpos(0) 
+   ELSE
+	  BEGIN   
+		 TEXT u,v;   
+		 CHARACTER c;   
+		 INTEGER p, L; 
+		 REAL x;
+
+		 u :- t;
+		 c := ' ';  
+	     WHILE (c = ' ' or c = char(9)) AND u.more DO 
+			c := u.getchar;
+		 IF c = ' ' or c = char(9) THEN
+			BEGIN
+			   checkreal := 0 ;
+			   GOTO exit
+			END;
+
+		 IF (c = '+' or c = '-') AND u.More
+			THEN c := u.getchar; 
+		 IF not digit(c)
+		 THEN checkreal := -1 
+		 ELSE
+			BEGIN   
+			   p := u.pos - 1;
+			   v :- u.sub( p, u.Length - p + 1);
+			   x := v.getreal;
+			   u.setpos( p + v.Pos - 1);
+			END;    
+exit:	 
+		 t.setpos(u.pos);
+	  END of CheckReal;
+
+! ----------------------------------------------------------- ;
+   INTEGER  PROCEDURE scanint(t);
+! ----------------------------------------------------------- ;
+   NAME t;
+   TEXT t;
+!
+   Scanint reads a VALID integer in T starting at POS.
+   If there is no valid integer, then MININT in returned and
+   POS is not advanced
+Uses:
+	- CHECKINT
+	- REST
+--------------------------------------------------------------;
+   BEGIN
+	  TEXT s;
+	  INTEGER p;
+	  
+	  p := t.pos;
+	  s :- rest(t);
+	  IF (checkint(s) >= 0) THEN
+		 BEGIN
+			scanint := s.getint;
+			t.Setpos(p + s.pos - 1);
+		 END
+	  ELSE  scanint := - Minint;
+   END of scanint;
+	
+! ----------------------------------------------------------- ;
+   REAL PROCEDURE scanreal(t);  
+! ----------------------------------------------------------- ;
+   NAME t;
+   TEXT t;
+
+!   SCANREAL reads a VALID integer in T starting at POS.
+   If there is no valid integer, then MININT in returned and
+   POS is not advanced
+
+Uses:
+	- CHECKREAL
+	- REST
+--------------------------------------------------------------;
+   BEGIN 
+	  TEXT s;
+	  INTEGER p;
+	  
+	  p := t.pos;
+	  s :- rest(t);
+	  IF (checkreal(s) = 1) THEN
+		 BEGIN
+			scanreal := s.GetReal;
+			t.Setpos(p + s.pos - 1);
+		 END
+	  ELSE
+	  scanreal := minreal ;
+	  
+   END  of scanreal ;
+	
+	
+! -------------------------------------------------------- ;
+   text procedure INTPUT(i);
+   INTEGER i ;
+! -------------------------------------------------------- ;
+   BEGIN 
+	  T15.putint(i);
+	  intput :- copy(frontstrip(T15)) ;
+   END   of intput ;
+   
+
+% ! -------------------------------------------------------- ;
+%    text procedure REALPUT(x);
+%    REAL x;
+% ! -------------------------------------------------------- ;
+%    BEGIN
+% 	  t21.putreal( x, 15);
+% 	  realput :- copy( frontstrip(t21) );
+%    END   of realput ;
+	
+	
+% ***************************************************************
+% ***************************************************************
+%      IO Procedures
+% ---------------------------------------------------------------
+%	- nl:        		= OUTIMAGE
+%	- outline(t):		Writes T & outimage
+%	- inline(question):	Returns answer to question
+%	- InPassWd( Prompt):	Like "inline" but the characters
+%	                     	typed by the user do not appear
+%	- inWord(F):   		Gets the next WORD in file F
+% ***************************************************************
+% ***************************************************************
+
+
+! ----------------------------------------------------------- ;
+   PROCEDURE nl;	outimage;
+! ----------------------------------------------------------- ;
+
+! ----------------------------------------------------------- ;
+   PROCEDURE outline(t);
+! ----------------------------------------------------------- ;
+   TEXT t;
+   BEGIN
+	  INTEGER left;
+	  
+	  left := Length - Pos + 1;
+	  IF t.length > left THEN
+		 BEGIN
+			OutText( t.sub( 1, left) );
+			OutText( t.sub( 1 + left, t.Length - left) );
+		 END
+	  ELSE OutText(t); 
+	  OutImage;
+   END of outline ;
+   
+
+! ----------------------------------------------------------- ;
+   TEXT PROCEDURE inline(question);
+   TEXT question;   
+! ----------------------------------------------------------- ;
+! 	returns a stripped copy of input line
+   after displaying question on sysout  ;
+
+   INSPECT sysin DO
+	  BEGIN
+		 INTEGER P;
+		 TEXT T;
+		 
+		 sysout.OutText(question);
+		 P := sysout.pos;
+		 sysout.breakoutimage ;
+	
+		 inimage;
+ 	     T :-  IF MAC 
+		       THEN Image.Sub( P, Length - P + 1)
+		       ELSE  Image;
+	
+		 inline :- copy(T.strip);
+		 setpos(0);
+	  END  of infile;
+
+% -----------------------------------------------
+  text procedure InPassWd( Prompt );
+! -----------------------------------------------
+   Using "simlib/character_io" CLASS, this reads in 
+   a PASSWORD without echoing the characters
+      (added july 1992 - J. Vaucher )
+  ------------------------------------------------ ;
+	text Prompt;
+begin
+	ref( Character_IO) TTY;
+	character C;
+	text T, tempT;
+	
+	TempT :- sysin.image;
+	sysin.close;
+	
+	TTY :- new Character_io;
+	TTY.open;
+	TTY.Outstring(Prompt,Prompt.length);
+	T :- blanks(40);
+	C := TTY.input;
+	while (rank(C) > 31 or rank(C) = 8) and T.more do begin
+		if rank(C) = 8 or rank(C) = 127
+		then begin 
+			if T.pos >1 then T.setpos(T.pos-1);
+		  end
+		else T.putchar(C);
+		C := TTY.input;
+	end;
+	tty.Outstring("!13!!10!",2);
+	TTY.close;
+	
+	sysin.open(tempT);
+	sysin.setpos(0);
+	
+	InPassWd :- T.sub(1,T.pos-1);
+
+end ------------ InPassWd --------------- ;
+
+
+
+! ================================================= ;
+	text procedure inWord(F); Ref(infile)F;
+! -------------------------------------------------
+  Get the next WORD in the file F (see GetWord)
+  	- a Word cannot span lines
+  -------------------------------------------------  ;
+   if not F.lastitem then
+      inWord :- GetWord(F.image);
+
+
+
+
+% ***************************************************************
+% ***************************************************************
+%           REQUEST	 Procedures for safe IO
+% ---------------------------------------------------------------
+%  - Request ( prompt, default, validresult, errmessage, help)
+%
+%  - INTinput  (N, Bool.expr)		-->  Bool
+%  - REALinput (R, Bool.expr)		-->  Bool
+%  - TEXTinput( T, Bool.expr)		-->  Bool
+%  - BOOLinput( B )         		-->  Bool
+%
+%  - Help( T )         		-->  Bool
+%  - noHelp         		-->  Bool
+% ---------------------------------------------------------------
+%   REQUEST with its associated procedures is designed to enable 
+%     a safe question-and-answer dialogue with a terminal.  
+%	  The procedures allow you to ask the user for variables of
+%     various SIMULA types.  The user answers are checked for
+%     correct type and for acceptance according to criteria
+%     specified by the programmer.  Help and error messages are
+%     given.  
+%		HELP "Procedure" is called when user types "?"
+%		DEFAULT value used when user types <CR>
+%
+%	The TYPEinput procedures use call by NAME to allow flexible
+%	acceptance constraints
+% ***************************************************************
+% ***************************************************************
+
+! ----------------------------------------------------------------- ;
+  PROCEDURE Request( prompt, default, validresult, errmessage, help);
+                NAME prompt, default, validresult, errmessage, help ;
+                TEXT prompt, default,              errmessage       ;
+                BOOLEAN               validresult,             help ;
+! ----------------------------------------------------------------- ;
+! Typical use:
+
+	  REQUEST("Enter integer:","15", 
+	          intinput(i, i>= 0 and i <= 59),
+              "Value must be in range [0..59]",
+               help("Time in seconds [0..59]"))  
+ ------------------------------------------------------------------ ;
+   INSPECT sysin DO
+	  BEGIN
+		 TEXT input;
+		 BOOLEAN result_ok;
+		 
+		 WHILE not result_ok DO
+			BEGIN
+			   INTEGER P;
+
+			   OutText(prompt);
+	           IF default =/= NOTEXT THEN
+				  OutText(" /" & default & "/" ); 
+			   outtext(":");
+	           INSPECT sysout DO setpos( pos // 3 * 3 + 4);
+			   P := sysout.pos;
+			   BreakOutimage;
+
+	           IF Endfile THEN
+			   input :- default
+			   ELSE
+				  BEGIN
+					 inimage;
+	                 input :- IF MAC 
+					          THEN image.sub( P,Length - P + 1)
+					          ELSE image;
+
+					 input :-  copy( frontstrip( input.strip) );
+	                 IF input == NOTEXT THEN
+						input :- copy(default);
+				  END;
+
+	           IF input = "?" THEN
+			   result_ok := help
+			   ELSE
+				  BEGIN
+					 TEXT error;
+					 
+					 image.setpos(1);
+					 Image := input;
+					 result_ok := validresult;
+					 error :- errmessage;
+					 IF NOT result_ok AND error NE NOTEXT THEN
+						BEGIN
+						   outtext(error);
+						   outimage;
+						END;
+				  END
+			END -- not result_ok -- ;
+	  END of Request;
+   
+! ----------------------------------------------------------- ;
+   boolean procedure INTinput (n, valid);
+! ----------------------------------------------------------- ;
+                          NAME n, valid;
+                       INTEGER n;
+                       BOOLEAN    valid;
+   INSPECT sysin DO
+	  IF checkint(Image.strip) NE 1 THEN   
+		 BEGIN
+			OutText("INTEGER VALUE expected");
+			OutImage;
+			intinput := false;
+		 END
+	  ELSE
+		 BEGIN
+			image.setpos(1);
+			n := image.getint;
+			intinput := valid;
+		 END  of intinput ;
+
+
+! ----------------------------------------------------------- ;
+   boolean procedure REALinput( r, valid);
+! ----------------------------------------------------------- ;
+                           NAME r, valid;
+                           REAL r;
+                           BOOLEAN valid ;
+   BEGIN
+      INSPECT sysin DO
+         IF checkreal(image) ne 1 THEN
+			BEGIN
+			   outtext("real VALUE expected");
+			   outimage;
+			   realinput := false;
+			END
+		 ELSE
+			BEGIN
+			   image.setpos(1);
+			   r := image.getreal;
+			   realinput := valid;
+			END
+   END  of realinput ;
+
+
+! ----------------------------------------------------------- ;
+   boolean procedure TEXTinput( t, valid);
+! ----------------------------------------------------------- ;
+                           NAME t, valid;
+                           TEXT t;
+                           BOOLEAN valid;
+   BEGIN
+	  t :- Copy( SysIn.Image.Strip );
+	  SysIn.Image.Setpos(0);
+	  textinput := valid;
+   END  of TEXTinput;
+
+! ----------------------------------------------------------- ;
+   boolean procedure  BOOLinput(b);
+! ----------------------------------------------------------- ;
+   NAME b;
+   BOOLEAN b;
+   BEGIN
+	  TEXT t; 
+	  CHARACTER c;
+
+	  t :- lowcase( Copy( SysIn.Image.Sub( 1, 1) ) );
+      IF (t = "y") OR (t = "n") OR (t = "o") THEN
+		 BEGIN
+			boolinput := TRUE;
+            b := (t = "y") OR (t = "o");
+		 END
+   END   of boolinput ;
+
+
+! ----------------------------------------------------------- ;
+  boolean procedure  help(t);
+! ----------------------------------------------------------- ;
+                     NAME t ;
+                     TEXT t ;
+   BEGIN
+	  OutText(t);
+	  outimage;
+   END  of help ;
+
+
+! ----------------------------------------------------------- ;
+   boolean procedure  nohelp;
+! ----------------------------------------------------------- ;
+   BEGIN
+	  outTEXT("Sorry, no help available in this case.");
+	  outimage;
+   END    of nohelp;
+
+
+% ***************************************************************
+% ***************************************************************
+%        MENU Procedures
+% ---------------------------------------------------------------
+%	In the initial Safeio, there was only the procedure
+%	now called DECmenu to find an unambiguous match between
+%	a text response from a user and a table of texts.
+%
+%   With experience, we have developped a new MENU procedure
+%	which displays choice for the user and records his choice.
+%   An important design criterion for this procedure was the
+%	ability to handle allows fast and correct modifications 
+%	to program text to change the options presented in
+%	the menu...or to create the menu dynamically.
+%	This means that:
+%	
+%	1) the menu choices are provided as a single text with
+%	   alternatives delimited by a DELIMITER character
+%	2) different DELIMITERS can be used; the DEL is the first
+%	   character in the menu string 
+%	3) alternatives have two fields (seperated by ":")
+%	   the second field is displayed and the first is a
+%	   TAG which is returned when the alternative is
+%	   selected, i.e.:  "c1:color BLUE".  Thus if we change 
+%	   the number of alternatives, the returned values for
+%	   a given selection is always the same.
+%	4) if the two fields are not given, the first word of the
+%	   displayed text (lower case) is used as a TAG
+%	5) The user can either answer by typing the selection
+%	   number or by giving an unambiguous text prefix
+%	6) A default TAG (or notext) can be given to be chosen
+%	   if the user just does <CR>
+% ---------------------------------------------------------------
+
+
+!----------------------------------------------------------;
+  text procedure Menu (Choix, Default); text Choix, Default;
+!----------------------------------------------------------;
+% Typical use:
+%
+%	T :- Menu("/tag1:choice_1"
+%             "/tag2:choice_2"   ! this line could be commented out ;
+%             "/tag3:choice_3","tag1") ;
+%
+%	UTILISE:  
+%      checkint, DECmenu
+%      from,     getword,    rest, 
+%      scanto,   splitc, 
+!------------------------------------------------------;
+begin
+	text array CA  (1:25),
+		   Cle (1:25),
+		   Etiq(1:25);
+	character C;
+	integer i,  Np, iDefault;
+	Boolean OK;
+	Text    T;
+	
+	C := Choix.sub(1,1).getchar;
+	Np := splitc(from(Choix,2), C, CA );
+	iDefault := 1;
+	i := 0;
+	for i := i+1 while i<=Np and then CA(i) =/= notext do 
+	  begin
+		Cle (i) :- scanto(CA(i),':');
+		Etiq(i) :- rest(CA(i));
+		if Etiq(i) == notext then 
+		  begin text T;
+			Etiq(i) :- Cle(i);
+			T :- copy(cle(i));
+			T :- getWord(T);
+			Cle(i) :- lowcase(T);
+		  end;
+		if Cle(i) = Default then
+			iDefault := i;
+	  end;
+	
+	Np := i-1;
+	while not OK do  begin
+		for i:= 1 step 1 until Np do begin
+			outint(i,4);
+			outtext(": ");
+			outtext(Etiq(i));
+			outimage;
+		end;
+		outimage;
+		
+		outtext("Votre choix /"); outint(iDefault,0);
+		outtext("/: "); Breakoutimage;
+		sysin.setpos(0);
+		inimage;
+		T :- sysin.image.strip;
+		if T == notext then 
+		    Begin i := iDefault; OK := true end
+		else if checkint(T) > 0 then 
+		 begin
+		   i := T.getint;
+		   if i >0 and i <= Np then 
+			   OK := true
+		 end 
+		else if DECmenu(T, i, Etiq, Np) then OK := true;
+		
+		if OK then Menu :- copy(Cle(i))
+		else begin
+			outimage;
+			outline("   **** Erreur ****");
+		end;
+		outimage;
+	end -- boucle while -- ;
+end --- Menu ---;	
+	
+! ----------------------------------------------------------- ;
+   BOOLEAN PROCEDURE DECmenu(t,i,table,n);
+! ----------------------------------------------------------- ;
+   NAME i; 
+   TEXT t;
+   TEXT ARRAY table;
+   INTEGER i,n;
+! ----------------------------------------------------------- ;
+!
+   This procedure will try to match a text T with a text entry in
+   TABLE.  An exact match will always be accepted, but we also
+   accept an unambiguous prefix.  
+   If a match is found then the index of the matching entry
+      is put in "i" and DECmenu returns TRUE. 
+   Otherwise, Decmenu -> FALSE and i=0
+
+Example:
+      
+   menutable[1]:- "stop"
+   menutable[2]:- "start"
+   menutable[3]:- "end"
+   menutable[4]:- "endure"
+   menutable[5]:- "exit"
+   
+	   ok:= menu(t,index,menutable,5)
+
+	t        OK   Index
+	------   ---  -----
+	start    T     2
+	sta      T     2
+	st       F    -1
+	xx       F     0
+ ------------------------------------------------------------ ;
+   BEGIN
+	  TEXT u;
+	  INTEGER j, k, hit;
+	  
+	  TEXT PROCEDURE cplw(t); TEXT t;
+	     cplw :- lowcase( Copy(t) );
+	  
+	  n := min( n , upperbound( table, 1) );
+	  u :- lowcase(t.strip);
+   
+	  FOR j := 1 STEP 1 UNTIL n DO
+	     IF u = cplw( table(j) ) THEN
+		BEGIN 
+		   hit := 1;
+		   k := j;
+		   GOTO ready
+		END
+	     ELSE
+	        IF u.length < cplw( table(j) ).length THEN
+	        BEGIN
+	          IF u = cplw( table(j) ).sub( 1, u.length) THEN
+			  BEGIN
+					k := j;
+					hit := hit + 1
+			  END
+	       END;	
+ready:
+	  DECmenu := hit = 1;
+	  IF hit = 1 THEN i := k ;
+   END of menu;
+
+
+% --------------------------------------------------------
+% ***************  i n i t i a l i s a t i o n  ********** 
+% --------------------------------------------------------
+
+   InitDebug;
+   IF DebugLevel > 0 THEN 
+	outline( "------------------ SAFEIO ("&VERSION&") -------------------");
+
+% Initialization of the variables used by the CONVERSION PROCEDURES
+%		( checkint, putint, etc...)
+% --------------------------------------------------------
+
+   T15 :- blanks(15);
+   T15.putint(maxint);
+   MaxintTEXT :- copy( frontstrip(T15) ) ;
+   MaxintLength := MaxintText.length;
+
+
+% --------------------------------------------------------
+%	Are we on a MAC ?
+% --------------------------------------------------------
+  Begin	text T;  integer P;
+	T :- SimulaID;
+	       search(T,"!!!");
+	P   := search(T,"!!!") + 3; 
+	Mac := T.sub(P, 3) = "MAC";
+  end;
+
+   INNER;
+
+END   *********  of class safeio  ************** ;             

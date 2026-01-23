@@ -1,0 +1,510 @@
+% ----------------------------------------------------------------------
+%	                          DBINDEX.SIM
+%
+%	MODIFIE:
+%
+%       Version 1.0     9 sept 1992     J. Vaucher
+%                       - Base sur dbdump.sim
+% ----------------------------------------------------------------------
+
+EXTERNAL CLASS SAFEIO, DBMMIN;
+DBMMIN("", 0, True)
+BEGIN
+
+%include TCPmCode.h
+			 
+TEXT VERSION =" version 1.0 ";	! Texte en entete d'execution ;
+
+REF(HEAD) SpecList;
+	  
+LINK CLASS Spec(T,nFld,Fld,FldType);
+	Value T, Fld, FldType ;
+	   Text T; 
+	   Integer nFld;
+	   Integer array Fld, FldType;
+	;
+  
+   Integer nFld;
+   Integer array Fld(1:10);
+   Integer array FldType(1:10);
+
+TEXT 	DB_NAME;
+
+REF(Outfile) 	SEQ_FILE, SPEC_FILE;
+REF(Infile)  	SPEC_IN_FILE;
+
+INTEGER 	SEQ_IM_SIZE = 80 ;
+TEXT		SEQ_NAME ;
+
+  
+  CHARACTER C_PERIOD;
+  CHARACTER C_CONTINUED;
+  COMMENT
+  C_PERIOD      CHARACTER "." (UDES INSTRUKTUR NAMES)
+  C_CONTINUED   CHARACTER INDICATING CONTINUATION ON SEQ_FILE;
+  
+! ================================================= ;
+	text procedure gettext (T); Name T; text T;
+! ------------------------------------------------- 
+	Retourne la prochaine sequence de caracteres 
+	non-blancs dans un texte
+  -------------------------------------------------  ; 
+	begin
+		integer i,Pos2;
+		character C;
+		
+		C := ' ';
+		while C = ' ' and then T.more 
+			do C := T.getchar;
+		if C = ' ' then gettext :- notext 
+		else begin
+			i := T.pos-1;
+			while C <> ' ' and then T.more 
+				do C := T.getchar;
+			if C <> ' ' 
+				then Pos2 := T.pos
+				else Pos2 := T.pos-1;
+			gettext :- copy(T.sub(i,Pos2-i));
+		end
+	end  *** gettext ***;
+
+% ===========================================================			
+%	Character conversion
+% ===========================================================			
+
+	Boolean CvtFlag;
+  	CHARACTER ARRAY CVT (0:255);
+
+Procedure INIT_CVT;
+Begin
+	Integer i;
+	Character C;
+
+	for i := 0 step 1 until 255 do CVT(i) := ' ';
+	for i := 32 step 1 until 255 do 
+	begin
+         IF      i = 136  !a`; THEN C := 'a'
+         ELSE IF i = 141  !c,; THEN C := 'c'
+         ELSE IF i = 142  !e'; THEN C := 'e'
+         ELSE IF i = 143  !e`; THEN C := 'e'
+         ELSE IF i = 144  !e^; THEN C := 'e'
+         ELSE IF i = 131  !E'; THEN C := 'E'
+         ELSE IF i = 148  !i^; THEN C := 'i'
+         ELSE IF i = 153  !o^; THEN C := 'o'
+         ELSE IF i = 157  !u`; THEN C := 'u'
+         ELSE IF i = 199  !<<; THEN C := '"'
+         ELSE IF i = 200  !>>; THEN C := '"'
+         ELSE IF i = 203  !A`; THEN C := 'A'
+         ELSE IF i = 213  !>>; THEN C := ' '
+         ELSE C := CHAR(i);
+		 CVT(i) := c;
+	end;
+End;
+
+
+Procedure ConvertText(T); Text T;
+Begin
+	Text TT;
+
+	T.setpos(1);  TT :- T;
+	while TT.more do
+		T.putchar( CVT( rank( TT.getchar)));
+End;
+
+
+% ===========================================================			
+
+  
+% --------------------------------------------------------
+  PROCEDURE SET_UP;
+% --------------------------------------------------------
+  COMMENT
+  INITIALIZE GLOBAL LIST DUMPED_TYPES, SET CONTINUATION CHARACTER,
+  OPEN DATA BASE FILE AND SEQUENTIAL FILE.  WRITE OUT INFORMATIONS
+  NECESSARY TO EXACT RECREATION OF DATA BASE FILE.;
+  
+  BEGIN
+	INTEGER DB_IM_SIZE;
+	Text T;
+
+	 	 
+	 C_CONTINUED := '&';
+	 C_PERIOD    := '.';
+	 SpecList:- NEW HEAD;
+	 
+	outline( "------------------ DBDUMP ("&VERSION&") -------------------");
+	OutImage;
+		  
+	 REQUEST("Data base file name", "tmp",
+	         TEXTINPUT(DB_NAME, TRUE), "", NOHELP);
+	 REQUEST("Image size", "78", INTINPUT(DB_IM_SIZE, DB_IM_SIZE>30),
+	        "Should be > 30", NOHELP);
+	 
+	 OPENBASE(DB_NAME, DB_IM_SIZE);
+	 
+
+   While DB_Name.more do
+    	SEQ_NAME :- scanto(DB_NAME,'/');
+   REQUEST("Sequential file name", SEQ_NAME,
+	         TEXTINPUT(SEQ_NAME, TRUE), "", NOHELP);
+   INIT_CVT;
+
+  END OF SET_UP;
+
+% --------------------------------------------------------
+  PROCEDURE OPEN_SPEC;
+% --------------------------------------------------------
+Begin
+    SPEC_FILE:- NEW OUTFILE(SEQ_NAME & ".xspec");
+    SPEC_FILE . OPEN(BLANKS(SEQ_IM_SIZE));
+
+    INSPECT SPEC_FILE DO
+	BEGIN
+	   OUTTEXT(DB_NAME & ": " & "Criteres d'indexation.");
+	   Outimage;
+	   Outtext(DateTime);
+	   Outimage; Outimage;
+	END;		   
+	 
+
+End  *** OPEN_SPEC ***;
+  
+% --------------------------------------------------------
+  PROCEDURE WRITE_RECORD (FILE, R);
+% --------------------------------------------------------
+	REF(OUTFILE) FILE; 
+	REF(RECORD) R;
+Inspect File do BEGIN
+   TEXT T;
+   Integer i,j;
+
+   Nb_records := Nb_records+1;
+
+   Outtext("t('" & R.spec.rname & ":" & 
+		   r.avalues(r.spec.keypos)   & "',");
+   Outimage;
+   For i := 1 step 1 until nFld do Begin
+	if i <= 3 then outtext("[");
+	if Fld(i) <> 0  then Begin
+	   if FldType(i) < 4 
+	   then 
+		outFld(File, R.avalues(Fld(i))) 
+	   else 
+	   begin
+		text array TA(1:100);
+		Integer nt;
+		
+		nT := DecodeM(R.avalues(Fld(i)), TA);
+		if nT = 0 then outtext("""""")
+		else
+		for j := 1 step 1 until nT do Begin
+		   outFld(File, Ta(j));
+		   if j < nT then outchar(',');
+		End;
+	    End
+	End;
+	if      i < 3 then begin outtext("],"); outimage end
+	else if i = nFld then outtext("]")
+	else                  outtext(",");
+   End;
+
+   File.outtext(" ).");
+   outimage; Outimage;
+
+END OF WRITE_RECORD;
+
+
+% --------------------------------------------------------
+  procedure OutFld(F,T); Text T;
+% --------------------------------------------------------
+	REF(OUTFILE) F; 
+inspect F Do
+Begin
+	if CvtFlag then ConvertText(T);
+    While T.more do
+	if T.getchar = '"' then
+	Begin
+	   T.setpos(T.pos-1);
+	   T.putchar(' ');
+	End;
+    While T.length > 75 do Begin
+	outtext("""" & T.sub(1,75) & """,");
+	T :- T.sub(76, T.length-75);
+    End;
+    if T = notext then outtext("""""")
+    else outtext("""" & T & " """);
+End;
+
+
+% --------------------------------------------
+  Integer Procedure AskFields(RS);
+% --------------------------------------------
+	Ref(Rspec) RS;
+Begin
+	Boolean OK;
+	Integer i, j, Np, Lim, Reponse;
+	Text T;
+	
+	Lim := Np := Rs.adim;
+	if Np > 5 then 
+	   Lim := Np / 2  ;
+	Outimage;
+	for i:= 1 step 1 until Lim do begin
+	    j := i+Lim;
+	    outint(i,4);
+	    outtext(": ");
+	    outtext(RS.anames(i));
+	    if j <= Np then Begin
+		setpos(40);
+		outint(j,4);
+		outtext(": ");
+		outtext(RS.anames(j));
+	    End;
+	    outimage;
+	end;
+	outimage;
+	
+	OutLine("Pour terminer, faire RC <retour de chariot>");
+	Outimage;
+	
+	nFld := 0; Reponse:= 1;
+	while nFld < 3 or else
+	    (nFld < 10 and Reponse <> 0) do 
+	Begin
+	   nFld:= nFld+1 ;
+	   Outtext("CHAMP"); outint(nFld,2); 
+	   if   nFld =1 then 
+	       Outtext(" (Mots-cles):   ")
+	   else if nFld = 2 then 
+	       Outtext(" (Description): ")
+	   else
+	       Outtext(" (Autre):  ");
+	
+	   OK := false;
+	   while not OK do  begin
+		Breakoutimage;
+		sysin.setpos(0);
+		T :- frontstrip(intext(10));
+		if T == notext then i := 0
+		else if checkint(T.strip) > 0 then i := T.getint;
+		if i >=0 and i <= Np then 
+		    OK := true
+		else begin
+		    outimage;
+		    outtext(" ** ERREUR, entrez autre chose: ");
+		end;
+	   end -- boucle while -- ;
+	   FLD(nFld) := Reponse := i;
+	   If Reponse <> 0  then 
+	       FldType(nFld) := RS.atypes(FLD(nFld));
+	End;
+	nFld := max(nFld-1,3);	
+	Outimage;
+End AskField;
+
+
+INTEGER NB_RECORDS;
+
+
+% --------------------------------------------------------
+  PROCEDURE DUMP_RECORD (R);	REF(RECORD) R;
+% --------------------------------------------------------
+BEGIN
+   WRITE_RECORD(SEQ_FILE,R);
+END OF DUMP;
+
+
+% --------------------------------------------------------
+   Procedure CountRecords (TypeName);
+% --------------------------------------------------------
+	Text TypeName;
+Begin
+	procedure Inc(T); Text T; 
+	   if Nb_records > 100
+		then break_key := true
+		else Nb_records := Nb_records+1;
+		
+	Nb_records := 0;
+	ForEachKey(TypeName,Inc);
+End;
+
+% --------------------------------------------------------
+  Procedure Print_Sample (R);
+% --------------------------------------------------------
+	Ref(Record) R;
+Begin
+	Boolean B;
+	
+	tabulate(R);
+	Outimage;
+	REQUEST("Autre exemple", "Oui", BOOLINPUT(B),	   
+		"?", NOHELP);
+	Break_do := not B;
+End --Print_Sample;
+
+
+
+% --------------------------------------------------------
+   Procedure OutSpec (TypeName, FldNames);
+% --------------------------------------------------------
+	Text TypeName;
+	Text Array FldNames;
+Begin
+	New Spec(TypeName,nFld,Fld,FldType). into (SpecList);
+	Inspect Spec_file do Begin
+	   Integer i;
+	   outtext( TypeName);  Outint(nFld,6); Outimage;
+	   for i := 1 step 1 until nFld do Begin
+		outint(Fld(i),5);
+		if Fld(i) = 0 then 
+		    outint(0,2)
+		else begin
+		    outint( FldType(i), 2);
+		    outtext("  " & FldNames(Fld(i)) );
+		End;
+		outimage;
+	   End;
+	   Outimage; 
+	End;
+
+End *** OutSpec *** ;
+
+  
+  
+% --------------------------------------------------------
+	PROCEDURE SCAN_TYPES;
+% --------------------------------------------------------
+	
+	COMMENT
+	   SCAN ALL "RSPEC" RECORDS  EXCLUDING THOSE RELATED TO SETS.
+	   THE ITEM DESCRIBING RSPEC RECORDS IS SKIPPED IN THE LOOP
+	   SINCE THE "RSPEC" DESCRIBING A GIVEN RECORD TYPE IS DUMPED
+	   WITH THE RECORDS OF THAT TYPE (SEE PROCEDURE TYPE HEADER);
+BEGIN
+   Ref(rspec) Current_rspec;
+   Text Type_name;
+   Boolean Ok, Wanted;
+   Text T;
+   Integer Reponse;
+% -----------------------------------
+%	Phase 1: 
+% -----------------------------------
+
+   REQUEST("Voulez-vous utiliser un vieux fichier ""xspec"" ?",
+           "Non", BOOLINPUT(WANTED), "?", NOHELP);
+   if Wanted then goto PHASE2;
+
+   OPEN_SPEC;
+   Current_rspec :- Recordspec;
+   Outimage;
+   Outline("Dump Of Records...");
+   While Current_rspec =/= None Do
+   Begin
+	Type_name :- Current_rspec.rname;
+	CountRecords (Type_Name);
+        If  Nb_records > 0 and then     
+            (    Type_name Ne "RSPEC" 
+	     And Type_name Ne "SETSPEC"
+	     And Type_name Ne "STRUKTUR" 
+	     And Type_name Ne "INDEXFILE"  )
+	Then Begin
+	   Outimage;
+	   Outline("============================");
+	   Outtext("  " & Type_Name & ": "); 
+	   outint(Nb_records,0);
+	   if Nb_records > 100 then outchar('+');
+	   Outline(" records");
+	   Outline("============================");
+	   Outimage;
+RETRY:	
+	   DoForEach(Type_Name, Print_Sample);
+	
+	   REQUEST("On indexe "&TYPE_NAME & "?", "Oui", BOOLINPUT(WANTED),	   
+		"?", NOHELP);
+	   IF WANTED THEN Begin
+		Outimage;
+		Outline("Choix des Champs a utiliser pour"
+			" l'indexation.");
+		
+		AskFields(Current_rspec);
+		
+	   	REQUEST("Etes-vous satisfait avec votre selection?",
+	          "Non", BOOLINPUT(WANTED), "?", NOHELP);
+		Outimage;
+		if not Wanted then goto RETRY;
+		
+		OutSpec(TYPE_NAME, Current_rspec.anames);
+	   End;
+	End;
+	CURRENT_RSPEC :- CURRENT_RSPEC.NEXT;
+   END;
+   SPEC_FILE.CLOSE;
+
+   OutLine("===========================================");
+   Outline("     FIN DE LA PHASE DE SELECTION");
+   OutLine("===========================================");
+
+   OUTIMAGE;
+   REQUEST("Voulez-vous passer a l'indexation?",
+           "Non", BOOLINPUT(WANTED), "?", NOHELP);
+   Outimage;
+   
+PHASE2:
+
+   If Wanted then 
+   	Inspect NEW INFILE(SEQ_NAME & ".xspec") Do
+   Begin
+	Integer i;
+	
+	if not Open(BLANKS(SEQ_IM_SIZE)) then
+	   error("*** ERREUR: """ & SEQ_NAME 
+		& ".xspec"" n'existe pas!");
+	SEQ_FILE :- NEW OUTFILE(SEQ_NAME & ".refs");
+	SEQ_FILE . OPEN(BLANKS(SEQ_IM_SIZE));
+
+
+   REQUEST("Voulez-vous enlever les accents?",
+           "Oui", BOOLINPUT(CvtFlag), "?", NOHELP);
+   Outimage;
+	for i := 1,2,3,4 do inimage;
+	while not endfile do 
+	Begin
+	   TYPE_NAME :- Gettext(image);
+	   nFld := inint;   inimage;
+	   for i := 1 step 1 until nFld do
+	   Begin
+		Fld(i) := inint;
+	 	FldType(i) := inint;
+		inimage;
+	   End;
+	   Nb_records := 0;
+	   if getrecordspec(TYPE_NAME) =/= none then 
+	   Begin
+		DOFOREACH(TYPE_NAME, DUMP_RECORD);
+		Outtext(TYPE_NAME );
+		setpos(max(12,pos));
+		Outint(Nb_records,6);  outtext(" Records"); 
+		Outimage; 
+	   End;
+	
+	   Inimage;
+	End;
+	Close;
+	Seq_file.Outtext("stop."); Seq_File.Outimage;
+	SEQ_FILE.CLOSE;
+   End;
+
+END OF SCAN_TYPES;
+
+% ----------------------------------------------   
+%   MAIN PROGRAM;
+% ----------------------------------------------   
+  
+	SET_UP;
+	
+	SCAN_TYPES;
+	
+	CLOSEBASE;
+      
+END OF DBDUMP;
+

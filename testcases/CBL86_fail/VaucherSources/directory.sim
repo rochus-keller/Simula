@@ -1,0 +1,192 @@
+%       Directory.sim  ; Version Charles Delean
+%                       Patchee JV (avril 1997)
+% -----------------------------------------------
+
+CLASS Directory(DirName);TEXT DirName;
+BEGIN
+
+   INTEGER Dir;
+   INTEGER dp;
+   INTEGER null=0;
+   
+   TEXT PROCEDURE Directory_name;
+   BEGIN
+      Directory_name:-DirName;
+   END;
+
+   BOOLEAN PROCEDURE Open;      
+   BEGIN
+     
+      EXTERNAL C PROCEDURE opendir IS 
+         INTEGER procedure opendir(File);TEXT File;;
+
+      EXTERNAL c PROCEDURE getcwd IS PROCEDURE getcwd( dir, BufLen );
+         TEXT dir; integer BufLen;
+         ;
+
+   
+      IF DirName==NOTEXT THEN   !On prend le repertoire courant;
+         BEGIN
+            DirName :- Blanks(256);
+            getcwd(DirName,256);   
+            DirName:-ToFirstNull(DirName);
+         END
+      ELSE
+         BEGIN    
+         !On prend le repertoire demande apres avoir traite les /. et /..;
+            BOOLEAN change;
+            change:=TRUE;
+            WHILE change DO BEGIN
+               IF DirName.Length>1 AND THEN  
+                                 DirName.Sub(DirName.Length-1,2)="/."
+                  THEN DirName:-DirName.Sub(1,DirName.Length-2)
+               ELSE 
+                  IF  DirName.Length>2 AND THEN 
+                           DirName.Sub(DirName.Length-2,3)="/.."
+                  THEN DirName:-cutlastpath(DirName.Sub(1,DirName.Length-3))
+               ELSE BEGIN      
+                     !On ne peut remonter plus haut que le repertoire mere;
+                     IF DirName==NOTEXT THEN DirName:-"/";                   
+                     change:=FALSE;
+               END;
+            END;
+         END;
+
+      Dir:=opendir(DirName&"!0!");
+      Open:= Dir<>null;
+   END;
+
+   BOOLEAN PROCEDURE NextEntry; !Lecture de la prochaine entree;
+   BEGIN
+      EXTERNAL c PROCEDURE readdir IS 
+         INTEGER PROCEDURE readdir(dir);INTEGER dir;;
+
+      dp:=readdir(dir);
+      NextEntry:=dp<>null;
+     
+   END;
+
+   BOOLEAN PROCEDURE Close;
+   BEGIN
+      EXTERNAL c PROCEDURE closedir is 
+         BOOLEAN PROCEDURE closedir(dir);integer dir;;
+
+      Close := closedir(Dir);
+   END;
+
+   BOOLEAN PROCEDURE Rewind;    !Pour retourner au debut du repertoire;
+   BEGIN
+      EXTERNAL C PROCEDURE rewinddir IS 
+         INTEGER procedure rewinddir(d);INTEGER d;;
+
+      IF (dir<>null) THEN 
+         BEGIN   
+            rewinddir(dir);
+            Rewind:=TRUE;
+         END
+      ELSE rewind:=FALSE;
+
+   END;
+
+   BOOLEAN PROCEDURE Endfile;
+   BEGIN
+      Endfile :=dp<>null;
+   END;
+
+
+   !----------------------------------------------------------------;
+   !Procedures d'extraction d'information des entrees du repertoire;
+
+
+   TEXT PROCEDURE EntryName;
+      ! Returns the "filename" of the current Entry in the directory. ;
+   IF DP <> null then
+   BEGIN
+	text procedure CtoSText( Adr ); integer Adr;
+	begin
+		external C procedure strlen is
+		   integer procedure STRLEN(t); integer t;;
+		external C procedure strncpy is
+		   integer procedure STRNCPY(t,t2,n); text t;
+				       integer t2,n 	; ;
+		text 	t;
+		integer len;
+		
+	    len  := strlen(Adr);
+	    t    :- blanks(len);
+	    strncpy(t,Adr,len);
+	    CtoSText :- t;
+	end  *** CtoSText *** ;
+
+      EXTERNAL c PROCEDURE nameofentry IS 
+      integer PROCEDURE NameOfEntry(en);INTEGER en;;
+
+      Integer Tadr;
+
+      Tadr := NameOfEntry(dp);
+      EntryName :- CtoSText( Tadr )
+
+   END;
+
+   BOOLEAN PROCEDURE EntryIsDir;
+   BEGIN
+      EXTERNAL c PROCEDURE entryisdir IS
+         BOOLEAN PROCEDURE EntryDir(path);TEXT path;;
+
+      TEXT t;   
+      t:-EntryName;  
+      EntryIsDir:= EntryDir(DirName&"/"&t&"!0!");
+   END;
+
+   INTEGER PROCEDURE SizeOfEntry;
+   BEGIN
+      EXTERNAL c PROCEDURE getsize IS
+         INTEGER PROCEDURE EntrySize(path);TEXT path;; 
+
+      TEXT t;   
+      t:-EntryName;
+      SizeOfEntry:=EntrySize(DirName&"/"&t&"!0!");
+   END;
+
+   TEXT PROCEDURE LastModOfEntry;
+   BEGIN
+       EXTERNAL c PROCEDURE getdatelastmod IS
+         BOOLEAN PROCEDURE EntryLastMod(path,date);TEXT path,date;; 
+       
+       TEXT t, date;
+
+       t:-EntryName;
+       date:-Blanks(16); 
+       EntryLastMod(DirName&"/"&t,date);
+       t:- ToFirstNull(date);
+       LastModOfEntry:-t.Sub(1,t.Length-1);  !enlever le \n;
+    END;
+    
+% -------------------------- Utilitaires --------------;
+    
+      TEXT PROCEDURE cutlastpath(path);TEXT path;
+      BEGIN
+         INTEGER Last;
+         path.SetPos(1);
+         WHILE path.More DO 
+            BEGIN
+               IF path.GetChar='/' THEN  Last:=path.Pos-2;              
+            END;  
+         cutlastpath:-path.Sub(1,Last);
+      END;
+   
+    !Utilitaire pour traiter les chaines de caracteres passees en parametre
+    a une fonction externe c, dans le but d'avoir une sortie. On coupe
+    tout apres le premier caractere nul;
+
+   TEXT PROCEDURE ToFirstNull(t);TEXT t;
+   BEGIN
+      CHARACTER c;
+      INTEGER Pos;
+      
+      WHILE t.More AND Pos=0 DO IF t.GetChar='!0!' THEN Pos:=t.Pos-2;
+      IF Pos>0 THEN ToFirstNull:- copy(t.Sub(1,Pos));
+   END;
+     
+END;
+

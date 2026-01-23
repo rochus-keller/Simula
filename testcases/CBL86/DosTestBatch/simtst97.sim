@@ -1,0 +1,566 @@
+% ================================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 97
+%
+%  PURPOSE: Test Process, activation statements, idle, terminated, time.
+%
+%  WRITTEN BY: PW (21).
+% ==============================================================================
+Simulation
+begin
+
+Boolean found_error;
+
+text array ut, answer(1:250);
+integer utno;
+
+procedure outimage;
+begin utno:=utno+1; ut(utno):-copy(sysout.image.strip);
+      sysout.image:=notext;
+      sysout.setpos(1);
+end;
+
+process class p(i); integer i;
+begin outtext("p("); outint (i,2);
+      outtext(") activated at time = "); outfix(time,3,8); outimage;
+      passive(i):=false; terminatd(i):=false; active(i):=true;
+      outstate(i);
+      active(i):=false; terminatd(i):=true; passive(i):=false;
+end;
+
+procedure startup;
+begin outstate(0); reactivate main at time+20.0; end;
+
+procedure outstate(c); integer c;
+begin integer i; real r;
+      comment output state of process objects and sqs;
+      Outtext("State("); Outint(testno,1); Outchar(','); Outint(c,2);
+      Outtext("): ");
+      for i:=1 step 1 until 10 do
+      begin if active(i) then outtext(" a    ")else
+            if terminatd(i)  then outtext(" t    ") else
+            outtext("p/s   ");
+      end;
+      outimage;
+      outtext("SQS:      ");
+      for i:=1 step 1 until 10 do
+      begin if pa(i).idle then
+            begin if pa(i).terminated then outtext("    t ")
+                                      else outtext("    p ");
+            end else
+            if current==pa(i) then         outtext("    a ")
+            else                           outtext("    s ");
+      end;
+      outimage;
+      outfix(time,2,6); outtext(" :   ");
+      for i:= 1 step 1 until 10 do
+      begin if pa(i).idle then outtext("  idle") else
+            if pa(i)=/=current then outfix(pa(i).evtime,2,6)
+            else
+            begin r:=time;
+                  if abs(pa(i).evtime-time)>0.001 then
+                  begin outfix(pa(i).evtime,2,5); outchar('*') end
+                  else  outfix(pa(i).evtime,2,6);
+            end
+      end;
+      outimage;
+end of outstate;
+
+procedure createobjects;
+begin integer i;
+      for i:=1 step 1 until 10 do
+      begin pa(i):-new p(i);
+            terminatd(i):=false; active(i):=false; passive(i):= true
+      end;
+      testno:=testno+1
+end;
+
+real procedure getime;
+begin getime:=actime.getreal;
+      actime:-actime.sub(actime.pos,actime.length-actime.pos+1);
+end;
+
+ref(p) array pa(1:10);
+boolean array active,passive,terminatd(1:10);
+integer i, testno;
+text activationtimes,delaytimes, actime;
+
+outtext("--- START Simula a.s. - TEST No. 97      ---"); sysout.outimage;
+outtext("--- Tests Process, activation statements, ---"); sysout.outimage;
+outtext("--- idle, terminated, time.               ---"); sysout.outimage;
+
+
+answer(  1):-copy(
+"p(10) activated at time =    0.000");
+answer(  2):-copy(
+"State(1,10): p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s    a");
+answer(  3):-copy(
+"SQS:          p     p     p     p     p     p     p     p     p     a");
+answer(  4):-copy(
+"  0.00 :     idle  idle  idle  idle  idle  idle  idle  idle  idle  0.00");
+answer(  5):-copy(
+"p( 9) activated at time =    0.000");
+answer(  6):-copy(
+"State(1, 9): p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s    a     t");
+answer(  7):-copy(
+"SQS:          p     p     p     p     p     p     p     p     a     t");
+answer(  8):-copy(
+"  0.00 :     idle  idle  idle  idle  idle  idle  idle  idle  0.00  idle");
+answer(  9):-copy(
+"p( 8) activated at time =    0.000");
+answer( 10):-copy(
+"State(1, 8): p/s   p/s   p/s   p/s   p/s   p/s   p/s    a     t     t");
+answer( 11):-copy(
+"SQS:          p     p     p     p     p     p     p     a     t     t");
+answer( 12):-copy(
+"  0.00 :     idle  idle  idle  idle  idle  idle  idle  0.00  idle  idle");
+answer( 13):-copy(
+"p( 7) activated at time =    0.000");
+answer( 14):-copy(
+"State(1, 7): p/s   p/s   p/s   p/s   p/s   p/s    a     t     t     t");
+answer( 15):-copy(
+"SQS:          p     p     p     p     p     p     a     t     t     t");
+answer( 16):-copy(
+"  0.00 :     idle  idle  idle  idle  idle  idle  0.00  idle  idle  idle");
+answer( 17):-copy(
+"p( 6) activated at time =    0.000");
+answer( 18):-copy(
+"State(1, 6): p/s   p/s   p/s   p/s   p/s    a     t     t     t     t");
+answer( 19):-copy(
+"SQS:          p     p     p     p     p     a     t     t     t     t");
+answer( 20):-copy(
+"  0.00 :     idle  idle  idle  idle  idle  0.00  idle  idle  idle  idle");
+answer( 21):-copy(
+"p( 5) activated at time =    0.000");
+answer( 22):-copy(
+"State(1, 5): p/s   p/s   p/s   p/s    a     t     t     t     t     t");
+answer( 23):-copy(
+"SQS:          p     p     p     p     a     t     t     t     t     t");
+answer( 24):-copy(
+"  0.00 :     idle  idle  idle  idle  0.00  idle  idle  idle  idle  idle");
+answer( 25):-copy(
+"p( 4) activated at time =    0.000");
+answer( 26):-copy(
+"State(1, 4): p/s   p/s   p/s    a     t     t     t     t     t     t");
+answer( 27):-copy(
+"SQS:          p     p     p     a     t     t     t     t     t     t");
+answer( 28):-copy(
+"  0.00 :     idle  idle  idle  0.00  idle  idle  idle  idle  idle  idle");
+answer( 29):-copy(
+"p( 3) activated at time =    0.000");
+answer( 30):-copy(
+"State(1, 3): p/s   p/s    a     t     t     t     t     t     t     t");
+answer( 31):-copy(
+"SQS:          p     p     a     t     t     t     t     t     t     t");
+answer( 32):-copy(
+"  0.00 :     idle  idle  0.00  idle  idle  idle  idle  idle  idle  idle");
+answer( 33):-copy(
+"p( 2) activated at time =    0.000");
+answer( 34):-copy(
+"State(1, 2): p/s    a     t     t     t     t     t     t     t     t");
+answer( 35):-copy(
+"SQS:          p     a     t     t     t     t     t     t     t     t");
+answer( 36):-copy(
+"  0.00 :     idle  0.00  idle  idle  idle  idle  idle  idle  idle  idle");
+answer( 37):-copy(
+"p( 1) activated at time =    0.000");
+answer( 38):-copy(
+"State(1, 1):  a     t     t     t     t     t     t     t     t     t");
+answer( 39):-copy(
+"SQS:          a     t     t     t     t     t     t     t     t     t");
+answer( 40):-copy(
+"  0.00 :     0.00  idle  idle  idle  idle  idle  idle  idle  idle  idle");
+answer( 41):-copy(
+"State(2, 0): p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer( 42):-copy(
+"SQS:          s     s     s     s     s     s     s     s     s     s");
+answer( 43):-copy(
+"  0.00 :     1.53  7.60  2.00  4.19  2.01  1.84  2.00  8.00  9.25  5.40");
+answer( 44):-copy(
+"p( 1) activated at time =    1.530");
+answer( 45):-copy(
+"State(2, 1):  a    p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer( 46):-copy(
+"SQS:          a     s     s     s     s     s     s     s     s     s");
+answer( 47):-copy(
+"  1.53 :     1.53  7.60  2.00  4.19  2.01  1.84  2.00  8.00  9.25  5.40");
+answer( 48):-copy(
+"p( 6) activated at time =    1.840");
+answer( 49):-copy(
+"State(2, 6):  t    p/s   p/s   p/s   p/s    a    p/s   p/s   p/s   p/s");
+answer( 50):-copy(
+"SQS:          t     s     s     s     s     a     s     s     s     s");
+answer( 51):-copy(
+"  1.84 :     idle  7.60  2.00  4.19  2.01  1.84  2.00  8.00  9.25  5.40");
+answer( 52):-copy(
+"p( 3) activated at time =    2.000");
+answer( 53):-copy(
+"State(2, 3):  t    p/s    a    p/s   p/s    t    p/s   p/s   p/s   p/s");
+answer( 54):-copy(
+"SQS:          t     s     a     s     s     t     s     s     s     s");
+answer( 55):-copy(
+"  2.00 :     idle  7.60  2.00  4.19  2.01  idle  2.00  8.00  9.25  5.40");
+answer( 56):-copy(
+"p( 7) activated at time =    2.000");
+answer( 57):-copy(
+"State(2, 7):  t    p/s    t    p/s   p/s    t     a    p/s   p/s   p/s");
+answer( 58):-copy(
+"SQS:          t     s     t     s     s     t     a     s     s     s");
+answer( 59):-copy(
+"  2.00 :     idle  7.60  idle  4.19  2.01  idle  2.00  8.00  9.25  5.40");
+answer( 60):-copy(
+"p( 5) activated at time =    2.010");
+answer( 61):-copy(
+"State(2, 5):  t    p/s    t    p/s    a     t     t    p/s   p/s   p/s");
+answer( 62):-copy(
+"SQS:          t     s     t     s     a     t     t     s     s     s");
+answer( 63):-copy(
+"  2.01 :     idle  7.60  idle  4.19  2.01  idle  idle  8.00  9.25  5.40");
+answer( 64):-copy(
+"p( 4) activated at time =    4.190");
+answer( 65):-copy(
+"State(2, 4):  t    p/s    t     a     t     t     t    p/s   p/s   p/s");
+answer( 66):-copy(
+"SQS:          t     s     t     a     t     t     t     s     s     s");
+answer( 67):-copy(
+"  4.19 :     idle  7.60  idle  4.19  idle  idle  idle  8.00  9.25  5.40");
+answer( 68):-copy(
+"p(10) activated at time =    5.400");
+answer( 69):-copy(
+"State(2,10):  t    p/s    t     t     t     t     t    p/s   p/s    a");
+answer( 70):-copy(
+"SQS:          t     s     t     t     t     t     t     s     s     a");
+answer( 71):-copy(
+"  5.40 :     idle  7.60  idle  idle  idle  idle  idle  8.00  9.25  5.40");
+answer( 72):-copy(
+"p( 2) activated at time =    7.600");
+answer( 73):-copy(
+"State(2, 2):  t     a     t     t     t     t     t    p/s   p/s    t");
+answer( 74):-copy(
+"SQS:          t     a     t     t     t     t     t     s     s     t");
+answer( 75):-copy(
+"  7.60 :     idle  7.60  idle  idle  idle  idle  idle  8.00  9.25  idle");
+answer( 76):-copy(
+"p( 8) activated at time =    8.000");
+answer( 77):-copy(
+"State(2, 8):  t     t     t     t     t     t     t     a    p/s    t");
+answer( 78):-copy(
+"SQS:          t     t     t     t     t     t     t     a     s     t");
+answer( 79):-copy(
+"  8.00 :     idle  idle  idle  idle  idle  idle  idle  8.00  9.25  idle");
+answer( 80):-copy(
+"p( 9) activated at time =    9.250");
+answer( 81):-copy(
+"State(2, 9):  t     t     t     t     t     t     t     t     a     t");
+answer( 82):-copy(
+"SQS:          t     t     t     t     t     t     t     t     a     t");
+answer( 83):-copy(
+"  9.25 :     idle  idle  idle  idle  idle  idle  idle  idle  9.25  idle");
+answer( 84):-copy(
+"State(3, 0): p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer( 85):-copy(
+"SQS:          s     s     s     s     s     s     s     s     s     s");
+answer( 86):-copy(
+" 20.00 :    21.53 27.60 22.00 24.19 22.01 21.84 22.00 28.00 29.25 25.40");
+answer( 87):-copy(
+"p( 1) activated at time =   21.530");
+answer( 88):-copy(
+"State(3, 1):  a    p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer( 89):-copy(
+"SQS:          a     s     s     s     s     s     s     s     s     s");
+answer( 90):-copy(
+" 21.53 :    21.53 27.60 22.00 24.19 22.01 21.84 22.00 28.00 29.25 25.40");
+answer( 91):-copy(
+"p( 6) activated at time =   21.840");
+answer( 92):-copy(
+"State(3, 6):  t    p/s   p/s   p/s   p/s    a    p/s   p/s   p/s   p/s");
+answer( 93):-copy(
+"SQS:          t     s     s     s     s     a     s     s     s     s");
+answer( 94):-copy(
+" 21.84 :     idle 27.60 22.00 24.19 22.01 21.84 22.00 28.00 29.25 25.40");
+answer( 95):-copy(
+"p( 7) activated at time =   22.000");
+answer( 96):-copy(
+"State(3, 7):  t    p/s   p/s   p/s   p/s    t     a    p/s   p/s   p/s");
+answer( 97):-copy(
+"SQS:          t     s     s     s     s     t     a     s     s     s");
+answer( 98):-copy(
+" 22.00 :     idle 27.60 22.00 24.19 22.01  idle 22.00 28.00 29.25 25.40");
+answer( 99):-copy(
+"p( 3) activated at time =   22.000");
+answer(100):-copy(
+"State(3, 3):  t    p/s    a    p/s   p/s    t     t    p/s   p/s   p/s");
+answer(101):-copy(
+"SQS:          t     s     a     s     s     t     t     s     s     s");
+answer(102):-copy(
+" 22.00 :     idle 27.60 22.00 24.19 22.01  idle  idle 28.00 29.25 25.40");
+answer(103):-copy(
+"p( 5) activated at time =   22.010");
+answer(104):-copy(
+"State(3, 5):  t    p/s    t    p/s    a     t     t    p/s   p/s   p/s");
+answer(105):-copy(
+"SQS:          t     s     t     s     a     t     t     s     s     s");
+answer(106):-copy(
+" 22.01 :     idle 27.60  idle 24.19 22.01  idle  idle 28.00 29.25 25.40");
+answer(107):-copy(
+"p( 4) activated at time =   24.190");
+answer(108):-copy(
+"State(3, 4):  t    p/s    t     a     t     t     t    p/s   p/s   p/s");
+answer(109):-copy(
+"SQS:          t     s     t     a     t     t     t     s     s     s");
+answer(110):-copy(
+" 24.19 :     idle 27.60  idle 24.19  idle  idle  idle 28.00 29.25 25.40");
+answer(111):-copy(
+"p(10) activated at time =   25.400");
+answer(112):-copy(
+"State(3,10):  t    p/s    t     t     t     t     t    p/s   p/s    a");
+answer(113):-copy(
+"SQS:          t     s     t     t     t     t     t     s     s     a");
+answer(114):-copy(
+" 25.40 :     idle 27.60  idle  idle  idle  idle  idle 28.00 29.25 25.40");
+answer(115):-copy(
+"p( 2) activated at time =   27.600");
+answer(116):-copy(
+"State(3, 2):  t     a     t     t     t     t     t    p/s   p/s    t");
+answer(117):-copy(
+"SQS:          t     a     t     t     t     t     t     s     s     t");
+answer(118):-copy(
+" 27.60 :     idle 27.60  idle  idle  idle  idle  idle 28.00 29.25  idle");
+answer(119):-copy(
+"p( 8) activated at time =   28.000");
+answer(120):-copy(
+"State(3, 8):  t     t     t     t     t     t     t     a    p/s    t");
+answer(121):-copy(
+"SQS:          t     t     t     t     t     t     t     a     s     t");
+answer(122):-copy(
+" 28.00 :     idle  idle  idle  idle  idle  idle  idle 28.00 29.25  idle");
+answer(123):-copy(
+"p( 9) activated at time =   29.250");
+answer(124):-copy(
+"State(3, 9):  t     t     t     t     t     t     t     t     a     t");
+answer(125):-copy(
+"SQS:          t     t     t     t     t     t     t     t     a     t");
+answer(126):-copy(
+" 29.25 :     idle  idle  idle  idle  idle  idle  idle  idle 29.25  idle");
+answer(127):-copy(
+"State(4, 0): p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer(128):-copy(
+"SQS:          s     s     s     s     s     s     s     s     s     s");
+answer(129):-copy(
+" 40.00 :    41.53 41.53 47.60 47.60 42.00 42.00 44.19 44.19 42.01 42.01");
+answer(130):-copy(
+"p( 2) activated at time =   41.530");
+answer(131):-copy(
+"State(4, 2): p/s    a    p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer(132):-copy(
+"SQS:          s     a     s     s     s     s     s     s     s     s");
+answer(133):-copy(
+" 41.53 :    41.53 41.53 47.60 47.60 42.00 42.00 44.19 44.19 42.01 42.01");
+answer(134):-copy(
+"p( 1) activated at time =   41.530");
+answer(135):-copy(
+"State(4, 1):  a     t    p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer(136):-copy(
+"SQS:          a     t     s     s     s     s     s     s     s     s");
+answer(137):-copy(
+" 41.53 :    41.53  idle 47.60 47.60 42.00 42.00 44.19 44.19 42.01 42.01");
+answer(138):-copy(
+"p( 6) activated at time =   42.000");
+answer(139):-copy(
+"State(4, 6):  t     t    p/s   p/s   p/s    a    p/s   p/s   p/s   p/s");
+answer(140):-copy(
+"SQS:          t     t     s     s     s     a     s     s     s     s");
+answer(141):-copy(
+" 42.00 :     idle  idle 47.60 47.60 42.00 42.00 44.19 44.19 42.01 42.01");
+answer(142):-copy(
+"p( 5) activated at time =   42.000");
+answer(143):-copy(
+"State(4, 5):  t     t    p/s   p/s    a     t    p/s   p/s   p/s   p/s");
+answer(144):-copy(
+"SQS:          t     t     s     s     a     t     s     s     s     s");
+answer(145):-copy(
+" 42.00 :     idle  idle 47.60 47.60 42.00  idle 44.19 44.19 42.01 42.01");
+answer(146):-copy(
+"p(10) activated at time =   42.010");
+answer(147):-copy(
+"State(4,10):  t     t    p/s   p/s    t     t    p/s   p/s   p/s    a");
+answer(148):-copy(
+"SQS:          t     t     s     s     t     t     s     s     s     a");
+answer(149):-copy(
+" 42.01 :     idle  idle 47.60 47.60  idle  idle 44.19 44.19 42.01 42.01");
+answer(150):-copy(
+"p( 9) activated at time =   42.010");
+answer(151):-copy(
+"State(4, 9):  t     t    p/s   p/s    t     t    p/s   p/s    a     t");
+answer(152):-copy(
+"SQS:          t     t     s     s     t     t     s     s     a     t");
+answer(153):-copy(
+" 42.01 :     idle  idle 47.60 47.60  idle  idle 44.19 44.19 42.01  idle");
+answer(154):-copy(
+"p( 8) activated at time =   44.190");
+answer(155):-copy(
+"State(4, 8):  t     t    p/s   p/s    t     t    p/s    a     t     t");
+answer(156):-copy(
+"SQS:          t     t     s     s     t     t     s     a     t     t");
+answer(157):-copy(
+" 44.19 :     idle  idle 47.60 47.60  idle  idle 44.19 44.19  idle  idle");
+answer(158):-copy(
+"p( 7) activated at time =   44.190");
+answer(159):-copy(
+"State(4, 7):  t     t    p/s   p/s    t     t     a     t     t     t");
+answer(160):-copy(
+"SQS:          t     t     s     s     t     t     a     t     t     t");
+answer(161):-copy(
+" 44.19 :     idle  idle 47.60 47.60  idle  idle 44.19  idle  idle  idle");
+answer(162):-copy(
+"p( 4) activated at time =   47.600");
+answer(163):-copy(
+"State(4, 4):  t     t    p/s    a     t     t     t     t     t     t");
+answer(164):-copy(
+"SQS:          t     t     s     a     t     t     t     t     t     t");
+answer(165):-copy(
+" 47.60 :     idle  idle 47.60 47.60  idle  idle  idle  idle  idle  idle");
+answer(166):-copy(
+"p( 3) activated at time =   47.600");
+answer(167):-copy(
+"State(4, 3):  t     t     a     t     t     t     t     t     t     t");
+answer(168):-copy(
+"SQS:          t     t     a     t     t     t     t     t     t     t");
+answer(169):-copy(
+" 47.60 :     idle  idle 47.60  idle  idle  idle  idle  idle  idle  idle");
+answer(170):-copy(
+"State(5, 0): p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer(171):-copy(
+"SQS:          s     s     s     s     s     s     s     s     s     s");
+answer(172):-copy(
+" 60.00 :    61.53 61.53 67.60 67.60 62.00 62.00 64.19 64.19 62.01 62.01");
+answer(173):-copy(
+"p( 1) activated at time =   61.530");
+answer(174):-copy(
+"State(5, 1):  a    p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer(175):-copy(
+"SQS:          a     s     s     s     s     s     s     s     s     s");
+answer(176):-copy(
+" 61.53 :    61.53 61.53 67.60 67.60 62.00 62.00 64.19 64.19 62.01 62.01");
+answer(177):-copy(
+"p( 2) activated at time =   61.530");
+answer(178):-copy(
+"State(5, 2):  t     a    p/s   p/s   p/s   p/s   p/s   p/s   p/s   p/s");
+answer(179):-copy(
+"SQS:          t     a     s     s     s     s     s     s     s     s");
+answer(180):-copy(
+" 61.53 :     idle 61.53 67.60 67.60 62.00 62.00 64.19 64.19 62.01 62.01");
+answer(181):-copy(
+"p( 5) activated at time =   62.000");
+answer(182):-copy(
+"State(5, 5):  t     t    p/s   p/s    a    p/s   p/s   p/s   p/s   p/s");
+answer(183):-copy(
+"SQS:          t     t     s     s     a     s     s     s     s     s");
+answer(184):-copy(
+" 62.00 :     idle  idle 67.60 67.60 62.00 62.00 64.19 64.19 62.01 62.01");
+answer(185):-copy(
+"p( 6) activated at time =   62.000");
+answer(186):-copy(
+"State(5, 6):  t     t    p/s   p/s    t     a    p/s   p/s   p/s   p/s");
+answer(187):-copy(
+"SQS:          t     t     s     s     t     a     s     s     s     s");
+answer(188):-copy(
+" 62.00 :     idle  idle 67.60 67.60  idle 62.00 64.19 64.19 62.01 62.01");
+answer(189):-copy(
+"p( 9) activated at time =   62.010");
+answer(190):-copy(
+"State(5, 9):  t     t    p/s   p/s    t     t    p/s   p/s    a    p/s");
+answer(191):-copy(
+"SQS:          t     t     s     s     t     t     s     s     a     s");
+answer(192):-copy(
+" 62.01 :     idle  idle 67.60 67.60  idle  idle 64.19 64.19 62.01 62.01");
+answer(193):-copy(
+"p(10) activated at time =   62.010");
+answer(194):-copy(
+"State(5,10):  t     t    p/s   p/s    t     t    p/s   p/s    t     a");
+answer(195):-copy(
+"SQS:          t     t     s     s     t     t     s     s     t     a");
+answer(196):-copy(
+" 62.01 :     idle  idle 67.60 67.60  idle  idle 64.19 64.19  idle 62.01");
+answer(197):-copy(
+"p( 7) activated at time =   64.190");
+answer(198):-copy(
+"State(5, 7):  t     t    p/s   p/s    t     t     a    p/s    t     t");
+answer(199):-copy(
+"SQS:          t     t     s     s     t     t     a     s     t     t");
+answer(200):-copy(
+" 64.19 :     idle  idle 67.60 67.60  idle  idle 64.19 64.19  idle  idle");
+answer(201):-copy(
+"p( 8) activated at time =   64.190");
+answer(202):-copy(
+"State(5, 8):  t     t    p/s   p/s    t     t     t     a     t     t");
+answer(203):-copy(
+"SQS:          t     t     s     s     t     t     t     a     t     t");
+answer(204):-copy(
+" 64.19 :     idle  idle 67.60 67.60  idle  idle  idle 64.19  idle  idle");
+answer(205):-copy(
+"p( 3) activated at time =   67.600");
+answer(206):-copy(
+"State(5, 3):  t     t     a    p/s    t     t     t     t     t     t");
+answer(207):-copy(
+"SQS:          t     t     a     s     t     t     t     t     t     t");
+answer(208):-copy(
+" 67.60 :     idle  idle 67.60 67.60  idle  idle  idle  idle  idle  idle");
+answer(209):-copy(
+"p( 4) activated at time =   67.600");
+answer(210):-copy(
+"State(5, 4):  t     t     t     a     t     t     t     t     t     t");
+answer(211):-copy(
+"SQS:          t     t     t     a     t     t     t     t     t     t");
+answer(212):-copy(
+" 67.60 :     idle  idle  idle 67.60  idle  idle  idle  idle  idle  idle");
+
+activationtimes:-copy("1.53 7.6 2 4.19 2.01 1.84 2 8.0 9.25 5.4");
+delaytimes:-copy(".01 .02 .05 .03 .08 .09 .04 .06 .06 .07");
+
+createobjects;
+for i:=10 step -1 until 1 do activate pa(i);
+
+createobjects;
+actime:-copy(activationtimes);
+for i:=1 step 1 until 10 do activate pa(i) at time+getime;
+startup;
+
+createobjects;
+actime:-copy(activationtimes);
+for i:=1 step 1 until 10 do activate pa(i) at time+getime prior;
+startup;
+
+createobjects;
+actime:-copy(activationtimes);
+for i:=1 step 2 until 9 do  activate pa(i) at time+getime;
+for i:=2 step 2 until 10 do activate pa(i) before pa(i-1);
+startup;
+
+createobjects;
+actime:-copy(activationtimes);
+for i:=1 step 2 until 9 do  activate pa(i) at time+getime;
+for i:=2 step 2 until 10 do activate pa(i) after pa(i-1);
+startup;
+
+   for i:=1 step 1 until utno do
+   if ut(i)<>answer(i) then found_error:=true;
+
+   IF found_error THEN
+   Begin Outtext("*** ERROR : Output"); sysout.Outimage;
+         Outtext("            Outputlines which did not match:");
+         sysout.outimage;
+         for i:=1 step 1 until utno do
+         if answer(i) <> ut(i) then
+         begin outchar('*'); outtext(ut(i)); sysout.outimage;
+               outchar('-'); outtext(answer(i)); sysout.outimage
+         end
+   end
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      sysout.Outimage
+   END ;
+
+   Outtext ("--- END OF Simula a.s - SIMULA TEST NO 97 ") ;
+   sysout.Outimage
+end;

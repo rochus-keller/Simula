@@ -1,0 +1,81 @@
+! Discrete Simulation using the Simula's class SIMULATION  ;
+!  Example:                                                ;
+!  (Pooley: An Introduction to Programming in Simula)      ;
+
+simulation begin
+
+ !Global variables;
+
+ ref(head) receptionistq,interviewq1,interviewq2;
+ integer i,manual;
+
+ process class interviewer(title,myqueue);
+ text title; ref(head) myqueue;
+ begin
+   ref(link) next;
+   inspect myqueue do
+     while true do
+     begin
+       if not empty then
+       begin
+	 hold(3.5);
+	 next :- first;
+	 next.out;
+	 activate next after current;
+	 hold(3.0);
+       end
+	else
+       hold(5.0);
+     end
+ end--of--interviewer;
+
+ process class jobhunter(skillcategory);
+ integer skillcategory;
+ begin
+   outtext("Job hunter "); outint(skillcategory,4);
+   outtext(" joins receptionist queue at time ");
+   outfix(time,4,8); outimage;
+   wait(receptionistq);
+   outtext("Job hunter "); outint(skillcategory,4);
+   outtext(" joins interview queue"); outimage;
+   hold(1.0);
+   if skillcategory = manual then wait(interviewq1)
+			     else wait(interviewq2);
+   outtext("Job hunter "); outint(skillcategory,4);
+   outtext(" leaves employment office"); outimage
+ end--of--jobhunter;
+
+ process class receptionist;
+ begin
+   ref(link) customer;
+   while true do
+   begin
+     if not receptionistq.empty then
+     begin
+       hold(2.0);
+       customer :- receptionistq.first;
+       customer.out;
+       activate customer
+     end
+       else
+     hold(1.0)
+   end
+ end--of--receptionist;
+
+ !Program body;
+
+ manual := 1;
+ receptionistq :- new head;
+ interviewq1   :- new head;
+ interviewq2   :- new head;
+ activate new receptionist;
+ activate new interviewer("Manual",interviewq1);
+ activate new interviewer("Skilled",interviewq2);
+ for i := 1,2,2,1 do
+ begin
+   activate new jobhunter(i);
+   hold(2.0)
+ end;
+ hold(100)
+
+end**of**program;

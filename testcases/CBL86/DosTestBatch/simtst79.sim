@@ -1,0 +1,149 @@
+% ======================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 79
+%
+%  PURPOSE:     Test the attribute 'IsOpen' of class file.
+%
+%  NOTE:    1 - In lines marked with NOTE 1, a legal filename on your
+%               implementation should be filled in. In lines marked
+%               only with NOTE 1, it does not mather whether the file
+%               with the given filename exists or not.
+%           2 - There shall not exist any file with the filename given
+%               in the line marked with NOTE 2.
+%               (sxcvzf,sxcvfb)
+%           3 - There shall exist a file with the filename given in
+%               the line marked with NOTE 3.
+%               (sxcvzg,sxcvzgb)
+%               - if these are changed, change also prep-79 which will
+%                 generate the files.
+%           4 - If a file with this filename exists, the file will only
+%               be opened; if it does not exist, it will be created.
+%               (sxcvz1, sxcvz2, sxcvz3, sxcvz4, sxcvz5)
+%
+%  WRITTEN BY:  BEH   27/08-86
+% =====================================================================
+BEGIN
+   Boolean found_error;
+
+   Ref(file) xf;
+
+   Procedure Test(open, B, nr); Boolean open, B; Integer nr;
+   Begin If not open eqv B then
+         Begin Outtext("*** ERROR : Attribute 'IsOpen' of ");
+               If xf in infile         then Outtext("infile")        
+          else If xf is outfile        then Outtext("outfile")       
+          else If xf in printfile      then Outtext("printfile")     
+          else If xf is directfile     then Outtext("directfile")    
+          else If xf in inbytefile     then Outtext("inbytefile")    
+          else If xf is outbytefile    then Outtext("outbytefile")   
+          else If xf is directbytefile then Outtext("directbytefile")
+               else                         Outtext("??");
+
+               Outtext(" ("); Outint(nr, if nr < 10 then 1 else 2);
+               Outtext(") should no be ");
+               Outtext(if open then "true" else "false");
+               Outimage;
+               found_error:= true
+         End;
+   End pros. test;
+
+   Outtext ("--- START Simula a.s. TEST 79") ;
+   Outimage ;
+   Outtext ("--- Test the attribute 'IsOpen' of class file.");
+   Outimage ;
+
+   xf:- New Infile("sxcvzf");             !***** NOTE 1, NOTE 2 *****;
+   Test(xf.Isopen, false, 1);
+
+   xf qua Infile.open(blanks(10));
+   Test(xf.Isopen, false, 2);
+
+   xf:- New Infile("sxcvzg");             !***** NOTE 1, NOTE 3 *****;
+   Test(xf.Isopen, false, 3);
+
+   if not xf qua Infile.open(blanks(80))
+   then Test(xf.Isopen, false, 4)
+   else Test(xf.Isopen, true, 5);
+
+   xf qua Infile.close;
+   Test(xf.Isopen, false, 6);
+
+   xf:- New Inbytefile("sxcvzfb");         !***** NOTE 1, NOTE 2 *****;
+   Test(xf.Isopen, false, 7);
+
+   xf qua Inbytefile.Open;
+   Test(xf.Isopen, false, 8);
+
+   xf:- New Inbytefile("sxcvzgb");         !***** NOTE 1, NOTE 3 *****;
+   Test(xf.Isopen, false, 9);
+
+   if not xf qua Inbytefile.Open
+   then Test(xf.Isopen, false, 10)
+   else Test(xf.Isopen, true, 11);
+
+   xf qua Inbytefile.Close;
+   Test(xf.Isopen, false, 12);
+
+
+   xf:- New Outfile("sxcvz1");            !***** NOTE 1, NOTE 4 *****;
+   Test(xf.Isopen, false, 13);
+
+   if not xf qua Outfile.Open(blanks(80))
+   then Test(xf.Isopen, false, 14)
+   else Test(xf.Isopen, true, 15);
+
+   xf qua Outfile.Close;
+   Test(xf.Isopen, false, 16);
+
+
+   xf:- New Outbytefile("sxcvz2");        !***** NOTE 1, NOTE 4 *****;
+   Test(xf.Isopen, false, 17);
+
+   if not xf qua Outbytefile.Open
+   then Test(xf.Isopen, false, 18)
+   else Test(xf.Isopen, true, 19);
+
+   xf qua Outbytefile.Close;
+   Test(xf.Isopen, false, 20);
+
+
+   xf:- New Directfile("sxcvz3");         !***** NOTE 1, NOTE 4 *****;
+   Test(xf.Isopen, false, 21);
+
+   if not xf qua Directfile.Open(blanks(10))
+   then Test(xf.Isopen, false, 22)
+   else Test(xf.Isopen, true, 23);
+
+   xf qua Directfile.Close;
+   Test(xf.Isopen, false, 24);
+
+
+   xf:- New Directbytefile("sxcvz4");     !***** NOTE 1, NOTE 4 *****;
+   Test(xf.Isopen, false, 25);
+
+   if not xf qua Directbytefile.Open
+   then Test(xf.Isopen, false, 26)
+   else Test(xf.Isopen, true, 27);
+
+   xf qua Directbytefile.Close;
+   Test(xf.Isopen, false, 28);
+
+   xf:- New Printfile("sxcvz5");          !***** NOTE 1, NOTE 4 *****;
+   Test(xf.Isopen, false, 29);
+
+   if not xf qua Printfile.Open(blanks(136))
+   then Test(xf.Isopen, false, 30)
+   else Test(xf.Isopen, true, 31);
+
+   xf qua Printfile.Close;
+   Test(xf.Isopen, false, 32);
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 79") ;
+   Outimage
+ END

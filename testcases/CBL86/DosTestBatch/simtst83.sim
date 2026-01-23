@@ -1,0 +1,195 @@
+% ==================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 83
+%
+%  PURPOSE: Test type procedures as attributes to class, and dot access.
+%
+%  METHOD:
+%
+%  WRITTEN BY:
+% ==============================================================
+begin
+
+CLASS Person (yob, yod, children, sex, father, mp, es, yo, pname);
+COMMENT CLASS Person in an out-of-date format ************;
+                           VALUE        pname;
+                           TEXT         pname;
+                           INTEGER      yob, yod, children;
+                           BOOLEAN      sex;
+                           REF (Person) mp, es, yo ,father;
+   begin
+         REF (Person) PROCEDURE Mother;
+               Mother :- father.mp;
+
+         INTEGER PROCEDURE Siblings;
+               IF father =/= NONE THEN Siblings := father.children-1;
+
+         INTEGER PROCEDURE Brothers;
+         begin
+                REF (Person) p; INTEGER      t;
+                IF father =/= NONE then begin
+                   p :- father.yo;
+                   WHILE p =/= NONE DO begin
+                        IF  NOT p.sex OR p == THIS Person  then p:-p.es
+                        ELSE begin
+                            t := t+1;  p :- p.es  end;
+                   end;
+                   Brothers := t
+                end
+         end of procedure Brothers;
+
+         INTEGER PROCEDURE Sisters;
+         begin REF (Person) p; INTEGER t;
+               IF father =/= NONE then begin
+                  p :- father.yo;
+                  WHILE p =/= NONE DO begin
+                     IF p.sex OR p == THIS Person then !nothing;
+                     ELSE  t := t+1;
+                     p:-p.es;
+                  end
+               end;
+               Sisters := t
+         end of procedure Sisters;
+
+         INTEGER PROCEDURE Age;
+               Age :=  (IF yod=0 THEN 1983 ELSE yod) -yob;
+
+         REF (Person) PROCEDURE Lastaddition;
+               Lastaddition :- yo;
+
+         REF (Person) PROCEDURE Firstborn;
+         begin REF (Person) p;
+               p :- yo;
+               IF p =/= NONE then WHILE p.es =/= NONE DO p :- p.es;
+               Firstborn :- p
+         end of procedure Firstborn;
+
+         OUTIMAGE;
+         OUTTEXT (pname); OUTTEXT (" was born in"); OUTINT (yob, 5);
+         OUTTEXT (". The parents were ");
+         IF father == NONE THEN OUTTEXT ("unknown")
+         ELSE begin
+              OUTTEXT(father.pname); OUTTEXT(" and ");
+              OUTTEXT (Mother.pname)
+         end;
+         OUTCHAR ('.');
+         OUTIMAGE
+end of class Person;
+
+INTEGER      i;
+REF (Person) ARRAY persons (1:10);
+
+outtext("--- START Simula a.s. TEST 83"); outimage;
+Outtext("--- Test type procedures as attributes to class, and dot access.");
+Outimage; Outimage;
+
+! THE YEAR IS NOW 1910;
+
+persons (7) :- NEW Person (1910,0,0,TRUE,NONE,NONE,NONE,NONE,"Romeo");
+
+! THE YEAR IS NOW 1930;
+
+persons (8) :- NEW Person (1930,0,0,FALSE,NONE,NONE,NONE,NONE,"Juliet");
+persons (1) :- NEW Person (1930,0,0,TRUE,NONE,NONE,NONE,NONE,"Donald");
+
+! WE NOW MOVE TO YEAR 1935;
+
+persons (2) :- NEW Person (1935,0,0,FALSE,NONE,NONE,NONE,NONE,"Daisy");
+
+! IN 1955 THEY MARRY;
+
+persons (7).mp :- persons (8);
+persons (8).mp :- persons (7);
+persons (1).mp :- persons (2);
+persons (2).mp :- persons (1);
+OUTIMAGE;
+OUTTEXT ("In 1955 Romeo marries Juliet and Daisy marries Donald. ");
+OUTIMAGE;
+
+! SO THEY START GETTING CHILDREN;
+
+persons (3) :- NEW Person (1956,0,0,FALSE,persons (1),NONE,NONE,NONE,"Lucy");
+persons (4) :-
+        NEW Person (1957,0,0,TRUE ,persons (1),NONE,persons (3),NONE,"Linus");
+persons (5) :-
+       NEW Person (1960,0,0,TRUE ,persons (1),NONE,persons (4),NONE,"Charlie");
+persons (6) :-
+        NEW Person (1962,0,0,TRUE ,persons (1),NONE,persons (5),NONE,"Snoopy");
+persons (1).yo :- persons (2).yo :- persons (6);
+persons (1).children := persons (2).children := 4;
+persons (9) :-
+         NEW Person (1956,0,0,TRUE ,persons (7) ,NONE,NONE,NONE,"Scroeder");
+persons (7).yo :- persons (8).yo :- persons (9);
+persons (7).children := persons (8).children := 1;
+
+! THE CHILDREN GROW UP AND START THEIR OWN FAMILIES;
+
+OUTIMAGE;
+OUTTEXT ("In 1980 Lucy marries Scroeder (and his piano).");
+OUTIMAGE;
+
+persons (3).mp :- persons (9);
+persons (9).mp :- persons (3);
+
+persons (10) :-
+         NEW Person (1981,0,0,TRUE,persons (9),NONE,NONE,NONE,"Wolfgang");
+
+persons (3).yo :- persons (9).yo :- persons (10);
+persons (3).children := persons (9).children := 1;
+
+OUTIMAGE;
+OUTTEXT ("In 1982 Romeo and Juliet are killed in a car accident.");
+OUTIMAGE;
+
+persons (7).yod := persons (8).yod := 1982;
+
+OUTIMAGE;
+OUTTEXT ("**** IT IS NOW 1983 AND THE FAMILY SITUATION IS AS FOLLOWS : ****");
+OUTIMAGE;
+
+OUTIMAGE;
+OUTTEXT ("                                        !");
+OUTTEXT ("**** NUMBER OF ****! YOUNGEST          ");
+OUTIMAGE;
+OUTTEXT ("NAME     FATHER   MOTHER   BORN DEAD AGE!");
+OUTTEXT ("SIBL BROT SIST CHIL! CHILD    FIRSTBORN");
+OUTIMAGE;
+
+FOR i := 1 STEP 1 UNTIL 10 DO
+INSPECT persons (i) DO begin
+   TEXT t;
+   t :- BLANKS (9);
+   t := pname;
+   OUTTEXT (t);
+
+   IF father == NONE then begin
+      t := "UNKNOWN";
+      OUTTEXT (t);
+      OUTTEXT (t) end
+   ELSE begin
+      t := father.pname;
+      OUTTEXT (t);
+      t := Mother.pname;
+      OUTTEXT (t)
+   end;
+
+   OUTINT (yob, 4);
+   IF yod = 0 THEN OUTTEXT ("   no") ELSE OUTINT (yod, 5);
+   OUTINT (Age, 4);
+   OUTINT (Siblings, 5);
+   OUTINT (Brothers, 5);
+   OUTINT (Sisters, 5);
+   OUTINT (children, 5);
+   OUTTEXT ("  ");
+
+   IF yo =/= NONE then begin
+      t := Lastaddition.pname;
+      OUTTEXT (t);
+      t := Firstborn.pname;
+      OUTTEXT (t)
+   end;
+
+   OUTIMAGE
+end;
+
+Outimage; Outtext("--- end Simula a.s. TEST 83"); Outimage;
+end of program

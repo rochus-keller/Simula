@@ -1,0 +1,4687 @@
+% ***********************************************************************
+% ***********************************************************************
+% ***********************************************************************
+% *
+% *     W I N C O R E (v5.0)
+% *
+% * part of
+% *
+% *     W I N D O W T O O L S 
+% *
+% *     XWindow Graphic Tools for  Simula.
+% *     (Updated august 1997)
+% ***********************************************************************
+% *
+% *   Designed and programmed by Bjorn Kirkerud
+% *
+% *   Start:        Fall 1988
+% *   X10-version:      Summer 1989
+% *   X11-version:      Spring 199
+% *   Redesigned and extended and corrected:
+% *                     1991 - 1994
+% ***********************************************************************
+% *   Corrections:	Fall 1995
+%          Svein Johansen	(SAJ), student:		sveinj@ifi.uio.no
+% ***********************************************************************
+% ***********************************************************************
+% *  RECENT UPDATES:
+%   ================
+
+%  v5.0 Aout 1997: added PROC. EZSetFont( typeface, size );
+%                 +Path to IMAGECONVETERS
+%  v4.8 July 1997: Integrated JH modifications
+%  v4.7 June 1997: Wholesale reorganisation of LISTWINDOW & SCROLLWINDOW
+%                   List split into TexArea & ListWindow
+%  v4.6 may 1997:
+% ************************************************************************
+%  - Added functions from our BEGINNER'S interface
+%
+% XWindow:
+%     - Fontname : made more robust for Helvetica, Times or Courier
+%         - selects using first 3 letters and for these limits sizes
+%           to: 8,10,12,14,18,20,24,36
+%    - Texte(x,y,T) = CenteredText( x, y, t ) 
+%    - DrawPolygon:  arrays indexes now go from 1 to N not 0..N-1
+%    - Flash:   NEW procedure
+%    - GETFILE:  uses Mac-like interface to get Name of an existing file
+
+%    - In the drawing of arcs and ellipses, changed parameters from
+%          (x1,y1, x2,y2) format to the ( x, y, w, h ) X format
+%       = PROCEDURE DrawArc( x, y, w, h, ang1, ang2 );
+%       = PROCEDURE DrawEllipse( x, y, w, h );
+%       = PROCEDURE FillArc( x, y, w, h, ang1, ang2 );
+%       = PROCEDURE FillEllipse( x, y, w, h );
+%
+% MainWindow:
+%
+%     Procedure WaitForClick(X,Y);  name X,Y;
+%         This waits for a click and then returns its position
+%
+%  - SetTypeFont( font_name, Size ); no need to specify BOLD or Italic
+%  - Reset: Clears window & resets linewidth, Fill and foreground colours
+
+%  v4.5 may 1997:
+% ************************************************************************
+%   - Formatted with SIMPP
+
+% Simplified DATA ENTRY:  this remains based on the various editable
+%        "itemWindows" for Bool, Int, Real, Char and Text but confusion
+%        was introduced by the parallel PARAMETER classes. Consequently:
+%
+%     1) we eliminated the PARAMETERWINDOWS
+%     2) we replaced the ParameterList & ParameterMenu with class ITEMLIST
+%          which is a PANEL made up of ItemWindows with their LABELS.
+%          The methods for ItemList are a distillation of those for
+%          ParameterList & Menu
+%
+% ItemWindows:  Added stuff
+%   - BoolItemWindow:  changed accepted characters and put TOGGLE as default
+
+%  - Changed RESIZE in BUTTON to allow buttons to shrink
+
+%  v4.4 april 1997:
+% ************************************************************************
+%   - XTextWidth
+%   - XDrawString
+%   - XDrawImageString
+% ======================
+%  Added LEN parameter to avoid creating temporary strings with "!00!" for
+%  strlen' to work. Change in Windowtools and xinterface.c
+%
+% Modified the DESTROY algorithm
+% ===============================
+%   - when we have to destroy a window, we call XDestroyWindow only once
+%      for the top window and we let X destroy all sub-windows.
+%
+%   - an advantage of this is that we no longer get late events for
+%     'destroyed' sub-windows (except for Destroy_Notify)
+%
+% in XWindow.Destroy:
+% ---------------------
+%   - we set the window attribute DESTROYED and call XDestroyWindow
+%   - we remove the window from its parent's list od children
+%   - and call a new function: ReleaseResources.
+%      which: - releases the GC
+%             - empties the CHILDREN list and invokes ReleaseResources
+%               on all of them (recursively)
+%             - calls the virtual routine "handle_destroy" to allow user
+%               to add his own processing.
+%
+%  ERROR message produced if Destroyed = true on entry.
+%
+% in XDisplay:
+% -------------
+%   - removed the "Destroy_subwindows" method which removed Windows from the
+%     local window dictionary used to map WINDOWID to WINDOW_refs
+%   - Windows are now removed on receipt of a "Destroy_Notify" event
+%   - This is the only event we treat for a  window marked 'destroyed'
+%
+% ************************************************************************
+%   v4.3 march 1997
+% ************************************************************************
+% = Traced DIV by zero problems in SCROLL-Window to a code generation
+%       problem with "//" by Lund compiler on SGI.  Mainly in "line_of"
+%       of LISY_window and Scroll_window
+%       _ Solution: introduced temp. variables
+%           wherever there was DIV with result of function
+%
+% ************************************************************************
+% *  version M3.4:  march 1996
+% *      Cleaned up our 6.1 and merged with some parts of Oslo 3.4
+% *      -  took out commented OLD code
+% *
+% ***********************************************************************
+% *   Montreal Modifications:
+% *                     Spring 1995
+%
+%   Charles De Lean (CDL), summer student:  delean@iro.umontreal.ca
+%   Jean Vaucher    (JV),  professor:   vaucher@iro.umontreal.ca
+%   Dep. informatique et RO,
+%   Universite de Montreal
+%   Montreal, CANADA
+% *
+% ************************************************************************
+
+% If you do not use the cim-compiler, uncomment
+% the line below:
+
+Class wincore;
+BEGIN
+   Real version = 4.9;
+
+END;
+
+External Class containers;
+External Class Utilities;
+
+% External Class directory;
+
+% ***********************************
+% ***********************************
+% ******                       ******
+% ******    X D I S P L A Y    ******
+% ******                       ******
+% ***********************************
+% ***********************************
+
+Class XDisplay;
+
+% Visible attributes (used only in XWindow):
+%     procedure add_window(w); ref(XWindow) w;
+%       procedure remove_window(WindowID); integer WindowID;
+%     procedure remove_window(Wnd); ref(XWindow) Wnd; !CDL June 16 1995;
+%     procedure handle_event;
+%     procedure handle_pending_events;
+%     ref(XFont) procedure find_font(font_name); text font_name;
+%     ref(Bitmap) procedure find_bitmap(bitmap_name,WindowID);
+%     text bitmap_name;INTEGER WindowID;
+%     ref(Pixmap) procedure find_pixmap(pixmap_name,WindowID);
+%     text pixmap_name;INTEGER WindowID;
+%     ref(Cursor) procedure find_cursor(cursor_name);
+%     text cursor_name;
+%     procedure set_trace;
+%     procedure unset_trace;
+%     Boolean event_trace;
+BEGIN
+
+   Ref(dictionary) windows,
+       fonts,
+       cursors,
+       colors; !JPH;
+
+   Integer DisplayADR;
+   Integer Array rasters( 0: 16 );
+
+   Ref(XWindow) the_promptwindow;
+   Ref(XWindow) the_messagewindow;
+
+%   Ref(PromptWindow) the_promptwindow;
+%   Ref(MessageWindow) the_messagewindow;
+
+   Integer trace_level, n_events,
+       TraceMask,                  ! events we DON'T want traced ;
+       last_event_type;
+   Boolean Color_Trace;
+
+   PROCEDURE set_trace;
+      trace_level := 1;
+
+   PROCEDURE unset_trace;
+      trace_level := 0;
+
+   PROCEDURE set_trace_level( n );
+        Integer n;
+      trace_level := n;
+
+   PROCEDURE CreateDisplay;
+   BEGIN
+      Integer i;
+      External C PROCEDURE xopendisplay Is
+         Integer PROCEDURE XOpenDisplay( dname );
+            Text dname;
+            ;
+      External C PROCEDURE xeventpointer Is
+         Integer PROCEDURE XEventPointer;
+            ;
+      External c PROCEDURE xrast Is
+         Integer PROCEDURE XRast;
+            ;
+      External C PROCEDURE whitepixel Is
+         Integer PROCEDURE WhitePixel;
+            ;
+      External C PROCEDURE blackpixel Is
+         Integer PROCEDURE BlackPixel;
+            ;
+
+      DisplayADR := XOpenDisplay( "" );
+      IF DisplayADR = 0 THEN
+         error( "Windowtools failed in opening the display! " );
+      event_pointer := XEventPointer;
+      windows :- New simple_dictionary;
+      fonts :- New simple_dictionary;
+      cursors :- New simple_dictionary;
+      colors  :- New simple_dictionary;  !JPH;
+
+      For i := 0 Step 1 Until 16 DO
+         rasters( i ) := XRast;
+         
+%     Color_Trace := true;
+     NEW ColorIndex("white", WhitePixel). into (Colors);
+     NEW ColorIndex("black", BlackPixel). into (Colors);
+%     outtext("WhitePixel ="); outint(whitePixel,3);
+%     outtext(", BlackPixel ="); outint(BlackPixel,3);
+%     Outimage;
+     
+
+   END;
+
+   Ref(XFont) PROCEDURE find_font( font_name );
+        Text font_name;
+   BEGIN
+      Ref(Xfont) f;
+
+      f :- fonts.find( font_name );
+      IF f == None THEN BEGIN
+         f :- New XFont( font_name );
+         IF Not f.font_exists THEN
+            f :- None
+         ELSE
+            fonts.insert( f );
+      END;
+      find_font :- f;
+   END;
+
+   Ref(Cursor) PROCEDURE find_cursor( cursor_name );
+        Text cursor_name;
+   BEGIN
+      Ref(Cursor) c;
+
+      c :- cursors.find( cursor_name );
+      IF c == None THEN BEGIN
+         c :- New Cursor( cursor_name );
+         IF Not c.cursor_exists THEN
+            c :- None
+         ELSE
+            cursors.insert( c );
+      END;
+      find_cursor :- c;
+   END;
+
+
+   PROCEDURE add_window( w );
+        Ref(XWindow) w;
+      windows.insert( w );
+
+   Ref(XWindow) PROCEDURE find_window( WindowID );
+        Integer WindowID;
+      find_window :- windows.find( int_as_text( WindowID ) );
+
+   PROCEDURE remove_window( w );
+        Ref(XWindow) w;                             !CDL June 16 1995;
+   BEGIN
+      Integer i;
+      Boolean found;
+      Ref(element) e;
+      Ref(sequence) garbage;
+
+      PROCEDURE find( e );
+           Ref(element) e;
+      BEGIN
+         IF e Qua own_event.wnd == w THEN
+            garbage.put( e );
+      END;
+
+      PROCEDURE remove( e );
+           Ref(element) e;
+         own_event_queue.remove( e );
+
+      garbage :- New sequence;
+
+      windows.remove( w );  !CDL June 16 1995;
+
+      own_event_queue.for_each( find ); !CDL July 5 1995;
+      garbage.for_each( remove );
+
+      kill_alarm( w ); !CDL July 5 1995;
+
+   END;
+
+   Integer event_pointer;
+   
+   Integer last_button_down_x,  last_button_down_y;
+   Integer last_click_time;
+   Integer last_button_click_x, last_button_click_y;
+   Integer mouse_epsilon = 10;
+   Integer time_epsilon = 400;  !CDL 23 May 1995;
+
+
+   PROCEDURE handle_pending_events;
+   BEGIN
+      External C PROCEDURE xpending Is
+         Integer PROCEDURE XPending;
+            ;
+
+      WHILE XPending > 0 DO
+         handle_event;
+   END;
+
+
+   Ref(sequence) own_event_queue;
+
+   PROCEDURE create_own_event( wnd );
+        Ref(XWindow) wnd;
+      own_event_queue.append( New own_event( wnd ) );
+
+   PROCEDURE handle_event;
+   BEGIN
+      External C PROCEDURE xpending Is
+         Integer PROCEDURE XPending;
+            ;
+
+      IF XPending = 0 And then Not own_event_queue
+          .is_empty THEN BEGIN
+         own_event_queue.first Qua own_event.wnd.handle_wakeup;
+         own_event_queue.pop;
+      END
+      ELSE
+         handle_exo_event;
+   END;
+
+   PROCEDURE handle_exo_event;
+   BEGIN
+
+      External C PROCEDURE xnextevent Is
+         PROCEDURE XNextEvent( event );
+            Integer event;
+            ;
+      External C PROCEDURE xeventtype Is
+         Integer PROCEDURE XEventType( event );
+            Integer event;
+            ;
+      External C PROCEDURE xalarmmessage Is
+         Boolean PROCEDURE XAlarmMessage( event );
+            Integer event;
+            ;
+      External C PROCEDURE xeventwindow Is
+         Integer PROCEDURE XEventWindow( event );
+            Integer event;
+            ;
+
+      PROCEDURE SkipSimilarEvents;
+      BEGIN
+         External C PROCEDURE xchecktypedeventwindow Is
+            Boolean PROCEDURE XCheckTypedEventWindow( event );
+               Integer event;
+               ;
+
+         WHILE XCheckTypedEventWindow( event_pointer ) DO
+            ;
+      END;
+
+% Event-codes (defined in /local/x11/include/X11/X.h):
+
+      Integer KeyPress = 2,
+          KeyRelease = 3,
+          ButtonPress = 4,
+          ButtonRelease = 5,
+          MotionNotify = 6,
+          EnterNotify = 7,
+          LeaveNotify = 8,
+%             FocusIn          = 9,
+%             FocusOut         = 10,
+%             KeymapNotify     = 11,
+          Expose = 12,
+%          	GraphicsExpose = 13,
+          NoExpose = 14,
+%          	VisibilityNotify = 15,
+%          	CreateNotify = 16,
+          DestroyNotify = 17,
+          UnmapNotify = 18,
+          MapNotify = 19,
+          ReparentNotify = 21,
+          ConfigureNotify = 22,
+%             ConfigureRequest = 23,
+          AlarmNotify = 33;
+
+      Integer windowid, event_type;
+      Ref(XWindow) window_of_event, wnd;
+
+      n_events := n_events + 1;
+      XNextEvent( event_pointer );
+
+%      event_type := IF XAlarmMessage( event_pointer ) THEN AlarmNotify
+%                    ELSE XEventType( event_pointer );
+
+      event_type := XEventType( event_pointer );
+      windowid := XEventWindow( event_pointer );
+
+      wnd :- window_of_event :- find_window( windowid );
+      IF( trace_level > 0 And then Not BitInMask( event_type, TraceMask ) ) Or
+          wnd == None THEN BEGIN
+         IF event_type = MotionNotify And event_type = last_event_type THEN
+             BEGIN   ! trying to minimize trace output ;
+            outtext( "  <" );
+            outint( x_of_event, 0 );
+            outchar( ',' );
+            outint( y_of_event, 0 );
+            outchar( '>' );
+         END
+         ELSE BEGIN
+            IF pos <> 1 THEN
+               outimage;
+            outtext( IF event_type = AlarmNotify THEN " Alarm"
+                     ELSE IF event_type = EnterNotify THEN " Enter-event"
+                     ELSE IF event_type = LeaveNotify THEN " Leave-event"
+                     ELSE IF event_type = DestroyNotify THEN " Destroy-event"
+                     ELSE IF event_type = ConfigureNotify THEN
+                           " Configure-event"
+                     ELSE IF event_type = Expose THEN " Expose-event"
+                     ELSE IF event_type = ButtonPress THEN " ButtonDown"
+                     ELSE IF event_type = ButtonRelease THEN " ButtonUp"
+                     ELSE IF event_type = KeyPress THEN " KeyDown"
+                     ELSE IF event_type = KeyRelease THEN " KeyUp"
+                     ELSE IF event_type = NoExpose THEN " Noexpose-event"
+                     ELSE IF event_type = MapNotify THEN " Map-event"
+                     ELSE IF event_type = UnmapNotify THEN " UnMap-event"
+                     ELSE IF event_type = ReparentNotify THEN " Reparent-event"
+                     ELSE IF event_type = MotionNotify THEN " Motion-event"
+                     ELSE( " Unspecified event (" & int_as_text( event_type ) &
+                         ")" ) );
+            outtext( " in " );
+            outint( windowID, 0 );
+            INSPECT wnd DO outtext( ": " & window_kind & " " ) Otherwise
+            outtext( ": UNKNOWN window " );
+
+            IF wnd =/= None And then wnd.destroyed THEN
+               outtext( " (under Destruction!)" );
+
+            IF event_type = ButtonPress Or event_type = ButtonRelease Or
+                event_type = MotionNotify Or event_type = KeyPress Or event_type
+                = KeyRelease THEN BEGIN
+               outtext( "   x, y =  <" );
+               outint( x_of_event, 0 );
+               outchar( ',' );
+               outint( y_of_event, 0 );
+               outchar( '>' );
+            END;
+            IF event_type = ButtonPress Or event_type = ButtonRelease THEN BEGIN
+               outtext( ", button " );
+               outint( button_number, 0 )
+            END
+            ELSE IF event_type = KeyPress Or event_type = KeyRelease THEN BEGIN
+               Character c;
+               Integer kc;
+
+               c := key_of_event( kc );
+               outtext( ", key-code: " );
+               outint( kc, 0 );
+               outtext( ", ascii: " );
+               outint( rank( c ), 0 );
+               IF 32 <= rank( c ) And rank( c ) < MaxRank THEN BEGIN
+                  outtext( ", char: '" );
+                  outchar( c );
+                  OutChar( ''' )
+               END;
+            END;
+            outimage;
+            last_event_type := event_type;
+         END;
+!         IF trace_level > 1 then EvtDump(event_pointer);
+      END;
+
+      IF wnd == None THEN  ! *** do nothing ***** ;
+
+
+      ELSE IF event_type = DestroyNotify THEN BEGIN
+         remove_window( wnd );
+         IF trace_level > 2 THEN
+            windows.dump;
+      END
+      ELSE IF Not wnd.destroyed THEN BEGIN
+         IF event_type = ButtonPress Or event_type = ButtonRelease Or event_type
+             = MotionNotify Or event_type = KeyPress Or event_type = KeyRelease
+             THEN BEGIN
+            wnd.x_of_event := x_of_event;
+            wnd.y_of_event := y_of_event;
+            wnd.time_of_event := time_of_event;
+         END;
+
+         IF event_type = KeyPress THEN BEGIN
+            Character c;
+            Integer kc;
+
+            c := key_of_event( kc );
+            IF 0 < rank( c ) And rank( c ) <= maxrank THEN BEGIN
+
+               IF Not wnd.handle_shortcut( C ) THEN
+                  wnd.handle_key_down( c );
+
+            END
+            ELSE
+               wnd.handle_special_key_down( kc );
+
+         END
+         ELSE
+
+         IF event_type = KeyRelease THEN BEGIN
+            Character c;
+            Integer kc;
+
+            c := key_of_event( kc );
+            IF 0 < rank( c ) And rank( c ) <= maxrank THEN
+               wnd.handle_key_up( c )
+            ELSE
+               wnd.handle_special_key_up( kc );
+         END
+         ELSE
+
+         IF event_type = ButtonPress THEN BEGIN
+            wnd.handle_button_down( button_number );
+            last_button_down_x := x_of_event;
+            last_button_down_y := y_of_event;
+         END
+         ELSE IF event_type = ButtonRelease THEN BEGIN
+            Integer local_x,    
+                    local_y,
+                    Click_time ;
+
+            local_x := x_of_event;
+            local_y := y_of_event;
+
+            wnd.handle_button_up( button_number );
+
+            IF abs( last_button_down_x-local_x ) 
+             + abs( last_button_down_y-local_y ) < mouse_epsilon THEN 
+            BEGIN  
+               !  It's a CLICK .....;
+               wnd.Handle_Click( local_x, local_y );
+               last_button_click_x := local_x;
+               last_button_click_y := local_y;
+               
+               Click_time := time_of_event;
+               IF Click_time-last_click_time <= time_epsilon
+                   And then  
+                     abs( last_button_click_x-local_x ) 
+                   + abs( last_button_click_y-local_y ) < mouse_epsilon THEN
+               BEGIN
+                   ! It's a double Click;
+                   wnd.Handle_DoubleClick( wnd );
+               	   last_click_time := 0;
+               END
+               ELSE 
+                   last_click_time := Click_time;
+
+            END;
+         END
+         ELSE IF event_type = EnterNotify THEN
+            wnd.handle_enter_window
+         ELSE
+
+         IF event_type = LeaveNotify THEN
+            wnd.handle_leave_window
+         ELSE
+
+         IF event_type = MotionNotify THEN BEGIN
+            SkipSimilarEvents;
+            wnd.handle_pointer_motion( x_of_event, y_of_event );
+         END
+         ELSE
+
+         IF event_type = ConfigureNotify THEN BEGIN
+            wnd.GetActualGeometry;
+            wnd.ReplaceSubWindows;
+
+%            INSPECT wnd When SubWindow DO IF parent.elastic THEN parent.
+%                SetSizeToSubWindowSize;
+            wnd.handle_configure;
+         END
+         ELSE IF event_type = MapNotify THEN
+            wnd.mapped := True
+         ELSE
+
+         IF event_type = UnMapNotify
+         THEN
+            wnd.mapped := False
+
+         ELSE IF event_type = Expose THEN BEGIN
+            SkipSimilarEvents;
+            wnd.Refresh;
+            wnd.ShowLabels;
+         END
+         ELSE IF event_type = AlarmNotify THEN
+            treat_alarm( wnd )
+         ELSE IF event_type = NoExpose
+              or event_type = ReparentNotify
+         THEN
+            SkipSimilarEvents
+
+         ELSE
+            Outline( "***!!! Unknown Event received, code = " & int_as_text(
+                event_type ) );
+      END;
+
+   END  === handle_event === ;
+
+
+% ******************************************************
+% *
+% *  Procedures to schedule alarm events
+% *        CDL July 4 1995;
+% *        Rewritten mai 1997 JV
+% ******************************************************
+
+   Ref(Priority_queue) alarm_requests;
+   Real Local_time;
+
+   External C PROCEDURE xalarmclock Is
+      Integer PROCEDURE XAlarmClock( WindowID, time );
+         Integer WindowID, time;
+         ;
+
+   PROCEDURE alarm_set( WindowID, DT );
+        Integer WindowID;
+        Real DT;
+   BEGIN
+      Ref(alarm_request) P, req;
+      Ref(XWindow) wnd;
+      Real Time;
+
+      IF trace_level > 0 THEN
+         Outline( "==> SET Alarm." );
+
+      IF DT <= 0 THEN BEGIN
+         wnd :- find_window( windowID );
+         IF wnd.alarm_sensitized THEN
+            wnd.Handle_Alarm;
+      END
+      ELSE BEGIN
+
+         p :- alarm_requests.First;
+         IF p == None THEN BEGIN
+            XAlarmClock( WindowID, MAX( 1, DT ) );
+            alarm_requests.insert( New Alarm_request( WindowID, Local_time + DT
+                ) );
+         END
+         ELSE IF p.evtime > Local_time + DT THEN BEGIN
+            Local_time := p.evtime-XAlarmClock( 0, 0 );
+            alarm_requests.insert( New Alarm_request( WindowID, Local_time + DT
+                ) );
+            NextAlarm;
+         END
+         ELSE
+            alarm_requests.insert( New Alarm_request( WindowID, Local_time + DT
+                ) );
+      END;
+      IF trace_level > 0 THEN
+         dumpARQ( "Leaving Alarm_set" );
+   END;
+
+   PROCEDURE treat_alarm( wnd );
+        Ref(XWindow) wnd;
+      IF Not alarm_requests.empty THEN BEGIN
+         Ref(alarm_request) p;
+
+         IF trace_level > 0 THEN
+            Outline( "==> Treat_alarm" );
+
+         p :- alarm_requests.first;
+         Local_time := p.EvTime;
+         IF p.windowID = wnd.windowid THEN BEGIN
+            alarm_requests.pop;
+            IF wnd.alarm_sensitized THEN
+               wnd.Handle_Alarm;
+         END;
+         NextAlarm;
+         IF trace_level > 0 THEN
+            dumpARQ( "Leaving treat_alarm" );
+
+      END;
+
+   Ref(alarm_request) PROCEDURE NextAlarm;
+   BEGIN
+      Ref(alarm_request) p;
+      Ref(XWindow) wnd;
+
+      p :- alarm_requests.first;
+      WHILE p =/= None And then p.EvTime-Local_time < 1 DO BEGIN
+         wnd :- find_window( p.windowID );
+         alarm_requests.pop;
+         IF wnd =/= None And then wnd.alarm_sensitized THEN
+            wnd.Handle_Alarm;
+         p :- alarm_requests.first;
+      END;
+      IF p =/= None THEN
+         XAlarmClock( p.WindowID, MAX( 1, p.EVtime-Local_time ) );
+
+      NextAlarm :- p
+   END;
+
+   PROCEDURE kill_alarm( wnd );
+        Ref(XWindow) wnd;
+      IF Not alarm_requests.empty THEN BEGIN
+         Ref(alarm_request) P,  R;
+         Boolean New_Alarm;
+         Ref(iterator) Loop;
+
+         IF trace_level > 0 THEN BEGIN
+            Outtext( "==> Kill Alarm on " );
+            outint( wnd.windowid, 0 );
+            outimage;
+         END;
+
+         R :- alarm_requests.first;
+         IF R.windowID = wnd.windowid THEN BEGIN
+
+            local_time := R.EVtime-XAlarmClock( 0, 0 );
+            alarm_requests.pop;
+            new_alarm := True;
+         END;
+
+         Loop :- alarm_requests.elements;
+         WHILE Loop.more DO BEGIN
+            P :- Loop.nextElement;
+            IF P.windowID = wnd.windowid THEN
+               alarm_requests.remove( P );
+         END;
+         IF new_alarm THEN
+            NextAlarm;
+
+         IF trace_level > 0 THEN
+            dumpARQ( "Leaving Kill_alarm" );
+
+      END;
+
+   PROCEDURE dumpARQ( T );
+        Text T;
+   BEGIN
+      outtext( "=== " & T );
+      outint( Local_time, 10 );
+      outimage;
+      alarm_requests.for_each( dumpAR );
+   END;
+
+   PROCEDURE dumpAR( E );
+        Ref(element) E;
+      INSPECT E When alarm_request DO dmp;
+
+% ******************************************************
+% *
+% *  Procedures to get event-data:
+% *
+% ******************************************************
+
+   Integer PROCEDURE time_of_event;
+   BEGIN
+      External C PROCEDURE xeventtime Is
+         Integer PROCEDURE XEventTime( e );
+            Integer e;
+            ;
+
+      time_of_event := XEventTime( event_pointer );
+   END;
+
+   Integer PROCEDURE x_of_event;
+   BEGIN
+      External C PROCEDURE xeventx Is
+         Integer PROCEDURE XEventX( e );
+            Integer e;
+            ;
+
+      x_of_event := XEventX( event_pointer );
+   END;
+
+   Integer PROCEDURE y_of_event;
+   BEGIN
+      External C PROCEDURE xeventy Is
+         Integer PROCEDURE XEventY( e );
+            Integer e;
+            ;
+
+      y_of_event := XEventY( event_pointer );
+   END;
+
+   Integer PROCEDURE key_code;
+   BEGIN
+      External C PROCEDURE xeventkeycode Is
+         Integer PROCEDURE XEventKeycode( e );
+            Integer e;
+            ;
+
+      key_code := XEventKeycode( event_pointer );
+   END;
+
+   Text key_buffer;
+   Integer key_buffer_length = 4;
+
+   Character PROCEDURE key_of_event( keySym );
+        Name keySym;
+        Integer keySym;
+   BEGIN
+      External C PROCEDURE xlookupstring Is
+         Integer PROCEDURE XLookupString( event, keybuffer, maxlength, key_sym,
+             status );
+            Name key_sym
+%                             ,keybuffer
+            ;
+            Text keybuffer;
+            Integer event, maxlength, key_sym, status;
+            ;
+
+      Integer key_length,   status, ks;
+
+      key_length := XLookupString( event_pointer, key_buffer, key_buffer_length,
+                        ks, status );
+      keySym := ks;
+      key_of_event := IF key_length = 0 THEN
+                        char( 0 )
+                      ELSE key_buffer.sub( 1, 1 ).getchar;
+   END;
+
+   Integer PROCEDURE button_number;
+   BEGIN
+      External C PROCEDURE xeventbutton Is
+         Integer PROCEDURE XEventButton( e );
+            Integer e;
+            ;
+
+      button_number := XEventButton( event_pointer );
+   END;
+   
+
+% ******************************************************************
+%          		C O L O U R
+% ******************************************************************
+
+   REF(ColorEntry) PROCEDURE find_color( colorname );
+        Text colorname;
+   BEGIN
+        !This procedure manages the color dictionary
+        It returns the the raster index (when monochrome) or
+        the pix value for SetForeground or XSetWindowBackground (when color);
+
+	EXTERNAL C PROCEDURE xallocnamedcolor IS
+	   INTEGER PROCEDURE XAllocNamedColor(color);
+	      TEXT color; ;
+
+	 EXTERNAL c PROCEDURE xparsecolor IS
+	    INTEGER PROCEDURE XParseColor(t); TEXT t; ;
+
+         INTEGER PROCEDURE HASH(t);
+         TEXT t;
+         BEGIN
+            INTEGER N, K;
+            K := abs( minint // 16);  t.Setpos(1); 
+            while t.More do begin
+               N := 11*N + Rank(t.Getchar);
+               IF N > K THEN N := rem( N, K);
+            end;
+            randint(0,255,N);
+            hash := N;
+         END of hash;
+   
+      REF(ColorEntry) Temp;
+        
+      INTEGER PROCEDURE GetRGB(ColorName); TEXT ColorName;
+      BEGIN
+         INTEGER RGB;
+	 
+         RGB := XParseColor(ColorName);
+	 IF RGB = -1 THEN
+	 BEGIN
+	    Integer U;
+            if Color_trace then outtext("...not found...");
+	    U := hash(ColorName);
+	    RGB := randint( 0, 2**24, U );
+	 END;
+	 GetRGB := RGB;
+	 if Color_trace then outRGB(rgb);
+
+      END   --- GetRGB ---;
+
+      procedure outRGB(RGB); integer RGB;
+      begin
+         integer r,g,b;
+         b := mod(rgb,256); rgb := rgb // 256;
+         g := mod(rgb,256); r := rgb // 256;
+         outint(r,4); outint(g,4); outint(b,4);
+         outchar(' ');
+      end;
+                  
+      
+      IF ColorName == NOTEXT 
+         THEN ColorName :- "black"
+         ELSE ColorName :-  LowCase(copy(ColorName));
+      Temp :- Colors.Find(ColorName);
+      
+      IF Temp == NONE THEN !we create a color entry;
+      BEGIN
+         if Color_trace then outtext("Find_color(" & ColorName & ") ");         
+         
+         IF ScreenDepth = 1 then 
+         begin
+            integer index ;
+            index := stipofRGB(GetRGB(ColorName)) ;
+            Temp :- new ColorStipple(ColorName, rasters(index), 
+                                                rasters(16-index));
+         end
+         ELSE 
+         BEGIN Integer ColorIdx,U;
+         
+            ColorIdx :=  XAllocNamedColor(ColorName);
+            if ColorIdx = -1 then begin
+               U := hash(ColorName);
+               ColorIdx := randint(1,127,U);
+               if Color_trace then outtext("..random chosen ...");         
+            end;
+            if Color_trace then outtext(" Color index=" & int_as_text(ColorIdx));         
+            
+            Temp :- new ColorIndex  (ColorName, ColorIdx) ;
+         END;
+            
+         Colors.insert(Temp);
+         if Color_trace then Outimage;;
+      END;
+      find_color :- Temp; 
+   END;
+  
+ 
+   
+
+   INTEGER PROCEDURE pixel(RGB); INTEGER RGB;
+   BEGIN
+	 EXTERNAL c PROCEDURE xalloccolor IS
+	    INTEGER PROCEDURE XAllocColor(c); INTEGER c;;
+      INTEGER p;
+
+      p := XAllocColor (RGB);
+
+      IF p = -1 THEN BEGIN
+         p := findclosest (RGB);
+         if Color_trace then outtext("..find closest..");
+      END;
+      if Color_trace then 
+         outtext("Allocated as # " & int_as_text(p));
+
+      pixel := p;
+   END;
+
+
+      INTEGER PROCEDURE stipofRGB(RGB); INTEGER RGB;
+	 BEGIN
+	       EXTERNAL c PROCEDURE blackpixel IS
+		  INTEGER PROCEDURE BlackPixel;;
+		  
+	    INTEGER red, green, blue, Code;
+	    REAL X;
+	    
+	    blue := Mod (RGB, 256);
+	    RGB := (RGB-blue)//256;
+	    green := Mod (RGB, 256);
+	    red := (RGB-green)//256;
+
+%	    Code := Entier (red*.299*17/256+green*.587*17/256+blue*.114*17/256);
+
+            X := 17 * (0.3*red + 0.58*green + 0.12*blue)/256 ;
+	    stipofRGB := Code := Entier( X );
+	    
+            if Color_trace then begin
+	       outtext(", Raster values:"); outfix(X,2,6); outint(Code,3);
+	       outtext(", ");
+	       outtext("Stipple# " & int_as_text(Code) );
+	    end;
+
+	 END;
+
+      INTEGER PROCEDURE RGBdist (a, b); INTEGER a, b;
+	 BEGIN
+	    INTEGER ra, ga, ba, rb, gb, bb;
+	    ba := Mod (a, 256);
+	    a := (a-ba)//256;
+	    ga := Mod (a, 256);
+	    ra := (a-ga)//256;
+
+	    bb := Mod (b, 256);
+	    b := (b-bb)//256;
+	    gb := Mod (b, 256);
+	    rb := (b-gb)//256;
+
+	    RGBdist := (rb-ra)**2+(gb-ga)**2+(bb-ba)**2;
+	 END;
+
+      INTEGER PROCEDURE findclosest(RGB); INTEGER RGB;
+%     Seeks for the closest color in the default colormap
+	 BEGIN
+	    INTEGER bestind, bestval, d, np;
+	    EXTERNAL C PROCEDURE xquerycolor IS
+	       INTEGER PROCEDURE XQueryColor(RGB); INTEGER RGB;;
+	    bestind := 0;
+	    bestval := RGBdist (RGB, XQueryColor (0));
+	    np := 1;
+	    WHILE (np < 2**ScreenDepth) DO
+	       BEGIN
+		  d := RGBdist (RGB, XQueryColor (np));
+		  IF (d < bestval) THEN
+		     BEGIN
+			bestval := d;
+			bestind := np;
+		     END;
+		  np := np+1;
+	       END;
+	    findclosest := bestind;
+	 END;
+
+
+
+   Integer PROCEDURE ScreenDepth;
+   BEGIN
+      External C PROCEDURE xscreendepth Is
+         Integer PROCEDURE XScreenDepth;
+            ;
+
+      ScreenDepth := XScreenDepth;
+   END;
+
+
+
+% ******************************************************************
+%          		B O D Y 
+% ******************************************************************
+
+   own_event_queue :- New sequence;
+   alarm_requests :- New Priority_queue;
+   key_buffer :- blanks( key_buffer_length );
+
+   CreateDisplay;
+
+END  ================== Xdisplay ===================================;
+
+
+
+% ******************************************************************
+%          Element types used in XDISPLAY LISTS
+% ******************************************************************
+
+element Class alarm_request( WindowID, evtime );
+     Integer WindowID;
+     Real evtime;
+BEGIN
+   Text TEV;
+
+   Text PROCEDURE Key;
+      Key :- TEV;
+
+   PROCEDURE dmp;
+   BEGIN
+      outtext( " - " );
+      outint( WindowID, 0 );
+      outfix( evtime, 3, 10 );
+      outimage;
+   END;
+
+   TEV :- blanks( 10 );
+   TEV.putfix( evtime, 3 );
+END;
+
+element Class own_event( wnd );
+     Ref(XWindow) wnd;
+   ;
+   
+element CLASS ColorEntry (ColorName, ColorCode);
+      TEXT ColorName; INTEGER ColorCode;
+BEGIN
+      TEXT PROCEDURE key;
+         key :- ColorName;
+END;
+
+ColorEntry CLASS ColorIndex;;
+ColorEntry CLASS ColorStipple(inverseCode); 
+   integer inverseCode;
+;
+	
+
+% *************************************
+% *************************************
+% *******                       *******
+% *******     X W I N D O W     *******
+% *******                       *******
+% *************************************
+% *************************************
+
+element Class XWindow;
+
+% Visible attributes:
+%    integer windowID, parentID;
+%    integer procedure DisplayWidth;
+%    integer procedure DisplayHeight;
+%    Boolean procedure HighResolutionScreen;
+
+Virtual:
+
+     PROCEDURE window_kind Is
+        Text PROCEDURE window_kind;
+           ;
+     PROCEDURE CreateWindow Is
+        PROCEDURE CreateWindow;
+           ;
+     PROCEDURE isMainWindow Is
+        Boolean PROCEDURE isMainWindow;
+           ;
+
+     PROCEDURE FindAbsolutePos Is
+        PROCEDURE FindAbsolutePos( x, y );
+           Name x, y;
+           Integer x, y;
+           ;
+
+     PROCEDURE Refresh Is
+        PROCEDURE Refresh;
+           ;
+
+     PROCEDURE handle_shortcut Is
+        Boolean PROCEDURE handle_shortcut( key );
+           Character key;
+           ;
+     PROCEDURE handle_key_down Is
+        PROCEDURE handle_key_down( key );
+           Character key;
+           ;
+     PROCEDURE handle_key_up Is
+        PROCEDURE handle_key_up( key );
+           Character key;
+           ;
+     PROCEDURE handle_special_key_down Is
+        PROCEDURE handle_special_key_down( key_sym );
+           Integer key_sym;
+           ;
+     PROCEDURE handle_special_key_up Is
+        PROCEDURE handle_special_key_up( key_sym );
+           Integer key_sym;
+           ;
+     PROCEDURE handle_button_down Is
+        PROCEDURE handle_button_down( button );
+           Integer button;
+           ;
+     PROCEDURE handle_button_up Is
+        PROCEDURE handle_button_up( button );
+           Integer button;
+           ;
+     PROCEDURE handle_pointer_motion Is
+        PROCEDURE handle_pointer_motion( x, y );
+           Integer x, y;
+           ;
+     PROCEDURE handle_enter_window Is
+        PROCEDURE handle_enter_window;
+           ;
+     PROCEDURE handle_leave_window Is
+        PROCEDURE handle_leave_window;
+           ;
+     PROCEDURE handle_destroy Is
+        PROCEDURE handle_destroy;
+           ;
+     PROCEDURE handle_configure Is
+        PROCEDURE handle_configure;
+           ;
+     PROCEDURE handle_wakeup Is
+        PROCEDURE handle_wakeup;
+           ;
+
+% -------------------------------------------------------
+% -------- WindowTool Event Handlers --------------------
+% -------------------------------------------------------
+
+     PROCEDURE Handle_Alarm Is
+        PROCEDURE Handle_Alarm;
+           ;
+     PROCEDURE Handle_Click Is
+        PROCEDURE Handle_Click( X, Y );
+           Integer X, Y;
+           ;
+     PROCEDURE Handle_DoubleClick Is
+        PROCEDURE Handle_DoubleClick( Window );
+           Ref(XWindow) Window;
+           ;
+% -------------------------------------------------------
+%     3 others will be defined in SimWindow
+% -------------------------------------------------------
+%        PROCEDURE handle_button_click( B );
+%        PROCEDURE Handle_Selection(Window, ItemN, Item);
+%        PROCEDURE Handle_Typing( Window );
+% =======================================================
+
+     PROCEDURE Wait Is
+        PROCEDURE Wait;
+           ;
+     PROCEDURE AllowInput Is
+        Ref(XWindow) PROCEDURE AllowInput;
+           ;
+     PROCEDURE DisallowInput Is
+        Ref(XWindow) PROCEDURE DisallowInput;
+           ;
+     PROCEDURE AllowChoice Is
+        Ref(XWindow) PROCEDURE AllowChoice;
+           ;
+     PROCEDURE DisallowChoice Is
+        Ref(XWindow) PROCEDURE DisallowChoice;
+           ;
+     PROCEDURE SetFont Is
+        Ref(XWindow) PROCEDURE SetFont( font_name );
+           Text font_name;
+           ;
+     PROCEDURE SetHeadFont Is
+        Ref(XWindow) PROCEDURE SetHeadFont( font_name );
+           Text font_name;
+           ;
+
+     PROCEDURE head_height Is
+        Integer PROCEDURE head_height;
+           ;
+     PROCEDURE head_width Is
+        Integer PROCEDURE head_width;
+           ;
+
+     PROCEDURE SetSizeSub Is
+        PROCEDURE SetSizeSub;
+           ;
+     PROCEDURE SetColumns Is
+        Ref(XWindow) PROCEDURE SetColumns( ncolumns );
+           Integer ncolumns;
+           ;
+     PROCEDURE SetMaxChars Is
+        Ref(XWindow) PROCEDURE SetMaxChars( c );
+           Integer c;
+           ;
+     PROCEDURE SetLines Is
+        Ref(XWindow) PROCEDURE SetLines( lines );
+           Integer lines;
+           ;
+     PROCEDURE Owner Is
+        Ref(XWindow) PROCEDURE Owner;
+           ;
+     PROCEDURE TopWindow Is
+        Ref(XWindow) PROCEDURE TopWindow;
+           ;
+     PROCEDURE MakeEmpty Is
+        Ref(XWindow) PROCEDURE MakeEmpty;
+           ;
+     PROCEDURE MakeHeadWindow Is
+        Ref(XWindow) PROCEDURE MakeHeadWindow( heading );
+           Text heading;
+           ;
+     PROCEDURE SetHeading Is
+        Ref(XWindow) PROCEDURE SetHeading( heading );
+           Text heading;
+           ;
+     PROCEDURE SetLabel Is
+        Ref(XWindow) PROCEDURE SetLabel( a_label );
+           Text a_label;
+           ;
+     PROCEDURE ShowCurrentLabel Is
+        PROCEDURE ShowCurrentLabel;
+           ;
+     PROCEDURE PlaceAt Is
+        Ref(XWindow) PROCEDURE PlaceAt( minx, miny );
+           Integer minx, miny;
+           ;
+     PROCEDURE PlaceCentered Is
+        Ref(XWindow) PROCEDURE PlaceCentered;
+           ;
+     PROCEDURE PlaceUpLeft Is
+        Ref(XWindow) PROCEDURE PlaceUpLeft;
+           ;
+     PROCEDURE PlaceUpRight Is
+        Ref(XWindow) PROCEDURE PlaceUpRight;
+           ;
+     PROCEDURE PlaceDownLeft Is
+        Ref(XWindow) PROCEDURE PlaceDownLeft;
+           ;
+     PROCEDURE PlaceDownRight Is
+        Ref(XWindow) PROCEDURE PlaceDownRight;
+           ;
+     PROCEDURE PlaceAfter Is
+        Ref(XWindow) PROCEDURE PlaceAfter( wnd );
+           Ref(XWindow) wnd;
+           ;
+     PROCEDURE PlaceBefore Is
+        Ref(XWindow) PROCEDURE PlaceBefore( wnd );
+           Ref(XWindow) wnd;
+           ;
+     PROCEDURE PlaceBelow Is
+        Ref(XWindow) PROCEDURE PlaceBelow( wnd );
+           Ref(XWindow) wnd;
+           ;
+     PROCEDURE PlaceAbove Is
+        Ref(XWindow) PROCEDURE PlaceAbove( wnd );
+           Ref(XWindow) wnd;
+           ;
+     PROCEDURE PlaceRightof Is
+        Ref(XWindow) PROCEDURE PlaceRightof( wnd );
+           Ref(XWindow) wnd;
+           ;
+     PROCEDURE PlaceLeftof Is
+        Ref(XWindow) PROCEDURE PlaceLeftof( wnd );
+           Ref(XWindow) wnd;
+           ;
+     PROCEDURE PlaceRightBelow Is
+        Ref(XWindow) PROCEDURE PlaceRightBelow( wnd );
+           Ref(XWindow) wnd;
+           ;
+     PROCEDURE PlaceLeftBelow Is
+        Ref(XWindow) PROCEDURE PlaceLeftBelow( wnd );
+           Ref(XWindow) wnd;
+           ;
+     PROCEDURE Place Is
+        PROCEDURE Place;
+           ;
+
+     PROCEDURE SetFancy Is
+        Ref(XWindow) PROCEDURE SetFancy;
+           ;
+
+     PROCEDURE handle_left_arrow Is
+        PROCEDURE handle_left_arrow;
+           ;
+     PROCEDURE handle_right_arrow Is
+        PROCEDURE handle_right_arrow;
+           ;
+     PROCEDURE handle_down_arrow Is
+        PROCEDURE handle_down_arrow;
+           ;
+     PROCEDURE handle_up_arrow Is
+        PROCEDURE handle_up_arrow;
+           ;
+     PROCEDURE handle_return Is
+        PROCEDURE handle_return;
+           ;
+
+BEGIN
+
+% ------------------------------------------------------------
+%      State Attributes for all windows
+% ------------------------------------------------------------
+
+   Text window_key;
+   Integer windowID;       ! An integer which uniquely identifies this window.
+                           ! It is assigned by X when this window is created;
+
+   Integer parentID;       ! Identifies the parent of this window;
+
+   Ref(sequence) Children;
+%  Ref(ItemWindow) Last_itemwindow;
+   Ref(XWindow) LastSubwindow;
+   Ref(XWindow) Head_window;
+
+   Ref(XDisplay) the_display;
+
+% -- constants --
+
+   Integer minint0 =-1;
+   Integer LeftButton = 1,
+       CenterButton = 2,
+       RightButton = 3;
+   Integer return_code = 13;
+
+% ------------------------------------------------------------
+%     Operations
+% ------------------------------------------------------------
+
+   Text PROCEDURE window_kind;
+      window_kind :- "XWindow";
+
+   Text PROCEDURE key;
+   BEGIN
+      IF window_key == Notext THEN
+         window_key :- int_as_text( windowID );
+      key :- window_key;
+   END;
+
+   Ref(XWindow) PROCEDURE add_window( w );
+        Ref(XWindow) w;
+   BEGIN
+      children.append( w );
+      add_window :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE remove_window( w );
+        Ref(XWindow) w;
+   BEGIN
+      Children.remove( w );
+      remove_window :- This XWindow;
+   END;
+
+% ------------------------------------------------------------
+%      CREATION  & TRACING
+% ------------------------------------------------------------
+
+   PROCEDURE CreateWindow;
+      ;
+
+   PROCEDURE Initialize;
+   BEGIN
+      InitializeGeometry;
+      InitializeGraphics;
+      InitializeSensitivity;
+      children :- New sequence;
+   END;
+
+   PROCEDURE TraceCreation;
+      IF the_display.trace_level > 0 THEN BEGIN
+         outtext( window_kind );
+         outline( " with ID " & int_as_text( windowID ) & " created" );
+      END;
+
+   PROCEDURE set_trace;
+      the_display.set_trace;
+
+   PROCEDURE unset_trace;
+      the_display.unset_trace;
+
+   PROCEDURE set_trace_level( N );
+        Integer N;
+      the_display.set_trace_level( N );
+
+   PROCEDURE set_trace_Mask( N );
+        Integer N;
+      the_display.TraceMask := N;
+
+% ******************************************************
+% ******************************************************
+% *
+% *    Connections to the DISPLAY & environment:
+% *
+% ******************************************************
+% ******************************************************
+
+!   Ref(XDisplay) the_display;
+
+   Integer PROCEDURE DisplayAdr;  ! to be used as 1st parameter for  ;
+                                  !  X-procedures not in X-interface ;
+      DisplayAdr := the_display.DisplayAdr;
+   
+   Integer PROCEDURE DisplayWidth;
+   BEGIN
+      Integer I;
+      External C PROCEDURE xdisplaywidth Is
+         Integer PROCEDURE XDisplayWidth;
+            ;
+
+      I := XDisplayWidth;
+      DisplayWidth := I;
+   END;
+
+   Integer PROCEDURE DisplayHeight;
+   BEGIN
+      Integer I;
+      External C PROCEDURE xdisplayheight Is
+         Integer PROCEDURE XDisplayHeight;
+            ;
+
+      I := XDisplayHeight;
+      DisplayHeight := I;
+   END;
+
+   Integer PROCEDURE DisplayWidthMM;
+   BEGIN
+      External C PROCEDURE xdisplaywidthmm Is
+         Integer PROCEDURE XDisplayWidthMM;
+            ;
+
+      DisplayWidthMM := XDisplayWidthMM;
+   END;
+
+   Integer PROCEDURE DisplayHeightMM;
+   BEGIN
+      External C PROCEDURE xdisplayheightmm Is
+         Integer PROCEDURE XDisplayHeightMM;
+            ;
+
+      DisplayHeightMM := XDisplayHeightMM;
+   END;
+
+   Boolean PROCEDURE HighResolutionScreen;
+      HighResolutionScreen := DisplayWidth*25.4/DisplayWidthMM > 87;
+
+   Integer PROCEDURE ScreenDepth;
+      ScreenDepth := the_display.ScreenDepth;
+
+   Integer PROCEDURE DefaultVisual;
+   BEGIN
+      External C PROCEDURE xdefaultvisual Is
+         Integer PROCEDURE XDefaultVisual;
+            ;
+
+      DefaultVisual := XDefaultVisual;
+   END;
+
+!   Integer LeftButton = 1,
+       CenterButton = 2,
+       RightButton = 3;
+
+   Ref(XWindow) PROCEDURE SaveUnder;
+   BEGIN
+      External C PROCEDURE xsaveunder Is
+         PROCEDURE XSaveUnder( WindowID );
+            Integer WindowID;
+            ;
+
+      XSaveUnder( WindowID );
+      SaveUnder :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE SetBackingStore;
+   BEGIN
+      External C PROCEDURE xbackingstore Is
+         PROCEDURE XBackingStore( WindowID );
+            Integer WindowID;
+            ;
+
+      XBackingStore( WindowID );
+      SetBackingStore :- This XWindow;
+   END;
+
+   Text PROCEDURE FetchCutBuffer;
+   BEGIN
+      External C PROCEDURE xfetchbytes Is
+         Text PROCEDURE XFetchBytes( nbytes );
+            Name nbytes;
+            Integer nbytes;
+            ;
+      Text bytes;
+      Integer nbytes;
+
+      bytes :- XFetchBytes( nbytes );
+      FetchCutBuffer :- bytes;
+   END;
+
+   PROCEDURE StoreInCutBuffer( t );
+        Text t;
+      IF t =/= Notext THEN BEGIN
+         External C PROCEDURE xstorebytes Is
+            PROCEDURE XStoreBytes( bytes, nbytes );
+               Text bytes;
+               Integer nbytes;
+               ;
+
+         XStoreBytes( T, t.length );
+      END;
+
+% ******************************************************
+% *
+% * Default versions of the virtual procedures that
+% *        handle events of various kinds:
+% *
+% ******************************************************
+
+   PROCEDURE refresh;
+      ;
+
+   PROCEDURE handle_destroy;
+      ;
+
+   PROCEDURE handle_configure;
+      ;
+
+   Boolean PROCEDURE isMainWindow;
+      ;
+
+   Boolean PROCEDURE handle_shortcut( C );
+        Character C;
+      ;     ! returns false by default...
+              redefined only in INPUTWINDOW ;
+
+   PROCEDURE handle_key_down( key );
+        Character key;
+      ;
+
+   PROCEDURE handle_key_up( key );
+        Character key;
+      ;
+
+   PROCEDURE handle_special_key_down( key_code );
+        Integer key_code;
+   BEGIN
+      Integer left_arrow = 16Rff51,
+          right_arrow = 16Rff53,
+          up_arrow = 16Rff52,
+          down_arrow = 16Rff54;
+
+      IF key_code = left_arrow THEN
+         handle_left_arrow
+      ELSE IF key_code = right_arrow THEN
+         handle_right_arrow
+      ELSE IF key_code = up_arrow THEN
+         handle_up_arrow
+      ELSE IF key_code = down_arrow THEN
+         handle_down_arrow;
+   END;
+
+   PROCEDURE handle_special_key_up( key_sym );
+        Integer key_sym;
+      ;
+
+   PROCEDURE handle_button_down( button );
+        Integer button;
+      ;
+
+   PROCEDURE handle_button_up( button );
+        Integer button;
+      ;
+
+   PROCEDURE handle_enter_window;
+      ;
+
+   PROCEDURE handle_leave_window;
+      ;
+
+   PROCEDURE handle_pointer_motion( x, y );
+        Integer x, y;
+      ;
+
+
+
+   PROCEDURE handle_left_arrow;
+      ;
+
+   PROCEDURE handle_right_arrow;
+      ;
+
+   PROCEDURE handle_down_arrow;
+      ;
+
+   PROCEDURE handle_up_arrow;
+      ;
+
+   PROCEDURE handle_return;
+      ;
+
+% ******************************************************
+% ******************************************************
+% *
+% *               EVENTS and MESSAGES
+% *
+% ******************************************************
+% ******************************************************
+
+   PROCEDURE handle_event;
+      the_display.handle_event;
+
+   PROCEDURE handle_pending_events;
+      the_display.handle_pending_events;
+
+   Integer x_of_event,
+       y_of_event,
+       time_of_event;
+   Ref(XWindow) EvtWindow;
+
+   Integer EventSet;
+   Integer AlarmEvt = 1,
+       ClickEvt = 2,
+       DoubleClickEvt = 4,
+       ButtonEvt = 8,
+       SelectionEvt = 16,
+       TypingEvt = 32,
+       WakeEvt = 64;
+
+   PROCEDURE WaitFor( Bits );
+        Integer Bits;
+   BEGIN
+      AddBit( WakeEvt, Bits);
+      SubBits( Bits, EventSet );
+      WHILE Not intersection( Bits, EventSet ) DO
+         handle_event;
+   END;
+
+! ----------------------------------------- WAKEUP ------;
+
+   PROCEDURE Wait;
+      WHILE Not BitIN( WakeEvt, EventSet ) DO
+         handle_event;
+
+   PROCEDURE Handle_Wakeup;
+      AddBit( WakeEvt, EventSet );
+
+   Boolean PROCEDURE Woken;
+      Woken :=  BitIn( WakeEvt, EventSet ); 
+      
+
+! ---------------------------------------- ALARM ------;
+
+   PROCEDURE SetAlarm( time );
+        Real Time;
+   BEGIN
+      the_display.alarm_set( WindowID, time );
+   END;
+
+   PROCEDURE WakeUp;
+      the_display.create_own_event( This XWindow );
+
+   PROCEDURE Handle_Alarm;
+   BEGIN
+      AddBit( AlarmEvt, EventSet );
+   END;
+
+   PROCEDURE WaitForAlarm;
+   BEGIN
+      WaitFor( AlarmEvt );
+      SubBit( AlarmEvt, EventSet );
+   END;
+
+   Boolean PROCEDURE Timeout;
+      IF BitIn( AlarmEvt, EventSet ) THEN BEGIN
+         Timeout := True;
+         SubBit( AlarmEvt, EventSet );
+      END;
+
+! ------------- CLICK (Not in Button) ---------------;
+
+   PROCEDURE Handle_Click( X, Y );
+        Integer X, Y;
+   BEGIN
+      AddBit( ClickEvt, EventSet );
+   END;
+
+   PROCEDURE WaitForClick( X, Y );
+        Name X, Y;
+        Integer X, Y;
+   BEGIN
+      WaitFor( ClickEvt );
+      X := x_of_event;
+      Y := y_of_event;
+      SubBit( ClickEvt, EventSet );
+   END;
+
+   Boolean PROCEDURE Clicked( X, Y );
+        Name X, Y;
+        Integer X, Y;
+      IF BitIn( ClickEvt, EventSet ) THEN BEGIN
+         Clicked := True;
+         X := x_of_event;
+         Y := y_of_event;
+         SubBit( ClickEvt, EventSet );
+      END;
+
+! ------------- DOUBLECLICK  ---------------;
+
+   PROCEDURE Handle_DoubleClick( W );
+        Ref(XWindow) W;
+   BEGIN
+      EvtWindow :- W;
+      AddBit( DoubleClickEvt, EventSet );
+   END;
+
+   PROCEDURE WaitForDoubleClick( W );
+        Name W;
+        Ref(XWindow) W;
+   BEGIN
+      WaitFor( DoubleClickEvt );
+      W :- EvtWindow;
+   END;
+
+   Boolean PROCEDURE DoubleClicked( W );
+        Name W;
+        Ref(XWindow) W;
+      IF BitIn( DoubleClickEvt, EventSet ) THEN BEGIN
+         DoubleClicked := True;
+         W :- EvtWindow;
+         SubBit( DoubleClickEvt, EventSet );
+      END;
+
+
+   PROCEDURE SizeChange_in_SubWindow( wnd );
+        Ref(XWindow) wnd;
+      ;
+
+% ******************************************************
+% *
+% * Procedures to sensitize and desensitize the window
+% *       for various kinds of events:
+% *
+% ******************************************************
+
+   PROCEDURE InitializeSensitivity;
+   BEGIN
+      alarm_sensitize;
+      expose_sensitized := True;
+      structure_sensitized := True;
+      Sensitize;
+   END;
+
+   Boolean expose_sensitized,   key_sensitized,
+       button_press_sensitized, button_release_sensitized,
+       enter_window_sensitized, leave_window_sensitized,
+       pointer_motion_sensitized,   structure_sensitized,
+       alarm_sensitized;
+
+   PROCEDURE button_sensitize;
+   BEGIN
+      button_press_sensitized := True;
+      button_release_sensitized := True;
+      Sensitize;
+   END;
+
+   PROCEDURE button_desensitize;
+   BEGIN
+      button_press_sensitized := False;
+      button_release_sensitized := False;
+      Sensitize;
+   END;
+
+   PROCEDURE key_sensitize;
+   BEGIN
+      key_sensitized := True;
+      Sensitize;
+   END;
+
+   PROCEDURE key_desensitize;
+   BEGIN
+      key_sensitized := False;
+      Sensitize;
+   END;
+
+   PROCEDURE alarm_sensitize;
+      alarm_sensitized := True;
+
+   PROCEDURE alarm_desensitize;
+      alarm_sensitized := False;
+
+   PROCEDURE enter_and_leave_sensitize;
+   BEGIN
+      enter_window_sensitized := True;
+      leave_window_sensitized := True;
+      Sensitize;
+   END;
+
+   PROCEDURE enter_and_leave_desensitize;
+   BEGIN
+      enter_window_sensitized := False;
+      leave_window_sensitized := False;
+      Sensitize;
+   END;
+
+   PROCEDURE pointer_motion_sensitize;
+   BEGIN
+      pointer_motion_sensitized := True;
+      Sensitize;
+   END;
+
+   PROCEDURE pointer_motion_desensitize;
+   BEGIN
+      pointer_motion_sensitized := False;
+      Sensitize;
+   END;
+
+   PROCEDURE Sensitize;
+   BEGIN
+      External C PROCEDURE xselectinput Is
+         PROCEDURE XSelectInput( WindowID, EventMask );
+            Integer WindowID, EventMask;
+            ;
+
+      Integer KeyPressMaskVal = 1,
+          ButtonPressMaskVal = 4,
+          ButtonReleaseMaskVal = 8,
+          EnterWindowMaskVal = 16,
+          LeaveWindowMaskVal = 32,
+          PointerMotionMaskVal = 64,
+          StructureNotifyMaskVal = 131072,
+          ExposureMaskVal = 32768;
+
+      Integer Mask;
+
+      Mask :=( IF key_sensitized THEN KeyPressMaskVal
+               ELSE 0 ) +( IF button_press_sensitized THEN ButtonPressMaskVal
+                           ELSE 0 ) +( IF button_release_sensitized THEN
+                                             ButtonReleaseMaskVal
+                                       ELSE 0 ) +( IF enter_window_sensitized
+                      THEN EnterWindowMaskVal
+                ELSE 0 )
+
+              +( IF leave_window_sensitized THEN LeaveWindowMaskVal
+                 ELSE 0 ) +( IF structure_sensitized THEN StructureNotifyMaskVal
+                             ELSE 0 ) +( IF pointer_motion_sensitized THEN
+                                               PointerMotionMaskVal
+                                         ELSE 0 ) +( IF expose_sensitized THEN
+                      ExposureMaskVal
+                ELSE 0 );
+
+      XSelectInput( windowID, Mask );
+   END;
+
+% ******************************************************
+% *
+% *     E V E N T S
+% *
+% ******************************************************
+
+   Ref(XWindow) PROCEDURE AllowInput;
+   BEGIN
+
+      PROCEDURE a( wnd );
+           Ref(element) wnd;
+         IF wnd In XWindow THEN
+            wnd Qua XWindow.AllowInput;
+
+      children.for_each_element( a );
+      AllowInput :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DisallowInput;
+   BEGIN
+
+      PROCEDURE d( wnd );
+           Ref(element) wnd;
+         IF wnd In XWindow THEN
+            wnd Qua XWindow.DisAllowInput;
+
+      children.for_each_element( d );
+      DisAllowInput :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE AllowChoice;
+      AllowChoice :- This XWindow;
+
+   Ref(XWindow) PROCEDURE DisallowChoice;
+      DisallowChoice :- This XWindow;
+
+% ******************************************************
+% *
+% *     Mapping etc.:
+% *
+% ******************************************************
+
+   Boolean mapped,  destroyed;
+
+   Ref(XWindow) PROCEDURE Show;
+   BEGIN
+      External C PROCEDURE xmapwindow Is
+         PROCEDURE XMapWindow( WindowID );
+            Integer WindowID;
+            ;
+
+      IF Not mapped THEN BEGIN
+         XMapWindow( windowID );
+         WHILE Not mapped DO
+            the_display.handle_event;
+%        IF This XWindow In MainWindow THEN
+         IF isMainWindow THEN
+            GetActualGeometry;
+         IF head_window =/= None THEN
+            head_window.Show;
+         ShowCurrentLabel;
+      END;
+      Show :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE Hide;
+   BEGIN
+      External C PROCEDURE xunmapwindow Is
+         PROCEDURE XUnmapWindow( WindowID );
+            Integer WindowID;
+            ;
+
+      IF mapped THEN BEGIN
+         XUnmapWindow( windowID );
+         WHILE mapped DO
+            the_display.handle_event;
+%        mapped := false;
+      END;
+      Hide :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE Raise;
+   BEGIN
+      External C PROCEDURE xraisewindow Is
+         PROCEDURE XRaiseWindow( WindowID );
+            Integer WindowID;
+            ;
+
+      XRaiseWindow( windowID );
+      Raise :- This XWindow;
+   END;
+
+% ------------------------------------------------------------
+%  DESTROY:   Changed whole approach in ***v4.4:
+% ------------------------------------------------------------
+
+   PROCEDURE Release_resources;
+   BEGIN
+      Ref(XWindow) W;
+
+      IF the_display.trace_level > 1 THEN BEGIN
+         sysout.outtext( "=== Releasing Resources in " & window_kind & " " & key
+             );
+         sysout.outimage;
+      END;
+      destroyed := True;
+      CurrentGC.Destroy;
+      WHILE Not children.empty DO BEGIN
+         W :- children.pop;
+         W.Release_resources;
+      END;
+      handle_destroy;
+   END;
+
+   Ref(XWindow) PROCEDURE Clear;
+   BEGIN
+      External C PROCEDURE xclearwindow Is
+         PROCEDURE XClearWindow( WindowID );
+            Integer WindowID;
+            ;
+
+      XClearWindow( windowID );
+%        MakeEmpty;
+      Clear :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE Invert;
+      Invert :- InvertRectangle( 0, 0, width, height );
+
+   Ref(XWindow) PROCEDURE Flash;
+   BEGIN
+      InvertRectangle( 0, 0, width, height );
+      sleep( 0.1 );
+      Flash :- InvertRectangle( 0, 0, width, height );
+   END;
+
+   Ref(XWindow) PROCEDURE Fill;
+      Fill :- FillRectangle( 0, 0, width, height );
+
+   PROCEDURE ShowLabels;
+   BEGIN
+
+      PROCEDURE showlabel( child );
+           Ref(element) child;
+         IF child Qua XWindow.mapped THEN
+            child Qua XWindow.ShowCurrentLabel;
+
+      IF children =/= None THEN
+         children.for_each_element( showlabel );
+   END;
+
+% ******************************************************
+% *
+% *               Geometry:
+% *
+% ******************************************************
+
+   Integer current_width,   current_height,
+       current_minx,    current_miny,
+       current_border_width,
+       subwindow_spacing,
+       depth_border;
+
+   PROCEDURE InitializeGeometry;
+   BEGIN
+      current_width := 50;
+      current_height := 10;
+      current_minx := 0;
+      current_miny := 1;
+      current_border_width := 1;
+      subwindow_spacing := 5;
+      depth_border := 0;
+      fancy := False;
+   END;
+
+   PROCEDURE write_geometry;
+   BEGIN
+      sysout.outtext( window_kind & " w: " & int_as_text( width ) & " h: " &
+          int_as_text( height ) & " mnx: " & int_as_text( min_x ) & " mny: " &
+          int_as_text( min_y ) );
+      sysout.outimage;
+   END;
+
+   Integer PROCEDURE width;
+      width := current_width;
+
+   Integer PROCEDURE height;
+      height := current_height;
+
+   Integer PROCEDURE min_x;
+      min_x := current_minx;
+
+   Integer PROCEDURE min_y;
+      min_y := current_miny;
+
+   Integer PROCEDURE max_x;
+      max_x := current_minx + current_width + 2*current_border_width;
+
+   Integer PROCEDURE max_y;
+      max_y := current_miny + current_height + 2*current_border_width;
+
+   Integer PROCEDURE mid_x;
+      mid_x := current_minx + current_border_width + current_width//2;
+
+   Integer PROCEDURE mid_y;
+      mid_y := current_miny + current_border_width + current_height//2;
+
+   Integer PROCEDURE BorderWidth;
+      BorderWidth := current_border_width;
+
+   PROCEDURE GetActualGeometry;
+      IF the_display =/= None THEN BEGIN
+         Integer depth, rootID;
+         External C PROCEDURE xgetgeometry Is
+            Boolean PROCEDURE XGetGeometry( WindowID, rootID, x, y, width,
+                height, borderwidth, depth );
+
+               Name rootID, x, y, width, height, borderwidth, depth;
+               Integer WindowID, rootID, x, y, width, height, borderwidth, depth
+                   ;
+               ;
+
+         XGetGeometry( windowID, rootID, current_minx, current_miny,
+             current_width, current_height, current_border_width, depth );
+      END;
+
+%   Boolean elastic;
+
+%   PROCEDURE SetElastic;
+%      elastic := True;
+
+   Ref(XWindow) PROCEDURE SetSize( new_width, new_height );
+        Integer new_width, new_height;
+   BEGIN
+      External C PROCEDURE xresizewindow Is
+         PROCEDURE XResizeWindow( WindowID, width, height );
+            Integer WindowID, width, height;
+            ;
+
+      current_width := max( 1, new_width );
+      current_height := max( 1, new_height );
+      IF the_display =/= None THEN
+         XResizeWindow( WindowID, current_width, current_height );
+      IF head_window =/= None THEN
+         head_window.Place;
+      SetSizeSub;
+      Replace;
+      SetSize :- This XWindow;
+   END;
+
+   PROCEDURE SetSizeSub;
+      ;
+
+   Ref(XWindow) PROCEDURE SetWidth( w );
+        Integer w;
+      SetWidth :- SetSize( w, height );
+
+   Ref(XWindow) PROCEDURE SetHeight( h );
+        Integer h;
+      SetHeight :- SetSize( width, h );
+
+   Ref(XWindow) PROCEDURE SetColumns( ncolumns );
+        Integer ncolumns;
+      SetColumns :- SetWidth(( ncolumns + 1 )*max_char_width + 2*depth_border );
+
+   Boolean max_chars_set,   max_lines_set;
+   Integer max_chars,   max_lines;
+
+   Ref(XWindow) PROCEDURE SetMaxChars( c );
+        Integer c;
+   BEGIN
+      max_chars := c;
+      max_chars_set := True;
+      SetMaxChars :- SetColumns( c );
+   END;
+
+   Ref(XWindow) PROCEDURE SetLines( lines );
+        Integer lines;
+   BEGIN
+      max_lines := lines;
+      max_lines_set := True;
+      SetLines :- SetHeight( max( head_height, max( 1, depth_border ) ) + lines*
+                      font_height + font_descent + max( 1, depth_border ) );
+   END;
+
+   Ref(XWindow) PROCEDURE SetSizeToSubwindowSize;
+   BEGIN
+      Integer sub_max_x,    sub_max_y;
+
+      PROCEDURE find_max( w );
+           Ref(element) w;
+         INSPECT w
+%         When HeadWindow DO
+%         When SubWindow DO BEGIN
+         When XWindow DO BEGIN
+            sub_max_x := max( sub_max_x, max_x );
+            sub_max_y := max( sub_max_y, max_y );
+         END;
+
+      sub_max_x := minint0;
+      sub_max_y := minint0;
+      children.for_each_element( find_max );
+      IF sub_max_x > minint0 THEN BEGIN
+         Integer new_w, new_h;
+
+         new_w := sub_max_x + subwindow_spacing;
+         new_h := sub_max_y + subwindow_spacing;
+         IF new_w <> width Or new_h <> height THEN BEGIN
+            SetSize( new_w, new_h );
+            ReplaceSubWindows;
+            SetSizeToSubwindowSize;
+         END;
+      END;
+      SetSizeToSubwindowSize :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE SetHeightToSubwindowHeight;
+   BEGIN
+      Ref(XWindow) w;
+      Integer sub_max_y;
+
+      PROCEDURE find_maxy( w );
+           Ref(element) w;
+         sub_max_y := max( sub_max_y, w Qua XWindow
+                          .max_y );
+
+      sub_max_y := minint0;
+      children.for_each_element( find_maxy );
+      IF sub_max_y > minint0 THEN
+         SetHeight( sub_max_y + subwindow_spacing + depth_border );
+      SetHeightToSubwindowHeight :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE SetWidthToSubwindowWidth;
+   BEGIN
+      Ref(XWindow) w;
+      Integer sub_max_x;
+
+      PROCEDURE find_maxx( w );
+           Ref(element) w;
+         sub_max_x := max( sub_max_x, w Qua XWindow
+                          .max_x );
+
+      sub_max_x := minint0;
+      children.for_each_element( find_maxx );
+      IF sub_max_x > minint0 THEN
+         SetWidth( sub_max_x + subwindow_spacing + depth_border );
+      SetWidthToSubwindowWidth :- This XWindow;
+   END;
+
+   Integer placed,
+       PlacedUpLeft = 1,    PlacedUpRight = 2,
+       PlacedDownLeft = 3,  PlacedDownRight = 4,    PlacedAfter = 5,
+       PlacedBefore = 6,    PlacedLeftBelow = 7,    PlacedRightBelow = 8,
+       PlacedBelow = 9,     PlacedAbove = 10,       PlacedRightof = 11,
+       PlacedLeftof = 12,   PlacedCentered = 13,    PlacedWithCenter = 14,
+       PlacedAt =-1, 
+       
+       placedat_x, placedat_y;
+
+
+   Ref(XWindow) PROCEDURE PlaceAt( minx, miny );
+        Integer minx, miny;
+   BEGIN
+      External C PROCEDURE xmovewindow Is
+         PROCEDURE XMoveWindow( WindowID, x, y );
+            Integer WindowID, x, y;
+            ;
+
+% JPH
+%     INSPECT This XWindow WHEN ItemWindow do
+%       if Mapped then EraseCurrentLabel;
+
+%     INSPECT This XWindow
+%       WHEN ItemWindow do
+%         IF Current_Label =/= notext then   !
+%           Current_MinX := Max(MinX, parent.DepthBorder + sw_gap + label_width)
+%       OTHERWISE
+
+      current_minx := minx;
+      current_miny := miny;
+%      IF the_display =/= None THEN
+      XMoveWindow( WindowID, current_minx, current_miny );
+      placed := PlacedAt;
+      placedat_x := minx;
+      placedat_y := miny;
+      PlaceAt :- This XWindow;
+% JPH
+%     INSPECT This XWindow WHEN ItemWindow do
+%        if Mapped then ShowCurrentLabel;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceWithCenterIn( x, y );
+        Integer x, y;
+   BEGIN
+      PlaceWithCenterin :- PlaceAt( x-width//2, y-( height-head_height )//2 );
+      placed := PlacedWithCenter;
+      placedat_x := x;
+      placedat_y := y;
+   END;
+
+   Ref(XWindow) preceding_window;
+
+   PROCEDURE Replace;
+      IF placed = PlacedCentered THEN
+         PlaceCentered
+      ELSE IF placed = PlacedUpLeft THEN
+         PlaceUpLeft
+      ELSE IF placed = PlacedUpRight THEN
+         PlaceUpRight
+      ELSE IF placed = PlacedDownLeft THEN
+         PlaceDownLeft
+      ELSE IF placed = PlacedDownRight THEN
+         PlaceDownRight
+      ELSE IF placed = PlacedAfter THEN
+         PlaceAfter( preceding_window )
+      ELSE IF placed = PlacedBefore THEN
+         PlaceBefore( preceding_window )
+      ELSE IF placed = PlacedLeftBelow THEN
+         PlaceLeftBelow( preceding_window )
+      ELSE IF placed = PlacedRightBelow THEN
+         PlaceRightBelow( preceding_window )
+      ELSE IF placed = PlacedBelow THEN
+         PlaceBelow( preceding_window )
+      ELSE IF placed = PlacedAbove THEN
+         PlaceAbove( preceding_window )
+      ELSE IF placed = PlacedRightof THEN
+         PlaceRightof( preceding_window )
+      ELSE IF placed = PlacedLeftof THEN
+         PlaceLeftof( preceding_window )
+      ELSE IF placed = PlacedAt THEN
+         PlaceAt( placedat_x, placedat_y )
+      ELSE IF placed = PlacedWithCenter THEN
+         PlaceWithCenterIn( placedat_x, placedat_y );
+
+   PROCEDURE ReplaceSubWindows;
+   BEGIN
+
+      PROCEDURE replace( w );
+           Ref(element) w;
+         w Qua XWindow.replace;
+%         w Qua SubWindow.replace;
+
+      IF children =/= None THEN BEGIN
+         LastSubWindow :- None;
+         children.for_each_element( replace );
+      END;
+   END;
+
+   Boolean fancy;
+
+   Ref(XWindow) PROCEDURE SetFancy;
+   BEGIN
+      fancy := True;
+      IF head_window =/= None THEN
+         head_window.SetFancy;
+      SetFancy :- This XWindow;
+   END;
+
+   Boolean PROCEDURE IsFancy;
+      IsFancy := fancy;
+
+   Ref(XWindow) PROCEDURE SetBorderWidth( new_borderwidth );
+        Integer new_borderwidth;
+   BEGIN
+      External C PROCEDURE xsetwindowborderwidth Is
+         PROCEDURE XSetWindowBorderWidth( WindowID, bw );
+            Integer WindowID, bw;
+            ;
+
+      current_border_width := max( 0, new_borderwidth );
+      XSetWindowBorderWidth( WindowID, current_border_width );
+      SetBorderWidth :- This XWindow;
+   END;
+
+   Integer PROCEDURE SubwindowSpacing;
+      SubwindowSpacing := subwindow_spacing;
+
+   Ref(XWindow) PROCEDURE SetSubwindowSpacing( w );
+        Integer w;
+   BEGIN
+      subwindow_spacing := max( 0, w );
+      SetSubwindowSpacing :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE SetDepthBorder( db );
+        Integer db;
+   BEGIN
+      depth_border := max( 0, db );
+      SetDepthBorder :- This XWindow;
+   END;
+
+   Integer PROCEDURE DepthBorder;
+      DepthBorder := depth_border;
+
+   Ref(XWindow) PROCEDURE MakeEmpty;
+   BEGIN
+
+      PROCEDURE me( wnd );
+           Ref(element) wnd;
+         IF wnd In XWindow THEN
+            wnd Qua XWindow.MakeEmpty;
+
+      children.for_each_element( me );
+      MakeEmpty :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE Thickborder;
+   BEGIN
+      Integer i,    hh, hw, w;
+
+      w := DepthBorder;
+      hh := IF head_height = 0 THEN 0
+            ELSE head_height + 2;
+      hw := height-hh;
+      SetForeGround( "black" );
+      For i := 0 Step 1 Until w-1 DO
+         DrawRectangle( i, i + hh, width-2*i-1, hw-2*i-1 );
+      Thickborder :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE Whiteborder;
+   BEGIN
+      Integer i,    hh, hw, w;
+
+      w := DepthBorder;
+      hh := IF head_height = 0 THEN 0
+            ELSE head_height + 2;
+      hw := height-hh;
+      SetForeGround( "white" );
+      For i := 0 Step 1 Until w-1 DO
+         DrawRectangle( i, i + hh, width-2*i-1, hw-2*i-1 );
+      SetForeGround( "black" );
+      Whiteborder :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE Upborder;
+   BEGIN
+      Integer i,    hh, hw, w;
+
+      w := DepthBorder;
+      hh := IF head_height = 0 THEN 0
+            ELSE head_height + 2;
+      hw := height-hh;
+      IF ScreenDepth < 4 THEN
+         SetBlackonWhite
+%         SetWhiteonBlack
+      ELSE
+         SetForeground( "gray87" );
+%         SetForeground( "gray12" );
+      For i := 0 Step 1 Until w-1 DO BEGIN
+         DrawLine( i, hh, i, height );
+         DrawLine( 0, i + hh, width, i + hh );
+      END;
+      
+      IF ScreenDepth < 4 THEN
+         SetWhiteonBlack
+%         SetBlackonWhite
+      ELSE
+         SetForeground( "gray12" );
+%         SetForeground( "gray87" );
+      For i := 1 Step 1 Until w DO BEGIN
+         DrawLine( i, height-i, width, height-i );
+         DrawLine( width-i, i + hh, width-i, height );
+      END;
+      SetForeground( "black" );
+      Upborder :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE Downborder;
+   BEGIN
+      Integer i,    hh, hw, w;
+
+      w := DepthBorder;
+      hh := IF head_height = 0 THEN 0
+            ELSE head_height + 2;
+      hw := height-hh;
+      IF ScreenDepth < 4 THEN
+         SetWhiteonBlack
+%         SetBlackonWhite
+      ELSE
+         SetForeground( "gray12" );
+%         SetForeground( "gray87" );
+      For i := 0 Step 1 Until w-1 DO BEGIN
+         DrawLine( i, hh, i, height );
+         DrawLine( 0, i + hh, width, i + hh );
+      END;
+      
+      IF ScreenDepth < 4 THEN
+         SetBlackonWhite
+%         SetWhiteonBlack
+      ELSE
+         SetForeground( "gray87" );
+%         SetForeground( "gray12" );
+      For i := 1 Step 1 Until w DO BEGIN
+         DrawLine( i, height-i, width, height-i );
+         DrawLine( width-i, i + hh, width-i, height );
+      END;
+      SetForeground( "black" );
+      Downborder :- This XWindow;
+   END;
+
+% ******************************************************
+% *
+% *         Graphics:
+% *
+% ******************************************************
+
+   Ref(XWindow) PROCEDURE DrawLine( x1, y1, x2, y2 );
+        Integer x1, y1, x2, y2;
+   BEGIN
+      External C PROCEDURE xdrawline Is
+         PROCEDURE XDrawLine( WindowID, gc_pointer, x1, y1, x2, y2 );
+            Integer WindowID, gc_pointer, x1, y1, x2, y2;
+            ;
+
+      XDrawLine( windowID, CurrentGC.struct_pointer, x1, y1, x2, y2 );
+      DrawLine :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DrawInvertLine( x1, y1, x2, y2 );
+        Integer x1, y1, x2, y2;
+   BEGIN
+      Integer gc;
+      Ref(XGraphicalContext) tempgc;        !CDL June 15 1995;
+      External C PROCEDURE xdrawline Is
+         PROCEDURE XDrawLine( WindowID, gc_pointer, x1, y1, x2, y2 );
+            Integer WindowID, gc_pointer, x1, y1, x2, y2;
+            ;
+
+      tempgc :- CopyGC;
+      gc := InvertGC.struct_pointer;
+      XDrawLine( windowID, gc, x1, y1, x2, y2 );
+      RestoreGC( tempgc );
+      DrawInvertLine :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DrawPoint( x, y );
+        Integer x, y;
+   BEGIN
+      External C PROCEDURE xdrawpoint Is
+         PROCEDURE XDrawPoint( WindowID, gc_pointer, x, y );
+            Integer WindowID, gc_pointer, x, y;
+            ;
+
+      XDrawPoint( windowID, CurrentGC.struct_pointer, x, y );
+      DrawPoint :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DrawInvertPoint( x, y );
+        Integer x, y;
+   BEGIN
+      Integer gc;
+      Ref(XGraphicalContext) tempgc;    !CDL June 15 1995;
+      External C PROCEDURE xdrawpoint Is
+         PROCEDURE XDrawPoint( WindowID, gc_pointer, x, y );
+            Integer WindowID, gc_pointer, x, y;
+            ;
+
+      tempgc :- CopyGC;
+      gc := InvertGC.struct_pointer;
+      XDrawPoint( windowID, gc, x, y );
+      RestoreGC( tempgc );
+      DrawInvertPoint :- This XWindow;
+   END;
+
+   External C PROCEDURE xdrawpoints Is
+      PROCEDURE XDrawPoints( WindowID, gc_pointer, x, y, n, mode );
+         Integer WindowID, gc_pointer, n, mode;
+         Integer Array x, y;
+         ;
+
+   Ref(XWindow) PROCEDURE DrawPolygon( x, y, n );
+        Integer Array x, y;
+        Integer n;
+   BEGIN
+      Integer i,    lb, ub;
+
+      lb := max( lowerbound( x, 1 ), lowerbound( y, 1 ) );
+      ub := min( upperbound( x, 1 ), upperbound( x, 1 ) );
+      ub := min( ub, lb + n-1 );
+      For i := lb Step 1 Until ub-1 DO
+         DrawLine( x( i ), y( i ), x( i + 1 ), y( i + 1 ) );
+      DrawLine( x( lb ), y( lb ), x( ub ), y( ub ) );
+      DrawPolygon :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DrawArc( x, y, w, h, ang1, ang2 );
+        Integer x, y, w, h;
+        Real ang1, ang2;
+   BEGIN
+      Integer iang1,    iang2;
+           ! Draws an arc inscribed in rectangle ( x, y, w, h );
+           ! The arc starts at angle ang1 and ends at ang1 + ang2;
+           ! Both angles are i degrees counterclockwise from x-axis,
+                         i.e., 3 o'clock;
+
+      External C PROCEDURE xdrawarc Is
+         PROCEDURE XDrawArc( WindowID, gc_pointer, x, y, width, height, ang1,
+             ang2 );
+            Integer WindowID, gc_pointer, x, y, width, height, ang1, ang2;
+            ;
+
+      iang1 := 64*ang1;
+      iang2 := 64*ang2;
+      IF w > 0 And h > 0 THEN
+         XDrawArc( windowID, CurrentGC.struct_pointer, x, y, w, h, iang1, iang2
+             );
+      DrawArc :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DrawCircle( center_x, center_y, radius );
+        Integer center_x, center_y, radius;
+      DrawCircle :- DrawArc( center_x-radius, center_y-radius, 2*radius, 2*
+                        radius, 0, 360 );
+
+   Ref(XWindow) PROCEDURE DrawEllipse( x, y, w, h );
+        Integer x, y, w, h;
+      DrawEllipse :- DrawArc( x, y, w, h, 0, 360 );
+
+   Ref(XWindow) PROCEDURE FillArc( x, y, w, h, ang1, ang2 );
+        Integer x, y, w, h;
+        Real ang1, ang2;
+   BEGIN
+      Integer iang1,    iang2,  gc;
+      Ref(XGraphicalContext) tempgc;        !CDL June 15 1995;
+      External C PROCEDURE xfillarc Is
+         PROCEDURE XFillArc( WindowID, gc_pointer, x, y, width, height, ang1,
+             ang2 );
+            Integer WindowID, gc_pointer, x, y, width, height, ang1, ang2;
+            ;
+
+      iang1 := 64*ang1;
+      iang2 := 64*ang2;
+      tempgc :- CopyGC;
+      gc := FillGC.struct_pointer;
+      IF w > 0 And h > 0 THEN
+         XFillArc( windowID, gc, x, y, w, h, iang1, iang2 );
+      RestoreGC( tempgc );
+      FillArc :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE FillCircle( center_x, center_y, radius );
+        Integer center_x, center_y, radius;
+      FillCircle :- FillArc( center_x-radius, center_y-radius, 2*radius, 2*
+                        radius, 0, 360 );
+
+   Ref(XWindow) PROCEDURE FillEllipse( x, y, w, h );
+        Integer x, y, w, h;
+      FillEllipse :- FillArc( x, y, w, h, 0, 360 );
+
+   Ref(XWindow) PROCEDURE DrawRectangle( x, y, width, height );
+        Integer x, y, width, height;
+   BEGIN
+      External C PROCEDURE xdrawrectangle Is
+         PROCEDURE XDrawRectangle( WindowID, gc_pointer, x, y, width, height );
+            Integer WindowID, gc_pointer, x, y, width, height;
+            ;
+
+      XDrawRectangle( windowID, CurrentGC.struct_pointer, x, y, width, height );
+      DrawRectangle :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DrawInvertRectangle( x, y, width, height );
+        Integer x, y, width, height;
+   BEGIN
+      Integer gc;
+      Ref(XGraphicalContext) tempgc;        !CDL June 15 1995;
+      External C PROCEDURE xdrawrectangle Is
+         PROCEDURE XDrawRectangle( WindowID, gc_pointer, x, y, width, height );
+            Integer WindowID, gc_pointer, x, y, width, height;
+            ;
+
+      tempgc :- CopyGC;
+      gc := InvertGC.struct_pointer;
+      XDrawRectangle( windowID, gc, x, y, width, height );
+      RestoreGC( tempgc );
+      DrawInvertRectangle :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE FillRectangle( x, y, width, height );
+        Integer x, y, width, height;
+   BEGIN
+      Integer gc;
+      Ref(XGraphicalContext) tempgc;    !CDL June 15 1995;
+      External C PROCEDURE xfillrectangle Is
+         PROCEDURE XFillRectangle( WindowID, gc_pointer, x, y, width, height );
+            Integer WindowID, gc_pointer, x, y, width, height;
+            ;
+
+      tempgc :- CopyGC;
+      gc := FillGC.struct_pointer;
+      XFillRectangle( windowID, gc, x, y, width, height );
+      RestoreGC( tempgc );
+      FillRectangle :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE ClearRectangle( x, y, width, height );
+        Integer x, y, width, height;
+   BEGIN
+      External C PROCEDURE xcleararea Is
+         PROCEDURE XClearArea( windowID, x, y, width, height );
+            Integer WindowID, x, y, width, height;
+            ;
+
+      IF width < 0 THEN BEGIN
+         width :=-width;
+         x := x-width
+      END;
+      IF height < 0 THEN BEGIN
+         height :=-height;
+         y := y-height
+      END;
+      XClearArea( windowID, x, y, width, height );
+      ClearRectangle :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE CopyRectangle( srcx, srcy, width, height, destx, desty
+       );
+        Integer srcx, srcy, width, height, destx, desty;
+   BEGIN
+% JPH
+      External C PROCEDURE xcopyarea Is
+         PROCEDURE XCopyArea( src, dst, gc_pointer, srcx, srcy, width, height,
+             destx, desty );
+            Integer src, dst, gc_pointer, srcx, srcy, width, height, destx,
+                desty;
+            ;
+% JPH
+      XCopyArea( windowID, windowID, CurrentGC.struct_pointer, srcx, srcy, width, height,
+          destx, desty );
+      CopyRectangle :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE WhiteRectangle( x, y, width, height );
+        Integer x, y, width, height;
+   BEGIN
+      Integer gc;
+      Ref(XGraphicalContext) tempgc;
+      External C PROCEDURE xfillrectangle Is
+         PROCEDURE XFillRectangle( WindowID, gc_pointer, x, y, width, height );
+            Integer WindowID, gc_pointer, x, y, width, height;
+            ;
+
+      tempgc :- CopyGC;     !CDL June 15, 1995;
+      gc := WhiteGC.struct_pointer;
+      XFillRectangle( windowID, gc, x, y, width, height );
+      RestoreGC( tempgc );   !CDL June 15, 1995;
+      WhiteRectangle :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE InvertRectangle( x, y, width, height );
+        Integer x, y, width, height;
+   BEGIN
+      Integer gc;
+      Ref(XGraphicalContext) tempgc;    !CDL June 15 1995;
+      External C PROCEDURE xfillrectangle Is
+         PROCEDURE XFillRectangle( WindowID, gc_pointer, x, y, width, height );
+            Integer WindowID, gc_pointer, x, y, width, height;
+            ;
+
+      tempgc :- CopyGC;
+      gc := InvertGC.struct_pointer;
+      XFillRectangle( windowID, gc, x, y, width, height );
+      RestoreGC( tempgc );
+      InvertRectangle :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE FillPolygon( x, y, n );
+        Integer Array x, y;
+        Integer n;
+   BEGIN
+      Integer gc;
+      Ref(XGraphicalContext) tempgc;    !CDL June 15 1995;
+      External C PROCEDURE xfillpolygon Is
+         PROCEDURE XFillPolygon( WindowID, gc_pointer, x, y, n, mode );
+            Integer WindowID, gc_pointer, n, mode;
+            Integer Array x, y;
+            ;
+
+      tempgc :- CopyGC;
+      gc := FillGC.struct_pointer;
+      XFillPolygon( windowID, gc, x, y, n, 1 );
+      RestoreGC( tempgc );
+      FillPolygon :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE SetLineWidth( linewidth );
+        Integer linewidth;
+   BEGIN
+      CurrentGC.SetLineWidth( linewidth );
+      SetLineWidth :- This XWindow;
+   END;
+
+% /-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+
+      REF(XWindow) PROCEDURE DrawBitmap(BM, Pos_X, Pos_Y);
+         REF(Bitmap) BM;
+	 INTEGER Pos_X, Pos_Y;
+      BEGIN
+	 EXTERNAL C PROCEDURE xcopyplane IS
+	    PROCEDURE XCopyPlane(Src, Dst, GCID, srcx, srcy,
+				 wi, he, dstx, dsty);
+            INTEGER Src, Dst, GCID, srcx, srcy, wi, he, dstx, dsty; ;
+
+	 XCopyPlane(BM.ID, WindowID, CurrentGC.struct_pointer,
+		    BM.X_Offset, BM.Y_Offset, BM.Width, BM.Height,
+		    Pos_X, Pos_Y);
+	 DrawBitmap :- THIS XWindow;
+      END   --- DrawBitmap ---;
+
+      REF(XWindow) PROCEDURE DrawPixmap(PM, Pos_X, Pos_Y);
+         REF(Pixmap) PM;
+	 INTEGER Pos_X, Pos_Y;
+      BEGIN
+	 EXTERNAL C PROCEDURE xcopyarea IS
+	    PROCEDURE XCopyArea(Src, Dst, GCID, srcx, srcy,
+				wi, he, dstx, dsty);
+            INTEGER Src, Dst, GCID, srcx, srcy, wi, he, dstx, dsty; ;
+	    
+	 XCopyArea(PM.ID, WindowID, CurrentGC.struct_pointer,
+		   PM.X_Offset, PM.Y_Offset, PM.Width, PM.Height,
+		   Pos_X, Pos_Y);
+	 DrawPixmap :- THIS XWindow;
+      END   --- DrawPixmap ---;
+
+      REF(Bitmap) PROCEDURE GetBitmapFile(FileName);
+         TEXT Filename;
+      BEGIN
+         REF(Bitmap) Temp;
+         Temp :- new Bitmap(Filename, WindowID);
+         IF Temp.exists THEN GetBitmapFile :- Temp
+         ELSE GetBitmapFile :- NONE;
+      END;
+      
+      REF(Pixmap) PROCEDURE GetColorImage(Filename);
+         TEXT Filename;
+      BEGIN
+         REF(Pixmap) PROCEDURE Load_Pixmap (FileName);
+            TEXT FileName;
+         BEGIN
+            REF(Pixmap) Temp;
+            Temp :- new Pixmap(Filename, WindowID);
+            IF Temp.exists THEN Load_Pixmap :- Temp
+            ELSE Load_Pixmap :- NONE;
+         END;
+      
+	 PROCEDURE TranslateWith(Program); TEXT Program;
+	 BEGIN
+	    EXTERNAL C PROCEDURE system IS
+	       INTEGER PROCEDURE System(t); TEXT t; ;
+
+	    EXTERNAL C PROCEDURE getpid IS
+	       INTEGER PROCEDURE Getpid; ;
+
+	    TEXT TempName, SysTName;
+	    INTEGER Error, pid;
+	    TEXT ProgsDir = "/JSP/D3/usagers/simula/bin/ImageConverters/";
+	    
+	    pid := getpid;
+	    TempName :- "/tmp/" & int_as_text(pid) & ".xpm";
+	    SysTName :- TempName & "!0!" ;
+	    System("rm -f " & SysTName );
+	    Error := System(ProgsDir & Program & filename & " | "
+	                    & ProgsDir & "ppmtoxpm > " & SysTName);
+	                    
+%	    Error := System(Program & filename & " | ppmtoxpm > " & SysTName);
+
+	    IF Error = 0 THEN
+	       GetColorImage :- load_pixmap(TempName);
+	    System("rm -f " & SysTName);
+	 END;
+
+	 TEXT PROCEDURE GetExtension(String); TEXT String;
+	 BEGIN
+	    INTEGER DotPos;
+	    WHILE String.More DO
+	       IF String.GetChar = '.' THEN DotPos := String.Pos;
+	    IF 0 < DotPos AND DotPos <= String.Length THEN
+	       GetExtension :- String.Sub(DotPos, String.Length-DotPos+1)
+	    ELSE
+	       GetExtension :- NOTEXT;
+	 END;
+
+	 
+	 TEXT Ext;
+% Modified July 28th 1997 JPH
+	 Ext :- Upcase( Copy(GetExtension(Filename)) );
+
+	 IF Ext = "XPM" THEN		!The format we always read;
+	    GetColorImage :- load_pixmap(Filename)
+	 ELSE IF Ext = "BMP" THEN	!Windows-OS/2 bitmap format;
+	    TranslateWith("bmptoppm ")
+	 ELSE IF Ext = "GIF" THEN	!Graphics Interchange Format;
+	    TranslateWith("giftopnm ")     !Not a typo... really PNM;
+	 ELSE IF Ext = "PCX" THEN	!PC widely used format;
+	    TranslateWith("pcxtoppm ")
+	 ELSE IF Ext = "PICT" THEN	!Macintosh widely used format;
+	    TranslateWith("picttoppm ")
+	 ELSE IF Ext = "TGA" THEN	!Truevision's format;
+	    TranslateWith("tgatoppm ")
+	 ELSE outline("Unknown picture format: " & filename);
+      END   --- GetColorImage ---;
+
+  
+      REF(Picture) PROCEDURE GetPicture(FileName);
+         TEXT FileName;
+      GetPicture :-
+	 IF Upcase( Copy( Filename.Sub(Filename.Length-2, 3) ) ) = "XBM" THEN
+	    GetBitmapFile(FileName)
+	 ELSE
+	    GetColorImage(FileName);
+
+      REF(XWindow) PROCEDURE DrawPicture(Pict, Pos_X, Pos_Y);
+         REF(Picture) Pict;
+	     INTEGER Pos_X, Pos_Y;
+	     
+	  IF Pict =/= NONE then 
+	  BEGIN
+         IF      Pict IS BitMap THEN DrawBitmap(Pict, Pos_X, Pos_Y)
+	     ELSE IF Pict IS PixMap THEN DrawPixmap(Pict, Pos_X, Pos_Y);
+         DrawPicture :- this XWindow;
+      END  -- DrawPicture --;
+      
+      
+% \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+
+
+% ******************************************************
+% *
+% *             TEXT stuff
+% *
+% ******************************************************
+
+   Boolean highlighting;
+   Integer 
+       CenterPos = 1,
+       RightPos  = 2,   LeftPos = 3,
+       BottomPos = 4,   TopPos = 5;
+
+
+   Ref(XWindow) PROCEDURE HighLightText( on );
+        Boolean on;
+   BEGIN
+      highlighting := on;
+      HighLightText :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DrawText( x, y, t );
+        Integer x, y;
+        Text t;
+   BEGIN
+      Character c,  d;
+      Integer p,    cx, cy;
+
+      cx := x;
+      cy := y;
+      t.setpos( 1 );
+      p := 1;
+      WHILE t.more DO BEGIN
+         c := t.getchar;
+         IF newlinechar( c ) THEN BEGIN
+            IF t.pos-1 > p THEN
+               XDrawText( cx, cy, t.sub( p, t.pos-1-p ) );
+            cy := cy + font_height;
+            IF t.more THEN BEGIN
+               d := t.getchar;
+               IF c = d Or Not newlinechar( d ) THEN
+                  t.setpos( t.pos-1 );
+            END;
+            p := t.pos;
+         END;
+      END;
+      IF p <= t.length THEN
+         XDrawText( cx, cy, t.sub( p, t.length-p + 1 ) );
+      DrawText :- This XWindow;
+   END;
+
+% JPH
+   Ref(XWindow) PROCEDURE EraseText( x, y, t );
+        Integer x, y;
+        Text t;
+      EraseText :- ClearRectangle( x, y-font_ascent, width_of_text( t ),
+                       font_ascent + font_descent );
+
+% JPH
+   Ref(XWindow) PROCEDURE EraseTextPos( x, y, t, hpos, vpos );
+        Integer x, y;
+        Text t;
+        Integer hpos, vpos;
+   BEGIN
+      Integer tx,   ty;
+
+      tx := x-( IF hpos = CenterPos THEN
+                  width_of_text( t )//2
+                ELSE IF hpos = RightPos THEN
+                  width_of_text( t )
+                ELSE 0 );
+      ty := y +( IF vpos = CenterPos THEN
+                   ( font_ascent-font_descent )//2
+                 ELSE IF vpos = TopPos THEN font_ascent
+                 ELSE-font_descent );
+
+      EraseTextPos :- EraseText( tx, ty, t );
+   END;
+
+   Boolean PROCEDURE newlinechar( c );
+        Character c;
+      newlinechar := rank( c ) = 10 Or rank( c ) = 13;
+
+   PROCEDURE XDrawText( x, y, t );
+        Integer x, y;
+        Text t;
+   BEGIN
+      External C PROCEDURE xdrawstring Is
+         PROCEDURE XDrawString( WindowID, gc, x, y, t, len );
+            Integer WindowID, gc, x, y, len;
+            Text t;
+            ;
+
+      External C PROCEDURE xdrawimagestring Is
+         PROCEDURE XDrawImageString( WindowID, gc, x, y, t, len );
+            Integer WindowID, gc, x, y, len;
+            Text t;
+            ;
+
+      IF t =/= Notext THEN BEGIN
+         IF highlighting THEN BEGIN
+            CurrentGC.SetWhiteOnBlack;
+            XDrawImageString( windowID, CurrentGC.struct_pointer, x, y, t, t
+                .length );
+            CurrentGC.SetBlackOnWhite;
+         END
+         ELSE
+            XDrawString( windowID, CurrentGC.struct_pointer, x, y, t, t
+                .length );
+      END;
+   END;
+
+   Ref(XWindow) PROCEDURE CenteredText( x, y, t );
+        Integer x, y;
+        Text t;
+      CenteredText :- DrawText( x-width_of_text( t )//2, y +( font_ascent-
+                          font_descent )//2, t );
+
+   Ref(XWindow) PROCEDURE Texte( x, y, t );
+        Integer x, y;
+        Text t;
+      Texte :- CenteredText( x, y, t );
+
+   Ref(XWindow) PROCEDURE DrawCenterText( t );
+        Text t;
+      DrawCenterText :- DrawText(( width-width_of_text( t ) )//2,( height +
+                            head_height + font_ascent-font_descent )//2, t );
+
+   Ref(XWindow) PROCEDURE DrawTextPos( x, y, t, hpos, vpos );
+        Integer x, y;
+        Text t;
+        Integer hpos, vpos;
+   BEGIN
+      Integer tx,   ty;
+
+      tx := x-( IF hpos = CenterPos THEN
+                  width_of_text( t )//2
+                ELSE IF hpos = RightPos THEN
+                  width_of_text( t )
+                ELSE 0 );
+      ty := y +( IF vpos = CenterPos THEN
+                   ( font_ascent-font_descent )//2
+                 ELSE IF vpos = TopPos THEN font_ascent
+                 ELSE-font_descent );
+
+      DrawTextPos :- DrawText( tx, ty, t );
+   END;
+
+   Integer PROCEDURE width_of_text( t );
+        Text t;
+      width_of_text := IF font_set THEN
+                         CurrentXFont.width_of_text( t )
+                       ELSE 0;
+
+% ******************************************************
+% *
+% *             Colours
+% *
+% ******************************************************
+
+   Ref(XGraphicalContext) CurrentGC;
+   Text FillColor;
+
+   Ref(XGraphicalContext) FillGC;
+   Text FGColor,    BGColor;
+   Integer Stipple;
+
+   PROCEDURE InitializeGraphics;   !*** v4.8 ***;
+   BEGIN
+      Integer Stip;
+      
+      CurrentGC :- New XGraphicalContext( This XWindow );
+      FillGC    :- New XGraphicalContext( This XWindow );
+
+      SetBackground( "White" );
+      SetForeground( "Black" );
+      SetFill( "Black" );
+      SetNoStipple;
+      
+%      Stip := the_display.stipofRGB(0); ! Solid Colour;
+%      SetStipple( Stip );	 
+%      FillGC.SetStipple( Stip );	
+   END;
+
+   Ref(XWindow) PROCEDURE SetBlackonWhite;
+   BEGIN
+      SetForeGround( "black" );
+   END;
+
+   Ref(XWindow) PROCEDURE SetWhiteonBlack;
+   BEGIN
+      SetForeGround( "white" );  
+   END;
+
+   Ref(XWindow) PROCEDURE SetNoStipple;
+   BEGIN
+      CurrentGC.SetNoStipple;
+      SetNoStipple :- This XWindow;
+   END;
+
+   Ref(XGraphicalContext) PROCEDURE copygc;     
+   BEGIN
+      Ref(XGraphicalContext) gc;
+
+      gc :- New XGraphicalContext( This XWindow );
+      gc.copyfrom( CurrentGC );
+      CopyGC :- gc;
+   END;
+
+   PROCEDURE restoregc( gc );
+        Ref(XGraphicalContext) gc;                  
+   BEGIN
+      CurrentGC.copyfrom( gc );
+      gc.destroy;
+   END;
+
+   Ref(XGraphicalContext) PROCEDURE InvertGC;
+   BEGIN
+      CurrentGC.Invert;
+      InvertGC :- CurrentGC;
+   END;
+
+%   Ref(XGraphicalContext) PROCEDURE FillGC;   ! *** v4.8 *** ;
+%   BEGIN
+%      ChangeToFill;
+%      FillGC :- CurrentGC;
+%   END;
+
+   Ref(XGraphicalContext) PROCEDURE WhiteGC;
+   BEGIN
+      CurrentGC.SetWhiteonBlack;
+      WhiteGC :- CurrentGC;
+   END;
+
+   Ref(XGraphicalContext) PROCEDURE BlackGC;      !CDL July 26 1995;
+   BEGIN
+      CurrentGC.SetBlackOnWhite;
+      BlackGC :- CurrentGC;
+   END;
+
+
+   Ref(ColorEntry) PROCEDURE Color_Code( colorname );
+        Text colorname;
+   BEGIN
+   	Color_Code :- the_display.Find_Color(colorname);
+   END;
+
+
+
+%   REF(XWindow) PROCEDURE SetFill(fillname); TEXT fillname;
+%   BEGIN
+%	 IF fillname =/= NOTEXT THEN
+%	 BEGIN
+%	    if ScreenDepth > 1 then
+%	    BEGIN
+%		FillGC.SetForeground(Color_Code(fillname));
+%		FillGC.SetNostipple;
+%            END
+%	    ELSE 
+%	        FillGC.SetStipple(Color_Code(fillname));
+%	 END;
+%	 SetFill :- THIS XWindow;
+%   END;
+	    
+   REF(XWindow) PROCEDURE SetFill(fillname); TEXT fillname;
+   BEGIN
+      FillColor :- Fillname;
+      
+      inspect Color_Code(fillname)
+         WHEN ColorIndex DO
+	    BEGIN
+		FillGC.SetForeground(ColorCode);
+		FillGC.SetNostipple;
+            END
+         WHEN ColorStipple DO
+	        FillGC.SetStipple(ColorCode)
+      Otherwise OutLIne("Wrong color in SETFILL");
+	 
+      SetFill :- THIS XWindow;
+   END;
+	    
+
+
+   REF(XWindow) PROCEDURE SetForeground(Foreground); TEXT Foreground;
+   BEGIN
+	       
+      FGColor :- Foreground;
+      inspect Color_Code(Foreground)
+         WHEN ColorIndex DO
+	    BEGIN
+		CurrentGC.SetForeground(ColorCode);
+		CurrentGC.SetNostipple;
+            END
+         WHEN ColorStipple DO
+	        SetStipple(ColorCode)
+      Otherwise OutLIne("Problem in SetForeground");
+      	       
+      SetForeground :- THIS XWindow;
+   END;
+
+
+   REF(XWindow) PROCEDURE SetBackground(fillname); TEXT fillname;
+   BEGIN
+	       EXTERNAL C PROCEDURE xsetwindowbackground IS
+		  PROCEDURE XSetWindowBackground(windowid, pix);
+	             INTEGER windowid, pix;;
+	       
+	       EXTERNAL C PROCEDURE xsetwindowbackgroundpixmap IS
+		  PROCEDURE XSetWindowBackGroundPixMap(windowid, pix);
+	             INTEGER windowid, pix;;
+	             
+	       EXTERNAL c PROCEDURE blackpixel IS
+		  INTEGER PROCEDURE BlackPixel;;
+
+      Ref(ColorEntry) Entry;
+	    
+      Entry :- Color_Code(Fillname);
+      INSPECT Entry 
+        WHEN ColorIndex do
+           XSetWindowBackground( windowID, ColorCode )
+        WHEN ColorStipple do begin
+           integer cd;
+           cd := if BlackPixel = 0 then inversecode
+                                   else colorcode;
+           XSetWindowBackGroundPixMap(WindowID, Cd);
+        end
+      Otherwise OutLIne("Problem in SetBackground");
+	    
+      IF mapped THEN BEGIN Clear; Refresh; END;
+      SetBackGround :- THIS XWindow;
+      
+   END   --- SetBackground ---;
+
+
+
+
+   Ref(XWindow) PROCEDURE SetStipple( stp );
+        Integer stp;
+   BEGIN
+      Stipple := stp;
+      CurrentGC.SetStipple( stp );
+      Setstipple :- This XWindow;
+   END;
+
+%   Ref(XWindow) PROCEDURE SetStipple( stp );
+%        Ref(Bitmap) stp;
+%   BEGIN
+%      CurrentGC.SetStipple( stp );
+%      Setstipple :- This XWindow;
+%   END;
+
+   Ref(XWindow) PROCEDURE SetCursor( cursor_name );
+        Text cursor_name;
+      SetCursor :- SetXCursor( the_display.find_cursor( cursor_name ) );
+
+   Ref(XWindow) PROCEDURE SetXCursor( c );
+        Ref(Cursor) c;
+   BEGIN
+      External c PROCEDURE xsetcursor Is
+         PROCEDURE XSetCursor( WindowID, CursorID );
+            Integer WindowID, CursorID;
+            ;
+
+      IF c =/= None And then c.cursor_exists THEN
+         XSetCursor( WindowID, c.CursorID );
+
+   END;
+
+% ******************************************************
+% *
+% *              Font stuff
+% *
+% ******************************************************
+
+   Ref(XFont) CurrentXFont;
+   Integer default_font_points = 12;
+   Boolean Norsktekst;
+   Boolean LastFontOK;
+
+   Ref(XWindow) PROCEDURE EZSetFont( typeface, size );
+        Text typeface;
+        Integer size;
+   BEGIN
+      EZSetFont :- SetFont( FontName( typeface, size, false, false ) );
+   END;
+
+   Ref(XWindow) PROCEDURE SetTypeFace( typeface, size, bold, slanted );
+        Text typeface;
+        Integer size;
+        Boolean bold, slanted;
+   BEGIN
+      SetTypeFace :- SetFont( FontName( typeface, size, bold, slanted ) );
+   END;
+
+   Ref(XWindow) PROCEDURE SetFont( font_name );
+        Text font_name;
+      SetFont :- SetXFont( the_display.find_font( font_name ) );
+
+   Ref(XWindow) PROCEDURE SetXFont( font );
+        Ref(XFont) font;
+   BEGIN
+      IF font =/= None And then font.font_exists And CurrentGC =/= None THEN
+          BEGIN
+         CurrentXFont :- font;
+
+         CurrentGC.SetXFont( CurrentXFont );
+         LastFontOK := True;
+         IF max_chars_set THEN
+            SetMaxChars( max_chars );
+         IF max_lines_set THEN
+            SetLines( max_lines );
+      END
+      ELSE
+         LastFontOK := False;
+      SetXFont :- This XWindow;
+   END;
+
+   Text PROCEDURE FontName( typeface, size, bold, slanted );
+        Text typeface;
+        Integer size;
+        Boolean bold, slanted;
+   BEGIN
+
+   ! For Helvetica, Times & Courier, we check & correct parameters:
+
+       Font            Size
+       ---------       --------------------------
+       helvetica       8, 10, 14, 18, 20, 24, 36
+       courier
+       times
+       -------------------------------------------  ;
+
+      Text Pref;
+
+      IF TypeFace.length >= 3 THEN
+         Pref :- lowcase( copy( TypeFace.sub( 1, 3 ) ) );
+
+      IF Pref = "hel" Or else Pref = "tim" Or else Pref = "cou" THEN BEGIN
+         IF Pref = "hel" THEN
+            typeface :- "helvetica"
+         ELSE IF Pref = "cou" THEN
+            typeface :- "courier"
+         ELSE
+            typeface :- "times";
+
+         IF Size <= 8 THEN
+            Size := 8
+         ELSE IF Size <= 10 THEN
+            Size := 10
+         ELSE IF Size <= 12 THEN
+            Size := 12
+         ELSE IF Size <= 14 THEN
+            Size := 14
+         ELSE IF Size <= 18 THEN
+            Size := 18
+         ELSE IF Size <= 20 THEN
+            Size := 20
+         ELSE IF Size <= 24 THEN
+            Size := 24
+         ELSE
+            Size := 36;
+      END;
+
+      FontName :- IF typeface = "helvetica" Or else typeface = "times" Or else
+                        typeface = "fixed" Or else typeface = "courier" Or else
+                        typeface = "new century schoolbook" Or else typeface =
+                        "lucida" Or typeface = "clean" Or typeface =
+                        "lucidabright" Or typeface = "lucidatypewriter" Or
+                        typeface = "charter" THEN
+                    ( "*" & typeface & "*" &( IF bold THEN "bold"
+                      ELSE "medium" ) & "-" &( IF Not slanted THEN "r"
+                      ELSE( IF typeface = "helvetica" Or typeface = "courier"
+                                  THEN "o"
+                            ELSE "i" ) ) & "-normal--*-" & int_as_text( 10*size
+                        ) & "-" &( IF HighResolutionScreen THEN "100-100"
+                                   ELSE "75-75" ) & "*" & "iso8859-1" )
+                  ELSE IF typeface = "symbol" Or typeface = "itc zapfdingbats"
+                        THEN
+                    ( "*" & typeface & "*" & int_as_text( 10*size ) & "*" )
+
+                  ELSE IF typeface = "lucidasans" Or typeface =
+                        "lucidasanstypewriter" THEN
+                    ( typeface & "-" &( IF typeface = "lucidasanstypewriter"
+                                              THEN
+                                          ( IF bold THEN "bold-"
+                                            ELSE Notext )
+                                        ELSE( IF bold And slanted THEN
+                                                "bolditalic-"
+                                          ELSE IF bold And Not slanted THEN
+                                                "bold-"
+                                          ELSE IF Not bold And slanted THEN
+                                                "italic-"
+                                          ELSE Notext ) ) & int_as_text( size )
+                        )
+                  ELSE typeface;
+
+   END  --- FontName ---------- ;
+
+   Boolean PROCEDURE FontExists;
+      FontExists := LastFontOK;
+
+   Text PROCEDURE CurrentFontname;
+      Currentfontname :- IF FontExists THEN
+                           CurrentXFont.font_name
+                         ELSE Notext;
+
+   Text PROCEDURE DefaultFont;
+      DefaultFont :- FontName( "helvetica", default_font_points, True, False );
+
+   Ref(XWindow) PROCEDURE SettNorskTekst;
+   BEGIN
+      IF Not Norsktekst THEN BEGIN
+         Norsktekst := True;
+         SetXFont( the_display.find_font( DefaultFont ) );
+      END;
+      SettNorskTekst :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE SetEnglishText;
+   BEGIN
+      IF Norsktekst THEN BEGIN
+         Norsktekst := False;
+         SetXFont( the_display.find_font( DefaultFont ) );
+      END;
+      SetEnglishText :- This XWindow;
+   END;
+
+% ******************************************************
+% *      Finding available FONTS
+% ******************************************************
+
+   External C PROCEDURE getfontlist Is
+      Integer PROCEDURE GetFontList( maxnames );
+         Integer maxnames;
+         ;
+
+   External C PROCEDURE nextinfontlist Is
+      Text PROCEDURE NextinFontList;
+         ;
+
+% ******************************************************
+% *      Character dimensions
+% ******************************************************
+
+   Integer PROCEDURE font_ascent;
+      font_ascent := IF font_set THEN
+                       CurrentXFont.font_ascent
+                     ELSE 0;
+
+   Integer PROCEDURE font_descent;
+      font_descent := IF font_set THEN
+                        CurrentXFont.font_descent
+                      ELSE 0;
+
+   Integer PROCEDURE font_height;
+   BEGIN
+      font_height := font_ascent + font_descent;
+   END;
+
+   Integer PROCEDURE max_char_width;
+      max_char_width := IF font_set THEN
+                          CurrentXFont.max_char_width
+                        ELSE 0;
+
+   Integer PROCEDURE font_lbearing;
+      font_lbearing := IF font_set THEN
+                         CurrentXFont.font_lbearing
+                       ELSE 0;
+
+   Integer PROCEDURE font_rbearing;
+      font_rbearing := IF font_set THEN
+                         CurrentXFont.font_rbearing
+                       ELSE 0;
+
+   Integer PROCEDURE font_minrank;
+      font_minrank := IF font_set THEN
+                        CurrentXFont.font_minrank
+                      ELSE 0;
+
+   Integer PROCEDURE font_maxrank;
+      font_maxrank := IF font_set THEN
+                        CurrentXFont.font_maxrank
+                      ELSE 0;
+
+   Integer PROCEDURE leftbearing_of_char( c );
+        Character c;
+      leftbearing_of_char := IF font_set THEN
+                               CurrentXFont.leftbearing_of_char( c )
+                             ELSE 0;
+
+   Integer PROCEDURE rightbearing_of_char( c );
+        Character c;
+      rightbearing_of_char := IF font_set THEN
+                                CurrentXFont.rightbearing_of_char( c )
+                              ELSE 0;
+
+   Integer PROCEDURE width_of_char( c );
+        Character c;
+      width_of_char := IF font_set THEN
+                         CurrentXFont.width_of_char( c )
+                       ELSE 0;
+
+   Integer PROCEDURE height_of_char( c );
+        Character c;
+      height_of_char := IF font_set THEN
+                          CurrentXFont.height_of_char( c )
+                        ELSE 0;
+
+   Integer PROCEDURE ascent_of_char( c );
+        Character c;
+      ascent_of_char := IF font_set THEN
+                          CurrentXFont.ascent_of_char( c )
+                        ELSE 0;
+
+   Integer PROCEDURE descent_of_char( c );
+        Character c;
+      descent_of_char := IF font_set THEN
+                           CurrentXFont.descent_of_char( c )
+                         ELSE 0;
+
+   Boolean PROCEDURE font_set;
+      font_set := CurrentXFont =/= None;
+
+% ******************************************************
+% *
+% *  Procedures to move and access the pointer
+% *
+% ******************************************************
+
+   Ref(XWindow) PROCEDURE PlacePointer( x, y );
+        Integer x, y;
+   BEGIN
+      External C PROCEDURE xwarppointer Is
+         PROCEDURE XWarpPointer( WindowID, x, y );
+            Integer WindowID, x, y;
+            ;
+
+      XWarpPointer( windowID, x, y );
+      PlacePointer :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE PlacePointerRight;
+      PlacePointerRight :- PlacePointer( width-max_char_width, height//2 );
+
+   Boolean PROCEDURE PointerInside;
+   BEGIN
+      External C PROCEDURE xquerypointer Is
+         Boolean PROCEDURE XQueryPointer( WindowID, rootID, childID, rootx,
+             rooty, winx, winy, kbuttons );
+            Name rootID, childID, rootx, rooty, winx, winy, kbuttons;
+            Integer WindowID, rootID, childID, rootx, rooty, winx, winy,
+                kbuttons;
+            ;
+
+      Integer rootID,   childID,    wID,    rootx,  rooty,  winx,
+          winy, kbuttons;
+      Boolean b;
+
+      b := XQueryPointer( parentID, rootID, wID, rootx, rooty, winx, winy,
+               kbuttons );
+      PointerInside := b And then wID = WindowID;
+   END;
+
+   Boolean PROCEDURE FindPointerPos( x, y );
+        Name x, y;
+        Integer x, y;
+   BEGIN
+      Integer rootID,   childID,    wID,    rootx,  rooty,  winx,
+          winy, kbuttons;
+      External C PROCEDURE xquerypointer Is
+         Boolean PROCEDURE XQueryPointer( WindowID, rootID, childID, rootx,
+             rooty, winx, winy, kbuttons );
+            Name rootID, childID, rootx, rooty, winx, winy, kbuttons;
+            Integer WindowID, rootID, childID, rootx, rooty, winx, winy,
+                kbuttons;
+            ;
+
+      FindPointerPos := XQueryPointer( parentID, rootID, wID, rootx, rooty, winx
+                            , winy, kbuttons );
+      x := winx-current_minx-current_border_width;
+      y := winy-current_miny-current_border_width;
+   END;
+
+   PROCEDURE Pause( secs );  Real secs;     
+      Sleep(Secs);
+
+   PROCEDURE SLEEP( secs );
+        Real secs;                            !***v4.4;
+   BEGIN
+      External c PROCEDURE sleepus Is
+         PROCEDURE sleepus( microseconds );
+            Integer microseconds;
+            ;
+
+      External c PROCEDURE xflush Is
+         PROCEDURE xflush;
+            ;
+
+      Integer isec;
+
+      isec := entier( secs );
+
+      xflush;
+      IF isec > 0 THEN BEGIN
+         Setalarm( isec );
+         WaitForAlarm;
+         secs := secs-isec;
+      END;
+
+      WHILE secs > 0.25 DO BEGIN
+         sleepus( 250000.0 );
+         the_display.handle_pending_events;      !***v4.4;
+         secs := secs-0.25;
+      END;
+      sleepus( 1000000*secs );
+      the_display.handle_pending_events;
+
+   END;
+
+! ================== Main Program ======================= ;
+
+   CreateWindow;
+
+END  XWindow;
+
+
+
+% *****************************************************
+% *****************************************************
+% ******                                         ******
+% ******    X G R A P H I C A L C O N T E X T    ******
+% ******                                         ******
+% *****************************************************
+% *****************************************************
+
+Class XGraphicalContext( the_window );
+     Ref(XWindow) the_window;
+
+% Visible attributes;
+%    integer struct_pointer;
+%    procedure SetLineWidth(width); integer width;
+%    procedure SetXFont(fnt); ref(XFont) fnt;
+%    Boolean procedure SetStipple(stp); ref(Bitmap) stp;
+
+BEGIN
+
+   Integer struct_pointer;
+
+   Integer current_linewidth,
+       current_foreground,
+       current_background;
+   Ref(XFont) current_font;
+   Integer current_stipple;
+%   Ref(Bitmap) current_stipple;
+   Boolean BlackonWhite;
+
+   PROCEDURE SetBlackonWhite;
+   BEGIN
+      External C PROCEDURE xsetblackonwhite Is
+         PROCEDURE XSetBlackonWhite( gc );
+            Integer gc;
+            ;
+
+      XSetBlackonWhite( struct_pointer );
+      BlackonWhite := True;
+   END;
+
+   PROCEDURE SetWhiteonBlack;
+   BEGIN
+      External C PROCEDURE xsetwhiteonblack Is
+         PROCEDURE XSetWhiteonBlack( gc );
+            Integer gc;
+            ;
+
+      XSetWhiteonBlack( struct_pointer );
+      BlackonWhite := False;
+   END;
+
+   PROCEDURE SetForeground( pix );
+        Integer pix;
+      IF pix >= 0 THEN BEGIN
+         External C PROCEDURE xsetforeground Is
+            PROCEDURE XSetForeground( gc, fgpix );
+               Integer gc, fgpix;
+               ;
+
+         current_foreground := pix;
+         XSetForeground( struct_pointer, pix )
+      END;
+
+   PROCEDURE SetLineWidth( width );
+        Integer width;
+   BEGIN
+      External C PROCEDURE xsetlinewidth Is
+         PROCEDURE XSetLineWidth( gc_pointer, linewidth );
+            Integer gc_pointer, linewidth;
+            ;
+
+      current_linewidth := width;
+      XSetLineWidth( struct_pointer, width );
+   END;
+
+   PROCEDURE SetXFont( fnt );
+        Ref(XFont) fnt;
+      IF fnt =/= None THEN BEGIN
+         External C PROCEDURE xsetfont Is
+            PROCEDURE XSetFont( gc_pointer, fontID );
+               Integer gc_pointer, fontID;
+               ;
+
+         current_font :- fnt;
+         XSetFont( struct_pointer, fnt.fontID );
+      END;
+
+   Boolean PROCEDURE SetStipple( stp );
+        Integer stp;
+      IF stp < 0 THEN
+         SetStipple := False
+      ELSE BEGIN
+         External C PROCEDURE xsetstipple Is
+            PROCEDURE XSetStipple( gc_pointer, stipple );
+               Integer gc_pointer, stipple;
+               ;
+
+         XSetStipple( struct_pointer, stp );
+         current_stipple := stp;
+         SetStipple := True;
+      END;
+
+%   Boolean PROCEDURE SetStipple( stp );
+%        Ref(Bitmap) stp;
+%      IF stp == None THEN
+%         SetStipple := False
+%      ELSE BEGIN
+%         External C PROCEDURE xsetstipple Is
+%            PROCEDURE XSetStipple( gc_pointer, stipple );
+%               Integer gc_pointer, stipple;
+%               ;
+%
+%         XSetStipple( struct_pointer, stp.BitmapID );
+%         current_stipple :- stp;
+%         SetStipple := True;
+%      END;
+
+   PROCEDURE SetNoStipple;
+   BEGIN
+      External C PROCEDURE xsetnostipple Is
+         PROCEDURE XSetNoStipple( gc_pointer );
+            Integer gc_pointer;
+            ;
+
+      XSetNoStipple( struct_pointer );
+   END;
+
+   Ref(XGraphicalContext) PROCEDURE copyfrom( gc );!CDL June 15 1995;
+        Ref(XGraphicalContext) gc;
+   BEGIN
+      External c PROCEDURE xcopygc Is
+         PROCEDURE XCopyGC( src, dest );
+            Integer src, dest;
+            ;
+
+      IF gc =/= None THEN BEGIN
+         current_linewidth := gc.current_linewidth;
+         current_font :- gc.current_font;
+         current_foreground := gc.current_foreground;
+         current_background := gc.current_background;
+         current_stipple := gc.current_stipple;
+         BlackonWhite := gc.BlackonWhite;
+         XCopyGC( gc.struct_pointer, struct_pointer );
+
+         copyfrom :- This XGraphicalContext;
+      END;
+   END;
+
+   PROCEDURE Create;
+   BEGIN
+      External C PROCEDURE xcreategc Is
+         Integer PROCEDURE XCreateGC( WindowID );
+            Integer WindowID;
+            ;
+      Integer ti;
+
+      ti := the_window.windowID;
+      struct_pointer := XCreateGC( ti );
+   END;
+
+   PROCEDURE Destroy;   !CDL June 15, 1995;
+   BEGIN
+      External C PROCEDURE xdestroygc Is
+         PROCEDURE XDestroyGC( gc );
+            Integer gc;
+            ;
+
+      XDestroyGC( struct_pointer );
+   END;
+
+   Ref(XGraphicalContext) PROCEDURE Invert;
+   BEGIN
+      External C PROCEDURE xinvertgc Is
+         PROCEDURE xinvertgc( gc );
+            Integer gc;
+            ;
+
+      xinvertgc( struct_pointer );
+   END;
+
+! ************ New stuff from Oslo ... for colours  *********** ;
+
+   PROCEDURE SetClipOrigin( x, y );
+        Integer x, y;
+   BEGIN
+      External c PROCEDURE xsetcliporigin Is
+         PROCEDURE XSetClipOrigin( GCID, x, y );
+            Integer GCID, x, y;
+            ;
+
+      XSetClipOrigin( struct_pointer, x, y );
+   END;
+
+   PROCEDURE SetClipMask( mask );
+        Integer mask;
+   BEGIN
+      External c PROCEDURE xsetclipmask Is
+         PROCEDURE XSetClipMask( g, p );
+            Integer g, p;
+            ;
+
+      XSetClipMask( struct_pointer, mask );
+   END;
+
+   PROCEDURE Xor;
+   BEGIN
+      Integer depth;
+      External C PROCEDURE xxorgc Is
+         PROCEDURE XXorGc( gc );
+            Integer gc;
+            ;
+
+      XXorGc( struct_pointer );
+   END;
+
+   PROCEDURE DrawInSubwindows;
+   BEGIN
+      External C PROCEDURE xdrawinsubwindows Is
+         PROCEDURE XDrawInSubwindows( gc );
+            Integer gc;
+            ;
+
+      XDrawInSubwindows( struct_pointer );
+   END;
+
+   PROCEDURE ClipBySubwindows;
+   BEGIN
+      External C PROCEDURE xclipbysubwindows Is
+         PROCEDURE XClipBySubWindows( gc );
+            Integer gc;
+            ;
+
+      XClipBySubwindows( struct_pointer );
+   END;
+
+   Create;
+
+END  of XGraphicalContext;
+
+% *****************************************
+% *****************************************
+% **************             **************
+% **************   F O N T   **************
+% **************             **************
+% *****************************************
+% *****************************************
+
+element Class XFont( font_name );
+     Value font_name;
+     Text font_name;
+
+% Visible attributes:
+%     text procedure key;
+%     integer fontID;
+%     Boolean procedure font_exists;
+%     integer procedure width_of_text(tt); text tt;
+%     integer procedure font_height;
+%     integer procedure font_ascent;
+%     integer procedure font_descent;
+%     integer procedure max_char_width;
+%     integer procedure min_char_width;
+%     integer procedure font_lbearing;
+%     integer procedure font_rbearing;
+%     integer procedure font_minrank;
+%     integer procedure font_maxrank;
+%     integer procedure leftbearing_of_char(c); character c;
+%     integer procedure rightbearing_of_char(c); character c;
+%     integer procedure width_of_char(c); character c;
+%     integer procedure height_of_char(c); character c;
+%     integer procedure ascent_of_char(c); character c;
+%     integer procedure descent_of_char(c); character c;
+%     Boolean procedure fixed_width;
+
+BEGIN
+
+   Text PROCEDURE key;
+      key :- font_name;
+
+   Integer PROCEDURE width_of_text( tt );
+        Text tt;
+      IF tt == Notext THEN
+         width_of_text := 0
+      ELSE BEGIN
+         External C PROCEDURE xtextwidth Is
+            Integer PROCEDURE XTextWidth( font_struct, tt, Len );
+               Integer font_struct;
+               Text tt;
+               Integer Len;
+               ;
+
+         width_of_text := XTextWidth( font_struct, tt, tt
+                              .length );
+      END;
+
+   Integer PROCEDURE font_ascent;
+   BEGIN
+      External C PROCEDURE xfontascent Is
+         Integer PROCEDURE XFontAscent( font_struct );
+            Integer font_struct;
+            ;
+
+      font_ascent := XFontAscent( font_struct );
+   END;
+
+   Integer PROCEDURE font_descent;
+   BEGIN
+      External C PROCEDURE xfontdescent Is
+         Integer PROCEDURE XFontDescent( font_struct );
+            Integer font_struct;
+            ;
+
+      font_descent := XFontDescent( font_struct );
+   END;
+
+   Integer PROCEDURE font_height;
+   BEGIN
+      External C PROCEDURE xfontheight Is
+         Integer PROCEDURE XFontHeight( font_struct );
+            Integer font_struct;
+            ;
+
+      font_height := XFontHeight( font_struct );
+   END;
+
+   Integer PROCEDURE max_char_width;
+   BEGIN
+      External C PROCEDURE xfontmaxwidth Is
+         Integer PROCEDURE XFontMaxWidth( font_struct );
+            Integer font_struct;
+            ;
+
+      max_char_width := XFontMaxWidth( font_struct );
+   END;
+
+   Integer PROCEDURE min_char_width;
+   BEGIN
+      External C PROCEDURE xfontminwidth Is
+         Integer PROCEDURE XFontMinWidth( font_struct );
+            Integer font_struct;
+            ;
+
+      min_char_width := XFontMinWidth( font_struct );
+   END;
+
+   Integer PROCEDURE font_lbearing;
+   BEGIN
+      External C PROCEDURE xfontlbearing Is
+         Integer PROCEDURE XFontLBearing( font_struct );
+            Integer font_struct;
+            ;
+
+      font_lbearing := XFontLBearing( font_struct );
+   END;
+
+   Integer PROCEDURE font_rbearing;
+   BEGIN
+      External C PROCEDURE xfontrbearing Is
+         Integer PROCEDURE XFontRBearing( font_struct );
+            Integer font_struct;
+            ;
+
+      font_rbearing := XFontRBearing( font_struct );
+   END;
+
+   Integer PROCEDURE font_minrank;
+   BEGIN
+      External C PROCEDURE xfontminchar Is
+         Integer PROCEDURE XFontMinchar( font_struct );
+            Integer font_struct;
+            ;
+
+      font_minrank := XFontMinChar( font_struct );
+   END;
+
+   Integer PROCEDURE font_maxrank;
+   BEGIN
+      External C PROCEDURE xfontmaxchar Is
+         Integer PROCEDURE XFontMaxchar( font_struct );
+            Integer font_struct;
+            ;
+
+      font_maxrank := XFontMaxChar( font_struct );
+   END;
+
+   Integer PROCEDURE leftbearing_of_char( c );
+        Character c;
+      IF Not( 0 < rank( c ) And rank( c ) <= maxrank ) THEN
+         leftbearing_of_char := 0
+      ELSE BEGIN
+         Integer rk;
+         External C PROCEDURE xcharlbearing Is
+            Integer PROCEDURE XCharLBearing( font_struct, rank );
+               Integer font_struct, rank;
+               ;
+
+         rk := rank( c )-font_minrank;
+         leftbearing_of_char := XCharLBearing( font_struct, rk );
+      END;
+
+   Integer PROCEDURE rightbearing_of_char( c );
+        Character c;
+      IF Not( 0 < rank( c ) And rank( c ) <= maxrank ) THEN
+         rightbearing_of_char := 0
+      ELSE BEGIN
+         Integer rk;
+         External C PROCEDURE xcharrbearing Is
+            Integer PROCEDURE XCharRBearing( font_struct, rank );
+               Integer font_struct, rank;
+               ;
+
+         rk := rank( c )-font_minrank;
+         rightbearing_of_char := XCharRBearing( font_struct, rk );
+      END;
+
+   Integer PROCEDURE width_of_char( c );
+        Character c;
+      IF Not( 0 < rank( c ) And rank( c ) <= maxrank ) THEN
+         width_of_char := 0
+      ELSE BEGIN
+         Integer rk;
+         External C PROCEDURE xcharwidth Is
+            Integer PROCEDURE XCharWidth( font_struct, rank );
+               Integer font_struct, rank;
+               ;
+
+         rk := rank( c )-font_minrank;
+         width_of_char := XCharWidth( font_struct, rk );
+      END;
+
+   Integer PROCEDURE height_of_char( c );
+        Character c;
+      height_of_char := IF Not( 0 < rank( c ) And rank( c ) <= maxrank ) THEN 0
+                        ELSE ascent_of_char( c ) + descent_of_char( c );
+
+   Integer PROCEDURE ascent_of_char( c );
+        Character c;
+      IF Not( 0 < rank( c ) And rank( c ) <= maxrank ) THEN
+         ascent_of_char := 0
+      ELSE BEGIN
+         Integer rk;
+         External C PROCEDURE xcharascent Is
+            Integer PROCEDURE XCharAscent( font_struct, rank );
+               Integer font_struct, rank;
+               ;
+
+         rk := rank( c )-font_minrank;
+         ascent_of_char := XCharAscent( font_struct, rk );
+      END;
+
+   Integer PROCEDURE descent_of_char( c );
+        Character c;
+      IF Not( 0 < rank( c ) And rank( c ) <= maxrank ) THEN
+         descent_of_char := 0
+      ELSE BEGIN
+         Integer rk;
+         External C PROCEDURE xchardescent Is
+            Integer PROCEDURE XCharDescent( font_struct, rank );
+               Integer font_struct, rank;
+               ;
+
+         rk := rank( c )-font_minrank;
+         descent_of_char := XCharDescent( font_struct, rk );
+      END;
+
+   Boolean PROCEDURE fixed_width;
+   BEGIN
+      External C PROCEDURE xfontmaxwidth Is
+         Integer PROCEDURE XFontMaxWidth( font_struct );
+            Integer font_struct;
+            ;
+      External C PROCEDURE xfontminwidth Is
+         Integer PROCEDURE XFontMinWidth( font_struct );
+            Integer font_struct;
+            ;
+
+      fixed_width := XFontMaxWidth( font_struct ) = XFontMinWidth( font_struct )
+          ;
+   END;
+
+   Integer font_struct,     ! a pointer (for C) to a XFont-struct;
+       fontID;              ! unique ID of this XFont;
+
+   Boolean PROCEDURE font_exists;
+      font_exists := font_struct <> 0;
+
+   PROCEDURE Create;
+   BEGIN
+      External C PROCEDURE xloadqueryfont Is
+         Integer PROCEDURE XLoadQueryFont( font_name );
+%                                       name font_name;
+            Text font_name;
+            ;
+      External C PROCEDURE xfontid Is
+         Integer PROCEDURE XFontID( font_struct );
+            Integer font_struct;
+            ;
+      Text tt;
+
+      tt :- font_name & "!0!";
+      font_struct := XLoadQueryFont( tt );
+      fontID := IF font_exists THEN
+                  XFontID( font_struct )
+                ELSE 0;
+   END;
+
+   PROCEDURE Destroy;       !CDL June 15 1995;
+   BEGIN
+      External C PROCEDURE xdestroyfont Is
+         PROCEDURE XDestroyFont( fn );
+            Integer fn;
+            ;
+
+      XDestroyFont( font_struct );
+   END;
+
+   Create;
+   IF Not font_exists THEN
+      outline( "No font " & font_name );
+
+END  of XFont;
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******      Bitmaps & PixMaps       *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+
+element CLASS Picture ( FileName, WindowID );
+   TEXT FileName;
+   INTEGER WindowID;
+VIRTUAL:
+   PROCEDURE ReadFromFile IS
+      PROCEDURE ReadFromFile; ;
+   PROCEDURE Portion IS
+      REF(Picture) PROCEDURE Portion(X, Y, Width, Height);
+      INTEGER X, Y, Width, Height; ;
+
+BEGIN
+   INTEGER ID, X_Offset, Y_Offset, Width, Height;
+
+   TEXT PROCEDURE Key;
+      key :- FileName;
+
+   BOOLEAN PROCEDURE Exists;
+   BEGIN
+      Exists := ID <> 0;
+   END;
+
+   PROCEDURE destroy;
+   BEGIN
+      External c PROCEDURE xfree Is
+         PROCEDURE XFree( ID );
+            Integer ID;
+            ;
+      XFree( ID );
+   END;
+   
+   IF FileName =/= NOTEXT THEN ReadFromFile;
+   
+END   --- Picture class ---;
+
+Picture CLASS Bitmap;
+BEGIN
+   PROCEDURE ReadFromFile;
+   BEGIN
+      Integer status, xh, yh, bid;
+      External C PROCEDURE xreadbitmapfile Is
+         Integer PROCEDURE XReadBitmapFile( WindowID, bitmap_file, bitmap_width,
+             bitmap_height, bitmap, x_hot, y_hot );
+            Name bitmap_width,
+%                    bitmap_file,
+            bitmap_height, bitmap, x_hot, y_hot;
+            Integer WindowID;
+            Text bitmap_file;
+            Integer bitmap_width, bitmap_height, bitmap, x_hot, y_hot;
+            ;
+            
+      Text TT;
+      
+      TT :- FileName & "!0!";
+
+      status := XReadBitmapFile( windowID, TT, Width, Height, bid, xh, yh );
+      IF status <> 0 THEN
+         ID := 0
+      ELSE
+         ID := bid;
+   END   --- ReadFromFile ---;
+
+   REF(Picture) PROCEDURE Portion(X, Y, Width, Height);
+      INTEGER X, Y, Width, Height;
+   BEGIN
+      REF(Bitmap) Temp;
+      Temp :- NEW Bitmap("", WindowID);
+      Temp.ID := ID;
+      Temp.X_Offset := X;
+      Temp.Y_Offset := Y;
+      Temp.Width := Width;
+      Temp.Height := Height;
+      Portion :- Temp;
+   END;
+      
+END   --- BitMap class ---;
+
+
+Picture CLASS Pixmap;
+BEGIN
+   INTEGER MaskID;
+   
+   PROCEDURE ReadFromFile;
+   BEGIN
+      INTEGER pict, mask;
+      EXTERNAL c PROCEDURE xreadpixmap IS
+	 PROCEDURE XReadPixmap (t, d, p, m, w, h);
+            NAME p, m, w, h; TEXT t; INTEGER d, p, m, w, h;;
+      EXTERNAL c PROCEDURE xfreepixmap IS
+	 PROCEDURE XFreePixmap (pmid); INTEGER pmid;;
+	       
+      XReadPixmap (FileName & "!0!", WindowID, pict, mask, width, height);
+      IF mask <> 0 THEN
+      BEGIN
+	 XFreePixmap (MaskID);
+	 MaskID := mask;
+      END;
+% Indicates reading pixmap succeeded
+      IF pict <> 0 THEN
+	 ID := pict;
+   END   --- ReadFromFile ---;
+
+   REF(Picture) PROCEDURE Portion(X, Y, Width, Height);
+      INTEGER X, Y, Width, Height;
+   BEGIN
+      REF(Pixmap) Temp;
+      Temp :- NEW Pixmap("", WindowID);
+      Temp.ID := ID;
+      Temp.X_Offset := X;
+      Temp.Y_Offset := Y;
+      Temp.Width := Width;
+      Temp.Height := Height;
+      Portion :- Temp;
+   END;
+
+   
+END   --- PixMap class ---;
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******         C U R S O R          *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+element Class Cursor( cursor_name );
+     Text cursor_name; 
+BEGIN
+   Integer CursorID;
+
+   Text PROCEDURE key;
+      key :- cursor_name;
+
+   Boolean PROCEDURE Cursor_Exists;
+   BEGIN
+      cursor_Exists := CursorID <> 0;
+   END;
+
+   PROCEDURE destroy;
+   BEGIN
+      External c PROCEDURE xfree Is
+         PROCEDURE XFree( ID );
+            Integer ID;
+            ;
+
+      XFree( CursorID );
+   END;
+
+   External c PROCEDURE xarrowcursor Is
+      Integer PROCEDURE XArrowCursor;
+         ;
+
+   External c PROCEDURE xxtermcursor Is
+      Integer PROCEDURE XXtermCursor;
+         ;
+
+   IF cursor_name = "arrow" THEN
+      CursorID := XArrowCursor
+   ELSE IF cursor_name = "xterm" THEN
+      CursorID := XXtermCursor
+   ELSE
+      CursorID := 0;
+
+END;
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******      T E X T A R R A Y       *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+Class TextArray;
+BEGIN
+! -----------------------------------------------------------
+  This class is designed to support the text data associated
+  with TEXT_EDIT windows.
+
+  Public procedures:
+  -----------------
+    - Size ->integer
+    - set (n,Text)  : sets line N to Text
+    - get (n)-> Text: returns pointer to Line 'n'
+    - put (T)       : adds a line at end containing T
+
+    - delete(pos,n) : deletes N lines starting at Pos *
+    - insert(pos,n) : inserts n blanks lines starting at Pos *
+
+    * both procedures COUNT, the number of lines, and shift
+      the lines at the end of the array accordingly
+
+                       (J. vaucher, 19 april 1995)
+
+  ----------------------------------------------------------- ;
+
+   Ref(TextData) Data;
+   Integer Count;
+
+% ---------------------------------- Local CLASS -------
+   Class TextData( Limit );
+        Integer Limit;
+   BEGIN
+      Text Array Line( 1: Limit );
+
+   END;
+% ---------------------------------- Local CLASS -------
+
+   Integer PROCEDURE SIZE;
+      size := count;
+
+   PROCEDURE CLEAR;
+      count := 0;
+
+   Text PROCEDURE SET( ind, T );
+        Integer ind;
+        Text T;
+      IF 1 <= ind And ind <= count THEN
+         Data.Line( ind ) :- T
+      ELSE IF ind = count + 1 THEN
+         put( T );
+
+   Text PROCEDURE GET( ind );
+        Integer ind;
+      IF 1 <= ind And ind <= count THEN
+         get :- Data.Line( ind )
+      ELSE
+         get :- Notext;
+
+   Text PROCEDURE PUT( T );
+        Text T;
+   BEGIN
+      Grow( 1 );
+      Data.Line( count ) :- T;
+   END;
+
+   PROCEDURE DELETE( pos, N );
+        Integer pos, N;
+      IF pos >= 1 And pos <= count THEN BEGIN
+         Integer i;
+
+         N := min( max( N, 0 ), count-pos + 1 );
+         INSPECT DATA DO For i := pos Step 1 Until count-n DO Line( i ) :- Line(
+             i + n );
+         count := count-N;
+      END;
+
+   PROCEDURE INSERT( pos, N );
+        Integer pos, n;
+      IF N > 0 THEN BEGIN
+         Integer i, top;
+
+         pos := min( max( pos, 1 ), count + 1 );
+         top := count;
+         Grow( N );
+         INSPECT DATA DO BEGIN
+            For i := top Step-1 Until pos DO
+               Line( i + n ) :- Line( i );
+            For i := pos Step 1 Until pos + N-1 DO
+               Line( pos ) :- Notext;
+         END;
+      END;
+
+   PROCEDURE Grow( n );
+        Integer n;
+   BEGIN
+      Resize( count + n );
+      count := count + n;
+   END;
+
+   PROCEDURE Resize( n );
+        Integer n;
+   BEGIN
+      IF n > Data.Limit THEN BEGIN
+         Ref(TextData) TD;
+         Integer i;
+
+         TD :- New TextData( max( n, 1.4*Data.Limit ) );
+         For i := 1 Step 1 Until count DO
+            TD.Line( i ) :- Data.Line( i );
+         Data :- TD;
+      END;
+   END;
+
+   Data :- New TextData( 5 );
+
+END  TextArray;
+
+
+% *****************************************************
+% *****************************************************
+% ******                                         ******
+% ******       B I T     U T I L I T I E S       ******
+% ******                                         ******
+% *****************************************************
+% *****************************************************
+
+Class IntSet( N );
+     Integer N;
+BEGIN
+   Integer Lim = 31;
+   Integer Array S( 0: N//Lim );
+
+   Boolean PROCEDURE contains( X );
+        Integer X;
+      IF X >= 0 And X <= N THEN BEGIN
+         Integer a, b;
+
+         a := X//Lim;
+         b := 2**rem( X, Lim );
+         contains := rem( S( a )//b, 2 ) = 1;
+      END;
+
+   PROCEDURE dump;
+   BEGIN
+      Integer i;
+
+      For i := 0 Step 1 Until N-1 DO
+         outchar( IF Contains( i ) THEN '1'
+                  ELSE '0' );
+   END;
+
+   PROCEDURE Clear;
+   BEGIN
+      Integer i;
+
+      For i := lowerbound( S, 1 ) Step 1 Until upperbound( S, 1 ) DO
+         S( i ) := 0;
+   END;
+
+   Ref(IntSet) PROCEDURE Grow( newSize );
+        Integer newSize;
+   BEGIN
+      Ref(IntSet) SS;
+      Integer i;
+
+      Grow :- SS :- New IntSet( max( 1.4*N, newSize ) );
+      For i := 0 Step 1 Until N//Lim DO
+         SS.S( i ) := S( i );
+   END;
+
+   Ref(IntSet) PROCEDURE Copy;
+   BEGIN
+      Ref(IntSet) SS;
+      Integer i;
+
+      copy :- SS :- New IntSet( N );
+      For i := 0 Step 1 Until N//Lim DO
+         SS.S( i ) := S( i );
+   END;
+
+   Ref(IntSet) PROCEDURE add( X );
+        Integer X;
+   BEGIN
+      IF X >= 0 And X <= N THEN BEGIN
+         Integer a, b;
+
+         a := X//Lim;
+         b := 2**rem( X, Lim );
+         IF rem( S( a )//b, 2 ) <> 1 THEN
+            S( a ) := S( a ) + b;
+      END;
+      add :- This IntSet;
+   END;
+
+   Ref(IntSet) PROCEDURE sub( X );
+        Integer X;
+   BEGIN
+      IF X >= 0 And X <= N THEN BEGIN
+         Integer a, b;
+
+         a := X//Lim;
+         b := 2**rem( X, Lim );
+         IF rem( S( a )//b, 2 ) = 1 THEN
+            S( a ) := S( a )-b;
+      END;
+      sub :- This IntSet;
+   END;
+
+END  ----- IntSet ----- ;
+
+
+PROCEDURE AddBit( Bit, Mask );
+     Name Mask;
+     Integer Mask, Bit;
+   IF rem( Mask//Bit, 2 ) = 0 THEN
+      Mask := Mask + Bit;
+
+PROCEDURE SubBit( Bit, Mask );
+     Name Mask;
+     Integer Mask, Bit;
+   IF rem( Mask//Bit, 2 ) = 1 THEN
+      Mask := Mask-Bit;
+
+Boolean PROCEDURE BitIn( Bit, Mask );
+     Integer Mask, Bit;
+   Bitin := rem( Mask//Bit, 2 ) = 1;
+
+Boolean PROCEDURE BitInMask( Bit, Mask );
+     Integer Mask, Bit;
+   IF Bit >= 0 And then Bit < 32 THEN BEGIN
+      Integer N;
+
+      N := 2**bit;
+      BitInMask := rem( Mask//N, 2 ) = 1;
+   END;
+
+Boolean PROCEDURE Intersection( W1, W2 );
+     Integer W1, W2;
+BEGIN
+   WHILE W1 <> 0 DO BEGIN
+      IF rem( W1, 2 ) = 1 And then rem( W2, 2 ) = 1 THEN BEGIN
+         Intersection := True;
+         Goto Exit;
+      END;
+      W1 := W1//2;
+      W2 := W2//2;
+   END;
+
+   Exit:
+END;
+
+PROCEDURE SubBits( Bits, Mask );
+     Name Mask;
+     Integer Mask, Bits;
+BEGIN
+   Integer Bit, M;
+
+   Bit := 1;
+   M := Mask;
+
+   WHILE Bits <> 0 DO BEGIN
+      IF rem( Bits, 2 ) = 1 And then rem( M, 2 ) = 1 THEN
+         Mask := Mask-Bit;
+      Bits := Bits//2;
+      M := M//2;
+      Bit := 2*Bit;
+   END;
+END;
+
+
+% **********************************************
+% **********************************************
+% ******                                  ******
+% ******        D E B U G G I N G         ******
+% ******                                  ******
+% **********************************************
+% **********************************************
+
+PROCEDURE EvtDump( ADR );
+     Integer ADR;
+BEGIN
+   Integer I,   W;
+
+   External C PROCEDURE c_peek32 Is
+      Integer PROCEDURE cpeek( adr );
+         Integer adr;
+         ;
+
+   outtext( "   Dump: " );
+   For i := 0 Step 1 Until 8 DO BEGIN
+      W := cpeek( adr + i*4 );
+      outint( W, 0 );
+      outchar( ' ' );
+   END;
+   outimage;
+END;
+
+
+
+% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+%  11.217 sec cpu                     Simpp v1.3, tokenizer v2.7
+% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

@@ -1,0 +1,75 @@
+% ======================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 1
+%
+%  PURPOSE:  Test path selection in conditional statements, using only
+%            simple Boolean expressions(true / false).
+%
+%  METHOD:  Try and fail.
+%
+%  WRITTEN BY:  THE  16/09-83
+% ====================================================================
+BEGIN
+BOOLEAN            found_error;       ! Set to true if error in test;
+
+outtext("--- START Simula a.s. TEST 1 ");
+Outimage;
+outtext("--- Simple test of conditional statements");
+Outimage; Outimage;
+
+IF TRUE THEN
+ELSE begin
+     outtext("*** ERROR: (1)"); outimage; found_error := TRUE end;
+
+IF FALSE THEN begin
+     outtext("*** ERROR: (2)"); outimage; found_error := TRUE end;
+
+IF FALSE THEN begin
+     outtext("*** ERROR: (3)"); outimage; found_error := TRUE end
+ELSE;
+
+IF TRUE THEN begin
+   IF TRUE THEN begin
+      IF TRUE THEN begin
+         IF FALSE THEN begin
+            outtext("*** ERROR: (4)"); outimage; found_error := TRUE end
+      END
+      ELSE begin
+         outtext("*** ERROR: (5)"); outimage; found_error := TRUE end
+   END
+   ELSE begin
+      outtext("*** ERROR: (6)"); outimage; found_error := TRUE end
+END
+ELSE begin
+   outtext("*** ERROR: (7)"); outimage; found_error := TRUE end
+;
+
+     IF FALSE THEN begin
+        outtext("*** ERROR: (8)"); outimage; found_error := TRUE end
+ELSE IF TRUE THEN begin
+        IF FALSE THEN begin
+           outtext("*** ERROR: (9)"); outimage; found_error := TRUE end
+     END
+ELSE begin
+        outtext("*** ERROR: (10)"); outimage; found_error := TRUE end
+;
+
+IF IF IF TRUE THEN FALSE ELSE TRUE THEN TRUE ELSE FALSE THEN begin
+   outtext("*** ERROR: (11)"); outimage; found_error := TRUE end
+;
+
+IF IF TRUE THEN
+     (IF TRUE THEN TRUE ELSE FALSE)
+   ELSE
+      IF FALSE THEN TRUE ELSE FALSE
+THEN
+ELSE begin
+   outtext("*** ERROR: (12)"); outimage; found_error := TRUE end
+;
+
+
+IF found_error THEN  ELSE
+   begin Outtext("--- NO ERRORS FOUND IN THIS TEST"); Outimage; end;
+outtext("--- END Simula a.s. TEST 1");
+outimage
+
+END of program

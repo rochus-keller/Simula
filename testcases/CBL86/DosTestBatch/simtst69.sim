@@ -1,0 +1,118 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 69
+%
+%  PURPOSE:     Test complex use of detach, call and resume.
+%
+%  WRITTEN BY:  BEH   19/08-86
+% ==============================================================================
+BEGIN
+   Integer array test (1:50) ;
+   Integer testnr, i ;
+
+   Boolean found_error ;
+
+   Procedure Sjekk (i); Integer i;
+   Begin testnr := testnr+1; test(testnr):= i End;
+
+   Class A;;
+
+   Outtext ("--- START Simula a.s. TEST 69") ;
+   Outimage ;
+   Outtext ("--- Test complex use of detach, call and resume.") ;
+   Outimage ; Outimage ;
+
+ A Begin Class C1;
+         Begin Procedure P1;
+               Begin Ref (C3) rC3;
+                     Begin Class C4;
+                           Begin Sjekk(4); Detach;
+                                 Sjekk(11);
+                           End;
+                           Ref (C4) rC4;
+                           rC4:- new C4; rC3:- new C3;
+                           Inspect rC4 do
+                           Begin Resume(rC3);
+                                 Sjekk(10); Call(rC4);
+                                 Sjekk(12);
+                           End;
+                     End;
+                     Call(rC3);
+               End;
+
+               Sjekk(1); Detach;
+               Sjekk(3); P1;
+               Sjekk(14); Detach;
+               Sjekk(20);
+         End;
+
+         Class C3;
+         Begin Sjekk(5); Detach;
+               Sjekk(6); P2;
+               Sjekk(9); Detach;
+               Sjekk(13);
+         End;
+
+         Procedure P2;
+         Begin Sjekk(7); Detach; Sjekk(8) End;
+
+         Begin Class C2;
+               Begin Ref (C5) rC5;
+                     Detach;
+                     Sjekk(16);
+                     rC5 :- new C5;
+                     Call(rC5);
+                     Sjekk(23);
+               End;
+
+               Class C5;
+               Begin Sjekk(17); Detach;
+                     Sjekk(18);
+                     Inspect rC2 do Detach;
+                     Sjekk(22); Detach;
+                     Sjekk(25);
+               End;
+
+               Ref (C1) rC1;
+               Ref (C2) rC2;
+
+               rC1 :- new C1; rC2:- new C2;
+               Sjekk(2);
+               Inspect rC1 do
+               Begin Call (rC1);
+                     Sjekk(15); Call(rC2);
+                     Sjekk(19); Resume(rC1);
+               End;
+               Sjekk(21); Resume(rC2);
+               Sjekk(24); Resume(rC2.rC5);
+               Sjekk(26);
+         End;
+   End;
+
+   For i := 1 step 1 until testnr do
+   if test(i) <> i then
+      found_error := true;
+
+
+   IF found_error THEN
+   Begin
+      Outtext ("*** ERROR : Program sequencing.") ;
+      Outimage ;
+      Outtext ("            Values of actual parameter in subsequent") ;
+      Outimage ;
+      Outtext ("            calls on Sjekk : ") ;
+      Outimage ;
+      For i := 1 step 1 until testnr do
+      Begin
+         Outint (i, 15) ;
+         Outint (test(i), 4) ;
+         Outimage ;
+      End
+   End ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 69") ;
+   Outimage
+ END

@@ -1,0 +1,121 @@
+% ==================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 62
+%
+%  PURPOSE:     Test complex use of detach and resume.
+%
+%  WRITTEN BY:
+% =================================================================
+BEGIN
+   Boolean found_error;
+
+   text array seq (1:30);
+   integer seqi;
+
+   procedure trace(t); value t; text t; begin
+      seqi := seqi + 1;
+      seq (seqi) :- t;
+   end trace;
+
+
+   ref(Y) yy;  ref(X) xx;
+
+   class Y; begin
+      trace("new Y");        detach;
+      trace("resume Y");     resume(xx);
+      trace("terminate Y");  end Y;
+
+   class X; begin
+      class A;;
+      trace("new X");        detach;
+      trace("resume X");
+
+      A begin
+         procedure B(E);  procedure E; begin
+            real pi;
+            trace("enter B");
+            begin
+               ref (C) cc;
+               class C; begin
+                  trace("new C");         detach;
+                  trace("resume C");      E;
+%                 outreal(pi,1,5);  outimage;
+                  trace("terminate C");  end C;
+               pi := 3.14;
+               cc :- new C;
+               resume(cc);
+               pi := 2.71;
+            end;
+            trace("exit B");  end B;
+         class D;;
+         trace("enter A-block");
+         D begin
+            procedure E; begin
+               integer i;
+               trace("enter E");
+               begin
+                  ref(F) ff;
+                  class F; begin
+                     trace("new F");     detach;
+                     trace("resume and exit F");  end F;
+                  ff :- new F;
+                  resume(ff);
+               end;
+               trace("exit E");  end E;
+            trace("enter D-block");
+            B(E);
+            resume(yy);
+            trace("terminate D-block");  end D;
+
+         trace("terminate A-block"); end A;
+
+      trace("terminate X");  end X;
+
+   Outtext ("--- START Simula a.s. TEST 62");
+   Outimage;
+   Outtext ("--- Test complex use of detach and resume.");
+   Outimage; Outimage;
+
+   yy :- new Y;   xx :- new X;
+
+   trace("resume(xx)"); resume(xx);
+
+   if     seq (1) = "new Y"
+      and seq (2) = "new X"
+      and seq (3) = "resume(xx)"
+      and seq (4) = "resume X"
+      and seq (5) = "enter A-block"
+      and seq (6) = "enter D-block"
+      and seq (7) = "enter B"
+      and seq (8) = "new C"
+      and seq (9) = "resume C"
+      and seq (10) = "enter E"
+      and seq (11) = "new F"
+      and seq (12) = "resume and exit F"
+      and seq (13) = "exit E"
+      and seq (14) = "terminate C"
+      and seq (15) = "exit B"
+      and seq (16) = "resume Y"
+      and seq (17) = "terminate D-block"
+      and seq (18) = "terminate A-block"
+      and seq (19) = "terminate X"
+      and seq (20) == notext and seqi = 19 then
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END else
+   begin
+      integer i;
+      Outtext ("*** ERROR : Program sequence.");
+      Outimage;
+      for i := 1 step 1 until seqi do
+      begin
+         Outint (i, 15);
+         Outtext (" : ");
+         Outtext (seq (i));
+         Outimage;
+      end;
+   end;
+
+   Outtext ("--- END Simula a.s. TEST 62");
+   Outimage
+ END

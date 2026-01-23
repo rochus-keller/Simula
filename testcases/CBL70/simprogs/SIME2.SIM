@@ -1,0 +1,77 @@
+! Discrete Simulation using the Simula's class SIMULATION  ;
+!  Example:                                                ;
+!  (Pooley: An Introduction to Programming in Simula)      ;
+!  The example is a model of a man operating a machine.    ;
+!  Both man and machine are expressed as processes.        ;
+!  The man performs repeatedly during 400 time units the   ;
+!  following activities:                                   ;
+!  - loading the machine with a new supply of 50 components;
+!    which takes 5.0 time units,                           ;
+!  - starting (activating) the machine,                    ;
+!  - checking at regular intervals 0.5 time units whether  ;
+!    the machine has finished the work,                    ;
+!  - unloading the machine which takes 10.0 time units.    ;
+!  The machine processes the components, it needs 2.0 time ;
+!  units per component.                                    ;
+
+
+
+simulation begin
+
+ !Global variables;
+
+ integer count;
+ ref(man) worker;
+
+
+ process class man(mill); ref(machine) mill;
+ begin
+   while time < 400 do
+   begin
+     outtext("Loading starts");
+     outfix(time,2,10); outimage; 
+     count := count+1;
+     hold(5.0);            !Loading the machine;
+     mill.components := mill.components+50;
+     activate mill;
+     while mill.components > 0 do hold(0.5);  !Checking the machine;
+     hold(10.0);           !Unloading the machine;
+     outtext("Unloading finishes");
+     outfix(time,2,10); outimage;
+   end--of--loop;
+   passivate;
+ end++of++man;
+
+ process class machine;
+ begin
+   integer components;
+   while true do
+   begin
+     outtext("Machine starts");
+     outfix(time,2,10); outimage;
+     while components > 0 do
+     begin
+       hold(2.0);       !Processing one component;
+       components := components-1
+     end;
+     passivate;         !The machine passivates itself after;
+                        !processing of all elements.        ;
+   end
+ end++of++machine;
+
+
+
+ !MAIN program body;
+
+ worker :- new man(new machine);
+                    !Creating the man and the machine;
+ activate worker;   !Activating the man;
+
+ hold (800);        !Duration of an experiment;
+
+ !Experiment evaluation: ;
+
+ outtext("Count = "); outint(count,4); outimage;
+ outtext("Simulation ends"); outimage
+
+end**of**program;

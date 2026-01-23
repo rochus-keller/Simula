@@ -1,0 +1,60 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 41
+%
+%  PURPOSE:     Test use of name parameter in external procedure.
+%
+%  EXTERNAL PROCEDURE:  p41 - has to be compiled first.
+%
+%  WRITTEN BY:  BEH   23/07-86
+% ==============================================================================
+BEGIN
+   external procedure p41 ;
+   Boolean found_error ;
+
+   integer i ;
+   integer array A (0:100) ;
+
+   integer procedure teller ;
+      teller := i := i+1 ;
+
+   procedure P (j) ;
+      name j ;
+      integer j ;
+   begin
+      while i < 100 do
+         p41 (A, j) ;
+   end ;
+
+   Outtext ("--- START Simula a.s. TEST 41") ;
+   Outimage ;
+   Outtext ("--- Test use of name paramter in external procedure.") ;
+   Outimage ; Outimage ;
+
+   p (teller) ;
+
+   ! Check that : A (0) = 0, A (1) = 2, A (2) = 0, A (3) = 4, ....;
+
+   for i := 0, i+1 while not found_error and i <= 100 do
+   if mod (i,2) <> 0 and A (i) <> i+1 or mod (i,2) = 0 and A (i) <> 0 then
+   begin
+      Outtext ("*** ERROR : Values : i = ") ;
+      Outint (i, 4) ;
+      Outtext ("  A (i) = ") ;
+      Outint (A (i), 4) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 41") ;
+   Outimage
+ END

@@ -1,0 +1,2610 @@
+class demos;
+
+comment 
+
+ DEMOS: a discrete simulation package written in SIMULA
+ ======================================================
+ 
+ Author: Graham Birtwistle <graham@cpsc.ucalgary.ca>
+ Created:	1979
+ 
+ Current address (1996):
+ 
+       Department of Computer Science
+       The University of Calgary
+       2500 University Drive N.W.
+       Calgary, Alberta T2N 1N4
+       Canada 
+
+ Reference:
+ 	G.M. Birtwistle,DEMOS - discrete event modelling on SIMULA, McMillan, 1979.
+ 	
+ Notes:	
+ 1) this program uses the old syntax where keywords have double quotes:
+        begin instead of BEGIN
+        
+ 2) this version differs a bit from the one in the reference manual as a result of a few Montreal
+         modifications. 
+ 
+ aug 1981 - j. vaucher
+  - sequencing set algorithm modified to use median technique.
+    ref: davey and vaucher, self-optimizing partitioned sequencing
+    sets for discrete event simulation, infor, vol.18, # 1, feb 1980,
+    pp. 41-61.
+
+    114 lines of code saved and generally faster.
+
+    - areas affected: 
+      -entity
+      -zyqpassivate, hold
+      -snapsqs
+      -initialisation of sqs.
+  2020-04-12 Rochus Keller: converted quoted keyword to standard syntax
+------------------------------------------------------;
+
+  begin
+  comment----d a t a   c o l l e c t i o n   d e v i c e s----
+  *
+  * this level contains the data collecting mechanisms
+  * and their printing routines. the definitions are: 
+  *
+  *      accumulate  count  histogram  tally
+  *
+  * accumulate   collects time dependent data
+  *
+  * count        is used to count incidences only
+  *
+  * histogram    collects data in histogram form and
+  *              prints the end result as a picture
+  *
+  * tally        collects time independent data
+  *
+  * attributes shared by these definitions : 
+  *              reset       note time and reset status
+  *                          to zero
+  *              update(v)   record new entry v
+  *              report      print current status
+  *
+  * these classes are prefixed by 'tab' which contains
+  * common variables and the parameter 'title' which names
+  * the particular object.
+  * every object of a class inner to tab is put into a
+  * 'reportq' behind the scenes.
+  * these reportqs are system defined and are called
+  *
+  *    accumq  countq  dist(+emp)q  histoq  tallyq
+  *
+  * on a call 'report', the current statuses of all these
+  * reportqs are written out.
+  *
+  * the set of predefined data collection facilities
+  * is prefixed by tab.
+  *
+  * tab          defines the common core
+  *
+  * variables: 
+  *              title       user supplied descriptive text
+  *              obs         no. of entries since resetat
+  *              resetat     time when initiated, or last reset
+  *              next        ref to next tab in reportq
+  *
+  * procedures: 
+  *
+  *             join        enters this tab into a named
+  *                         reportq at the end
+  *
+  *             reset       (virtual) notes the time in
+  *                         resetat and sets obs to zero
+  *
+  *             writetrn    prints on one (part)line
+  *                         title/reset time/observations
+  *;
+
+
+  comment------------------ t a b ----------------------------;
+
+  class tab(title); value title; text title;
+          virtual : procedure reset, report;
+    begin integer obs;  real resetat;
+    ref(tab)next;
+
+    procedure join(r); ref(reportq)r;
+      begin
+      if r == none then error(18, none, this tab, 0,
+         "t.join(r); ref(tab)t; ref(reportq)r;") else
+      if r.first == none
+        then r.first :- r.last      :- this tab
+        else r.last  :- r.last.next :- this tab;
+      end***join***;
+
+    procedure report;
+      begin
+      writetrn;
+      outf.outimage;
+      end***report***;
+
+    procedure reset;
+      begin
+      obs     := 0;
+      resetat := time;
+      end***reset***;
+
+    procedure writetrn;
+      begin
+      outf.outtext(title);
+      outf.setpos(outf.pos+(13-title.length));
+      printreal(resetat);
+      outf.outint(obs, 7);
+      end***report title, resetat and readings***;
+
+    if title.length > 12 then title :- title.sub(1, 12);
+    reset;
+    end***tab***;
+
+  comment-------------------- t a l l y -----------------------;
+
+  tab class tally;
+    begin                    comment
+    *
+    * variables: 
+    *    .title    user supplied descriptive text (parameter)
+    *    .obs      number of incidences
+    *    .resetat  last time of setting or time of creation
+    *    .next     ref to .next tab in reportq
+    *     sum      sum of sample values
+    *     sumsq    sum of squares of sample values
+    *    (variance)(obs*sumsq - sum*sum)/(obs*(obs-1))
+    *    (sigma)   sqrt(variance)
+    *     min      least sample value
+    *     max      largest sample value
+    *
+    * procedures : 
+    *    reset     resets obs, sum, sumsq, min, max to zero
+    *              copies time into resetat
+    *
+    *    update(v) adds  1  to  obs
+    *              adds  v  to  sum
+    *              adds v*v to  sumsq
+    *              max becomes maximum (max,v)
+    *              min becomes minimum (min,v)
+    *
+    *    report    prints on one line: 
+    *              title/reset/obs/av/est.st.dev/min/max
+    *;
+
+    real sum, sumsq, min, max;
+
+    procedure report;
+      begin writetrn;
+      if obs = 0 then outf.outtext(minuses.sub(1, 40)) else
+        begin printreal(sum/obs);
+        if obs = 1 then outf.outtext(minuses.sub(1, 10)) else
+          printreal(sqrt(abs(obs*sumsq-sum**2)/(obs*(obs-1))));
+        printreal(min);
+        printreal(max);
+        end;
+      outf.outimage;
+      end***report***;
+
+    procedure reset;
+      begin obs := 0;
+      sum     := sumsq  := min   := max    := 0.0;
+      resetat := time;
+      end***reset***;
+
+    procedure update(v); real v;
+      begin obs := obs + 1;
+      sum    := sum + v;
+      sumsq  := sumsq + v**2;
+      if obs = 1 then min := max := v else
+         if v < min then min := v else
+         if v > max then max := v;
+      end*** update ***;
+
+    if not(this tally is notally) then join(tallyq);
+    end*** tally ***;
+
+
+  comment notally is used in histogram. notally objects are
+          not entered into tallyq;
+
+  tally class notally;;
+
+  comment------------------ c o u n t -------------------------;
+
+  tab class count;
+    begin                   comment
+    *
+    * variables : 
+    *    .title        user supplied descriptive text (parameter)
+    *    .obs          number of incidences
+    *    .resetat      last time of setting or time of creation
+    *    .next         ref to next tab in reportq
+    *
+    * procedures : 
+    *     .reset       resets obs to zero
+    *                  copies time into resetat
+
+    *     update(v)    adds v to obs
+    *
+    *     report       prints on one line: 
+    *                  title/reset/observations
+    *;
+
+    procedure report;
+      begin
+      outf.setpos(21);
+      writetrn;
+      outf.outimage;
+      end***report***;
+
+    procedure update(v); integer v;
+      begin
+      obs  := obs + v;
+      end***update***;
+
+    join(countq);
+    end***count***;
+
+  comment-------------------- a c c u m u l a t e -------------;
+
+  tab class accumulate;
+    begin                  comment
+    *
+    * variables :      **** time weighted ****
+    *    .title        user supplied descriptive text (param.)
+    *    .obs          number of incidences
+    *    .resetat      last time of setting or time of creation
+    *    .next         ref to next tab in reportq
+    *     sumt         time weighted sum
+    *     sumsqt       time weighted sum of squares
+    *    (mean)        sum/timespan = (last update time-resetat)
+    *    (sigma)       sqrt( sumsqt / timespan - mean**2)
+    *     min          least sample value
+    *     max          largest sample value
+    *     lasttime     time of last update
+    *     lastv        last update value
+    *
+    * procedures : 
+    *     reset        resets obs, sum, sumsqt, min, max to zero
+    *                  copies time into resetat, lasttime
+    *
+    *     update(v)    adds 1 to obs
+    *                  adds v*span to sumt
+    *                  adds v*v*span to sumsqt
+    *                  min becomes minimum(min, v)
+    *                  max becomes maximum(max, v)
+    *                  copies time into lasttime
+    *
+    *     report       prints on one line: 
+    *                  title/reset/obs/mean/est.st.dev./min/max
+    *;
+
+    real sumt, sumsqt, min, max, lasttime, lastv;
+
+    procedure report;
+      begin real span, avg, t;
+      writetrn;
+      if obs = 0 then outf.outtext(minuses.sub(1, 40)) else
+        begin t := time;
+        span := t - resetat;  t := t - lasttime;
+        if span<epsilon then outf.outtext(minuses.sub(1,20)) else
+          begin avg := (sumt+lastv*t)/span;
+          printreal(avg);
+          printreal(sqrt(abs((sumsqt+lastv**2*t)/span-avg**2)));
+          end;
+        printreal(min);
+        printreal(max);
+        end;
+      outf.outimage;
+      end***report***;
+
+    procedure reset;
+      begin obs := 0;
+      sumt := sumsqt := 0.0;
+      min  := max    := 0.0;
+      lasttime := resetat := time;
+      end***reset***;
+
+    procedure update(v); real v;
+      begin real now, span;
+      obs      := obs + 1;
+      now      := time;
+      span     := now - lasttime;
+      lasttime := now;
+      sumt     := sumt + lastv*span;
+      sumsqt   := sumsqt + lastv**2*span;
+      lastv    := v;
+      if obs = 1 then min := max := v else
+         if v < min then min := v else
+         if v > max then max := v;
+      end*** update ***;
+
+    join(accumq);
+    end***accumulate***;
+
+  comment-------------------- h i s t o g r a m ---------------;
+
+  tab class histogram(lower, upper, ncells); real lower, upper;
+                                             integer ncells;
+    begin                   comment
+    *
+    * variables: 
+    *
+    *    .title        user supplied descriptive text (param.)
+    *    .n            number of incidences
+    *    .resetat      last time of setting or time of creation
+    *    .next         ref to next tab in reportq
+    *     lower        lower limit of the variable range
+    *     upper        upper limit of the variable range
+    *     ncells       number of cells in this range
+    *     width        cell width (= (upper - lower)/ncells)
+    *     table        array to hold the incidences. values in
+    *                  range go in cells 1, 2, ...., n.
+    *                  underflow values go in cell 0.
+    *                  overflow values in cell limit=ncells+1
+    *     limit        ncells + 1.
+    *     myt          to accumulate sum , sumsq of readings
+    *
+    * procedures: 
+    *     reset        sets obs to zero
+    *                  copies time into resetat
+    *                  resets myt
+    *
+    *     update(v)    adds 1 to obs
+    *                  adds 1 to the appropriate table cell
+    *                  calls myt.update(v)
+    *
+    *     report       draws a picture of the histogram.
+    *                  calls myt.report
+    *;
+
+    integer array table[0 : ncells + 1];
+    ref(notally)myt;
+    integer limit;
+    real width;
+
+    procedure report;
+      begin text t;
+      integer i, next, a, occ;
+      real r, f, scale, sum, freq;
+
+      integer procedure maximumelement;
+        begin integer k, j;
+        if obs > 0 then
+          begin k := table[0];
+          for  j := 1 step 1 until limit do
+            if table[j] > k then k := table[j];
+          maximumelement := k;
+          end;
+        end*** maximum element ***;
+
+      a   := 40;
+      outf.setpos(29);
+      outf.outtext("s u m m a r y");
+      outf.outimage;  outf.outimage;
+      outf.outtext(headingrtn);
+      outf.outtext(tallyheading);
+      outf.outimage;
+      myt.report;
+      outf.outimage;
+      if obs = 0 then
+        begin
+        outf.setpos(21);
+        outf.outtext("***no entries recorded***");
+        end else
+        begin scale  := 30 / maximumelement;
+        outf.outtext("cell/lower lim/    n/   freq/  cum %");
+        outf.outimage;
+        outf.setpos(a);  outf.outchar('i');
+        outf.outtext(minuses.sub(1, 30));  outf.outimage;
+        f     := 1/obs;
+        r     := lower - width;
+        for i := 0 step 1 until limit do
+          begin outf.outint(i, 4);
+          if i = 0 then outf.outtext(" -infinity")
+                   else printreal(r);
+          next := table[i];          outf.outint(next, 6);
+          freq := next*f;            outf.outfix(freq, 2, 8);
+          sum  := sum + freq*100.0;  outf.outfix(sum , 2, 8);
+          outf.setpos(a);  outf.outchar('i');
+          if next > 0 then
+            begin t :- stars.sub(1, scale*next);
+            if t == notext then outf.outchar('.')
+                           else outf.outtext(t);
+            end;
+          outf.outimage;
+          anmortprint: 
+          occ  := occ+next;
+          if occ = obs and i+3 < limit then
+            begin
+            outf.outimage;
+            outf.setpos(a+6);
+            outf.outtext("**rest of table empty**");
+            outf.outimage;
+            outf.outimage;
+            goto finish;
+            end;
+          r := r + width;
+          end;
+        finish: 
+        outf.setpos(a);  outf.outchar('i');
+        outf.outtext(minuses.sub(1, 30));  outf.outimage;
+        end;
+      outf.outimage;  outf.outimage;
+      end***report***;
+
+    procedure reset;
+      begin integer k;
+      obs := 0;
+      for k := 0 step 1 until limit do
+        table[k] := 0;
+      resetat := time;
+      if myt =/= none then myt.reset;
+      end***reset***;
+
+    procedure update(v); real v;
+      begin integer cell;
+      obs   := obs + 1;
+      myt.update(v);
+      v     := v - lower;
+      if v < 0.0 then cell := 0 else
+        begin cell  := entier(v/width) + 1;
+        if cell > limit then cell := limit;
+        end;
+      table[cell] := table[cell] + 1;
+      end*** update ***;
+
+    if upper <= lower or ncells < 1 then
+      begin
+      error(19, none, this tab, 0, "new histogram(t,l,u,n);");
+      if ncells < 1 then ncells := 10;
+      if lower >= upper then
+        begin
+        lower := 0.0;
+        upper := 100.0;
+        end;
+      end;
+    width := (upper - lower)/ncells ;
+    limit := ncells + 1;
+    myt   :- new notally(title);
+    join(histoq);
+    end***histogram***;
+
+  comment----------r e g r e s s i o n s-------------;
+
+  tab class regression(title2); value title2; text title2;
+    begin
+    real x, y, xx, xy, yy;
+
+    procedure update(vx, vy); real vx, vy;
+      begin
+      obs := obs + 1;
+      x   := x + vx;
+      y   := y + vy;
+      xx  := vx**2 + xx;
+      xy  := vx*vy + xy;
+      yy  := vy**2 + yy;
+      end***update***;
+
+    procedure reset;
+      begin
+      obs := 0;
+      resetat := time;
+      x := y := xx := xy := yy := 0.0;
+      end***resetat***;
+
+    procedure report;
+      begin
+      real dx, dy, a0, a1, sd, r2;
+
+      outf.setpos((52-title.length-title2.length)//2);
+      outf.outtext("regression of '");
+      outf.outtext(title2);
+      outf.outtext("' upon '");
+      outf.outtext(title);
+      outf.outchar(''');
+      outf.outimage;  outf.outimage;
+      outf.setpos(17);
+      outf.outtext("   (re)set/    obs/     xbar/     ybar");
+      outf.outimage;
+      outf.setpos(17);
+      printreal(resetat);
+      outf.outint(obs, 8);
+      if obs > 0 then
+        begin
+        printreal(x/obs);
+        printreal(y/obs);
+        end;
+      outf.outimage;  outf.outimage;
+      if obs <= 5 then
+        begin
+        outf.setpos(24);
+        outf.outtext("*** insufficient data ***");
+        end else
+        begin
+        dx := abs(obs*xx - x**2);
+        dy := abs(obs*yy - y**2);
+        if dx < 0.00001 or dy < 0.00001 then
+          begin
+          outf.setpos(27);
+          outf.outtext("***degenerate data***");
+          outf.outimage;
+          if dx < 0.00001 then
+            begin
+            outf.setpos(25);
+            outf.outtext("x = constant = ");
+            printreal(x/obs);
+            outf.outimage;
+            end;
+          if dy < 0.00001 then
+            begin
+            outf.setpos(25);
+            outf.outtext("y = constant = ");
+            printreal(y/obs);
+            outf.outimage;
+            end;
+          end***degenerate case***else
+          begin
+          a1 := (obs*xy - x*y)/dx;
+          a0 := (y*xx - x*xy)/dx;
+          sd := sqrt((yy - a0*y - a1*xy)/(obs-2));
+          r2 := (obs*xy - x*y)**2/(dx*dy);
+          outf.outtext("  res.st.dev/ est.reg.coeff/ intercept/");
+          outf.outtext(" st.dev.reg.coeff/ corr.coeff");
+          outf.outimage;
+          outf.setpos( 3);  printreal(sd);
+          outf.setpos(18);  printreal(a1);
+          outf.setpos(29);  printreal(a0);
+          outf.setpos(47);  printreal(obs*sd/sqrt((obs-2)*dx));
+          outf.setpos(59);  printreal(sqrt(r2));
+          outf.outimage;
+          end;
+        end;
+      outf.outimage;
+      outf.outimage;
+      end***report***;
+
+    if title2.length > 12 then title2 :- title2.sub(1, 12);
+    end***regression***;
+
+  comment--------------------seed generator--------------------
+  *
+  * the basic rng is
+  *
+  *    u(k+1) <- u(k) * 2**13 modulo 67099547
+  *
+  * (see ]next page: zyqsample in dist)
+  * this rng was developed and tested by downham and roberts
+  * by noting that
+  *
+  *    u(k+120633) <- u(k) * 36855 modulo 67099547
+  *
+  * we get our routine for generating well separated seeds
+  *
+  * u(0) <- 907, u(1) <- 33427485, u(2) <- 22276755, ...
+  *
+  * you may change the defaults by assigning a fresh value
+  * to zyqseed.
+  *;
+
+  integer procedure zyqnextseed;
+    begin integer k;
+    for k := 7, 13, 15, 27 do
+      begin zyqseed := zyqseed*k;
+      if zyqseed >= zyqmodulo then
+        zyqseed := zyqseed - zyqseed//zyqmodulo*zyqmodulo;
+      end;
+    zyqnextseed := zyqseed;
+    end***zyqnextseed***;
+
+  procedure setseed(n); integer n;
+    begin
+    if n < 0 then n := -n;
+    if n >= zyqmodulo then n := n-n//zyqmodulo*zyqmodulo;
+    if n = 0 then n := zyqmodulo//2;
+    zyqseed := n;
+    end***setseed***;
+
+  comment-------------d i s t r i b u t i o n s----------------
+  *
+  * this section has the definitions of the sampling mechanisms
+  * defined in demos. these definitions are: 
+  *
+  *                               dist
+  *
+  *            rdist              idist                bdist
+  *
+  * rdist =
+  * constant   erlang   empirical   negexp    normal    uniform
+  *
+  * idist =
+  * randint   poisson
+  *
+  * bdist =
+  * draw
+  * constant         every sample returns the same value.
+  *
+  * empirical        defines a cumulative probability function
+  *                  supplied as a pair of tables by the user.
+  *
+  * and the rest follow simula's drawing procedures in the
+  * obvious way. by building an object, we make a drawing by a
+  * call 'obj'.sample and need not pass over any parameters.
+  * and the object name can be relevant, e.g. arrivals.sample.
+  *;
+
+  tab class dist;
+    begin integer u, ustart, type;
+    boolean antithetic;
+
+    real procedure zyqsample;
+      begin integer k;
+      for k := 32, 32, 8 do
+        begin u := k*u;
+        if u >= zyqmodulo then u := u - u//zyqmodulo*zyqmodulo;
+        end;
+      zyqsample := if antithetic then 1.0 -  u/zyqmodulo
+                                 else u/zyqmodulo;
+      obs := obs+1;
+      end***zyqsample***;
+
+    procedure setseed(n); integer n;
+    begin
+      if n < 0 then n := -n;
+      if n >= zyqmodulo then n := n-n//zyqmodulo*zyqmodulo;
+      if n = 0 then n := zyqmodulo//2;
+      u := n;
+      inspect this dist
+         when normal do zyqeven:= false;
+    end***setseed***;
+
+    procedure zyqfail(t1,t2,x,y);value t1,t2;text t1,t2;real x,y
+;
+      begin
+        switch case:=normall, uniforml, erlangl,
+                     randintl, negexpl, poissonl;
+      outtext("**error in creation of ");
+      outtext(disttype[type]);
+      outtext("dist '");
+      outtext(title);
+      outchar(''');  outchar('.');
+      outimage;
+      outtext(zyqreason); outtext(t1); outimage;
+      outtext(zyqrecvry); outtext(t2);
+      goto case[type];
+      goto join;
+        normall: 
+        erlangl: 
+        negexpl: 
+      poissonl:  outreal(x, 5, 12);
+                 goto join;
+      uniforml:  outreal(x, 5, 12);
+                 outtext(", b =");
+                 outreal(y, 5, 12);
+                 goto join;
+      randintl:  outint(this dist qua randint.a, 10);
+                 outtext(", b =");
+                 outint(this dist qua randint.b, 10);
+      join:      outchar('.'); outimage; outimage;
+      end***zyqfail***;
+
+    procedure report;
+      begin switch case := normall, uniforml, erlangl, randintl,
+                         negexpl, poissonl, drawl,  constantl;
+      writetrn;
+      outf.outchar(' ');
+      outf.outtext(disttype[type]);
+      outf.setpos(41);
+      goto case[type];
+      goto skipall;
+      normall:    printreal(this dist qua normal.a);
+                  printreal(this dist qua normal.b);
+                  goto exit;
+      uniforml:   printreal(this dist qua uniform.a);
+                  printreal(this dist qua uniform.b);
+                  goto exit;
+      erlangl:    printreal(this dist qua erlang.a);
+                  outf.outint(this dist qua erlang.b, 10);
+                  goto exit;
+      randintl:   outf.outint(this dist qua randint.a, 10);
+                  outf.outint(this dist qua randint.b, 10);
+                  goto exit;
+      negexpl:    printreal(this dist qua negexp.a);
+                  goto skip;
+      poissonl:   printreal(this dist qua poisson.a);
+                  goto skip;
+      drawl:      printreal(this dist qua draw.a);
+                  goto skip;
+      constantl:  printreal(this dist qua constant.a);
+                  goto skipall;
+      skip:       outf.setpos(61);
+      exit:       outf.outint(ustart, 10);
+      skipall:    outf.outimage;
+      end***report***;
+
+    u := ustart := zyqnextseed;
+    if this dist in empirical then join(empq)
+                              else join(distq);
+    end***dist***;
+
+  comment--------------------r   d i s t s--------------------;
+
+
+  dist class rdist; virtual: real procedure sample;;
+
+  rdist class constant(a); real a;
+    begin
+    real procedure sample;
+      begin obs := obs + 1;
+      sample := a;
+      end***sample***;
+
+    type := 8;
+    end***constant***;
+
+
+  rdist class normal(a, b); real a, b;
+    begin real zyqu, zyqv; boolean zyqeven;
+
+    real procedure sample;
+      begin real z;
+      if zyqeven then
+        begin zyqeven := false;
+        z    := zyqu*cos(zyqv);
+        obs  := obs + 1;
+        end else
+        begin zyqeven := true;
+        zyqu := sqrt(-2.0*ln(zyqsample));
+        zyqv := 6.28318530717959*zyqsample;
+        z    := zyqu*sin(zyqv);
+        obs  := obs - 1;
+        end;
+      sample := z*b+a;
+      end***sample***;
+
+    type := 1;
+    if b < 0.0 then
+      begin b := -b;
+      zyqfail("st. dev. 'b' < 0.0.",
+              "absolute value !b! taken. b is now", b, 0.0);
+      end;
+    end***normal***;
+
+
+  rdist class negexp(a); real a;
+    begin
+    real procedure sample;
+      begin
+      sample := -ln(zyqsample)/a;
+      end***sample***;
+
+    type := 5;
+    if a <= 0.0 then
+      begin a := if a < 0.0 then -a else 0.001;
+      zyqfail("non-positive value for 'a' (=arrival rate).",
+              "a reset to", a, 0.0);
+      end;
+    end***negexp***;
+
+
+  rdist class uniform(a, b); real a, b;
+    begin real zyqspan;
+    real procedure sample;
+      begin
+      sample := zyqspan*zyqsample + a;
+      end***sample***;
+
+    type := 2;
+    if a > b then
+      begin real q;
+      q := a; a := b; b := q;
+      zyqfail("lower bound 'a' > upper bound 'b'.",
+              "bounds swapped. now, a =", a, b);
+      end;
+    zyqspan := b-a;
+    end***uniform***;
+
+
+  rdist class erlang(a, b); real a;  integer b;
+    begin real zyqab;
+    real procedure sample;
+      begin integer k, m; real prod;
+      m := obs;
+      prod := zyqsample;
+      for k := 2 step 1 until b do
+        prod := prod * zyqsample;
+      obs := m+1;
+      sample := -ln(prod)*zyqab;
+      end***sample***;
+
+    type := 3;
+    if a <= 0.0 then
+      begin a := if a < 0.0 then -a else 0.01;
+      zyqfail("'a' (=1/mean) <= 0.0.",
+              "a reset to", a, 0.0);
+      end;
+    if b < 0.0 then
+      begin b := if b < 0 then -b else 1;
+      zyqfail("'b' (erlang st. dev.) <= 0.0.",
+              "b reset to", b, 0.0);
+      end;
+    zyqab := a/b;
+    end***erlang***;
+
+  rdist class empirical(size); integer size;
+    begin real array x, p[1 : size];
+
+    real procedure sample;
+      begin real q;  integer k;
+      q := zyqsample;
+      k := 2;
+      while p[k] < q do
+        k := k + 1;
+      sample := x[k-1] + (x[k]-x[k-1])*(q-p[k-1])/(p[k]-p[k-1]);
+      end***sample***;
+
+    procedure report;
+      begin integer k;
+      outf.setpos(16);
+      outf.outtext(headingrtn); outf.outtext("/     seed");
+      outf.outimage;
+      outf.setpos(16);
+      writetrn;
+      outf.outint(ustart, 10);
+      outf.outimage;  outf.outimage;
+      outf.setpos(16);
+      outf.outtext("       k/  dist. x[k]/  prob. p[k]");
+      outf.outimage;
+      for k := 1 step 1 until size do
+        begin
+        outf.setpos(16);
+        outf.outint(k, 8);
+        outf.outfix(x[k], 5, 13);
+        outf.outfix(p[k], 5, 13);
+        outf.outimage;
+        end;
+      outf.outimage;
+      end***report***;
+
+    procedure read;
+      begin boolean good, first; integer k, l;
+      real a, b;
+
+      procedure z(w, r, f, c); value w, c; text w, c;
+                                   real r; boolean f;
+        begin
+        if good then
+          begin good := false;
+          sysout.setpos(11);
+          outtext("**read fault(s) in empirical '");
+          outtext(title);
+          outchar(''');  outchar('.');
+          outimage;
+          end;
+        if first then
+          begin first := false;
+          outimage;
+          outtext("**inputs   : k ="); outint(k, 4);
+          outtext(", dist(k) =");      outfix(a, 3, 10);
+          outtext(", prob(k) =");      outfix(b, 3, 10);
+          outimage;
+          outtext(zyqrecvry);
+          end;
+        sysout.setpos(14);
+        outtext(w);
+        if f then outfix(r, 6, 10) else outfix(r, 3, 10);
+        outtext(c); outchar('.');
+        outimage;
+        end***z - the warning routine***;
+
+      k := 1;
+      good := first := true;
+      x[1] := a := inf.inreal; b := inf.inreal;
+      if abs(b) > epsilon then
+        z("p[1] is not zero. p[1] =>",0.0,true," (first prob)");
+      for k := 2 step 1 until size do
+        begin first := true;
+        x[k] := a := inf.inreal; p[k] := b := inf.inreal;
+        if a < x[k-1] then
+          begin x[k] := x[k-1];
+          z("x[k] < x[k-1]. x[k] =>",x[k],false," (=x[k-1])");
+          end;
+        if b < 0.0 or b < p[k-1] or b > 1.0 then
+          begin p[k] := p[k-1]+0.001;
+          if p[k] > 1.0 then p[k] := 1.0;
+          z("illegal prob. p[k] =>",p[k],true," (=p[k-1]+)");
+          end;
+        end;
+      if abs(p[size]-1.0) > epsilon then
+       z("p[size]'ne'1.0. p[size] =>", 1.0, true, " (last prob.)") comment RK 'ne' was "ne" embedded in string;
+;
+      p[size] := 1.0;
+      if not good then
+        begin outtext(minuses.sub(1, 62));
+        outimage; outimage;
+        end;
+      end***read***;
+
+    type := 9;
+    if size = 1 then error(20, none, this empirical, 0,
+        "new empirical(t, size); text t; integer size;");
+    read;
+    end***empirical***;
+
+  comment--------------------i   d i s t s--------------------;
+
+  dist class idist; virtual: integer procedure sample;;
+
+  idist class randint(a, b); integer a, b;
+    begin real zyqspan;
+    integer procedure sample;
+      begin
+      sample := entier(zyqspan*zyqsample) + a;
+      end***sample***;
+
+    type := 4;
+    if a > b then
+      begin integer q;
+      q := a; a := b; b := q;
+      zyqfail("lower bound 'a' > upper bound 'b'.",
+              "bounds swapped. now a =", a, b);
+      end;
+    zyqspan := b-a+1;
+    end***randint***;
+
+  idist class poisson(a); real a;
+    begin
+    integer procedure sample;
+      begin integer m; real p, q;
+      p := exp(-a);
+      q := 1.0;
+      l: q := q*zyqsample;
+      if q >= p then
+        begin
+        m := m + 1;
+        goto l;
+        end;
+      sample := m;
+      obs := obs - m;
+      end***sample***;
+
+    type := 6;
+    if a <= 0.0 then
+      begin a := if a < 0.0 then -a else 0.001;
+      zyqfail("non-positive value for 'a' (=mean).",
+              "a reset to", a, 0.0);
+      end;
+    end***poisson***;
+
+  comment--------------------b   d i s t s--------------------;
+
+  dist class bdist; virtual: boolean procedure sample;;
+
+  bdist class draw(a); real a;
+    begin
+    boolean procedure sample;
+      begin
+      sample := a > zyqsample;
+      end***sample***;
+
+    type := 7;
+    end***draw***;
+
+  comment-------------readdist-----------------------------------;
+
+  procedure readdist(d, title); name d; value title;
+                             ref(dist)d; text title;
+    begin text f, rest;
+    integer p, imlength1, l, k, t;
+
+    procedure fail(d, eof); boolean d, eof;
+      begin outtext("**error in reading dist with title = '");
+      outtext(title);
+      outchar(''');  outchar('.');
+      outimage;
+      outtext("**no match found when scanning input file for ");
+      if d then outtext(" dist type") else outtext("title");
+      outchar('.');
+      outimage;
+      outtext(zyqreason);
+      if eof then outtext("end of input file marker hit.") else
+        begin outtext("rest of current input image reads:");
+        outimage;
+        outtext(rest);
+        end;
+      abort(true);
+      end***fail***;
+
+    comment***checktitle***;
+    imlength1 := inf.image.length + 1;
+    if inf.lastitem then fail(false, true);
+    l := title.length;
+    p := inf.image.pos;
+    rest :- inf.image.sub(p, imlength1 - p);
+    if rest.length >= l then f :- rest.sub(1, l);
+    if fnetitle then fail(false,false);
+    inf.setpos(p + l);
+
+    comment***get dist type***;
+    if inf.lastitem then fail(true, true);
+    p    := inf.image.pos;
+    rest :- inf.image.sub(p, imlength1 - p);
+    l    := rest.length;
+    for k := 6, 7, 6, 7, 6, 7, 4, 8, 9 do
+      begin t := t + 1;
+      if k <= l then
+        begin
+        if disttype[t] = rest.sub(1, k) then goto found;
+        end;
+      end;
+    fail(true, false);
+    found: inf.setpos(p + k);
+    if t=1 then d:-new normal(title,inf.inreal,inf.inreal) else
+    if t=2 then d:-new uniform(title,inf.inreal,inf.inreal)else
+    if t=3 then d:-new erlang(title,inf.inreal,inf.inint)  else
+    if t=4 then d:-new randint(title,inf.inint,inf.inint)  else
+    if t=5 then d:-new negexp(title,inf.inreal)            else
+    if t=6 then d:-new poisson(title,inf.inreal)           else
+    if t=7 then d:-new draw(title,inf.inreal)              else
+    if t=8 then d:-new constant(title,inf.inreal)          else
+    if t=9 then d:-new empirical(title, inf.inint);
+    end***readdist***;
+
+  comment-------------------- reportq -------------------------;
+
+  class reportq(h, l1, l2); value h; text h, l1, l2;
+    begin                comment
+    *
+    * every created tab is put into a reportq in the order
+    * of its creations. from there they can all be reported
+    * together on a call 'report' , or all reset to the null
+    * state by a call 'reset'.
+    *
+    * variables : 
+    *     first    ref to first tab in reportq
+    *     last     ref to last tab in reportq
+    *
+    * procedures: 
+    *     reset    resets each and every represented tab
+    *
+    *     report   reports each and every tab as above
+    *;
+
+    ref(tab)first, last;
+
+    procedure report;
+      begin ref(tab)t;
+      integer p, l;
+      l := h.length;   p := (72-l)//2;
+      outf.setpos(p);  outf.outtext(h);
+      outf.outimage;
+      outf.setpos(p);  outf.outtext(stars.sub(1, l));
+      outf.outimage;   outf.outimage;
+      if l1 =/= notext then
+        begin
+        outf.outtext(l1);
+        if l2 =/= notext then outf.outtext(l2);
+        outf.outimage;
+        end;
+      t :- first;
+      while t =/= none do
+        begin t.report;
+        t :- t.next;
+        end;
+      end***report***;
+
+    procedure reset;
+      begin ref(tab)t;
+      t :- first;
+      while t =/= none do
+        begin t.reset;
+        t :- t.next;
+        end;
+      end***reset***;
+
+    end***reportq***;
+
+  comment-------------------- reporting aids -----------------;
+
+  procedure clocktime;
+    begin outf.setpos(24);
+    outf.outtext("clock time = ");
+    printreal(time);
+    outf.outimage;
+    end***clock time***;
+
+
+  procedure box(t); value t; text t;
+    begin
+    outf.outtext(stars);  outf.outimage;
+    outf.outchar('*');    outf.setpos(70);
+    outf.outchar('*');    outf.outimage;
+    outf.outchar('*');
+    outf.setpos((72 - t.length)//2);
+    outf.outtext(t);
+    outf.setpos(70);
+    outf.outchar('*');
+    outf.outimage;
+    outf.outchar('*');    outf.setpos(70);
+    outf.outchar('*');    outf.outimage;
+    outf.outtext(stars);  outf.outimage;
+    outf.outimage;
+    end***box***;
+
+
+  text procedure edit(t, k); value t; text t; integer k;
+    begin text s;
+    t :- t.strip;
+    if t.length > 10 then t :- t.sub(1, 10);
+    edit :- s :- blanks(t.length + 2);
+    s := t;
+    if k < 0 then k := -k;
+    if k > 99 then k := k - k//100*100;
+    s.sub(s.length-1, 2).putint(k);
+    end***edit***;
+
+
+  procedure printreal(x); real x;
+    begin
+      if x=0 or abs(x)>0.1 and abs(x)<99999.999
+        then outfix (x,3,10)
+        else outreal(x,3,10);
+    end***printreal***;
+
+  comment----------e n t i t y-------------------------;
+
+  class entity(title); value title; text title;
+      virtual: label loop;
+    begin real timein, evtime;
+    integer priority, cycle, wants, interrupted;
+    ref(queue)currentq;
+    ref(entity)owner;
+    boolean terminated;
+    ref(entity)ll, rl;
+    ref(entity)suc, pred;
+
+    boolean procedure avail;
+      avail := owner == none;
+
+    boolean procedure idle;
+      idle := evtime < 0.0;
+
+    procedure coopt;
+      begin
+      if owner =/= none then error(1, this entity, none, 0,
+                                   "e.coopt; ref(entity)e;");
+      owner :- current;
+      if zyqtrace > 0 then
+        note(1,"coopts",this entity,currentq,0.0,0);
+      if currentq =/= none then out;
+      end***coopt***;
+
+    procedure interrupt(n); integer n;
+      begin
+      interrupted := n;
+      if zyqtrace > 0 then
+        note(24,"interrupts",this entity,none,0.0,n);
+      if current =/= this entity then
+        begin
+        if currentq =/= none then out;
+        if evtime >= 0.0 then cancel;
+        insertdelay0;
+        end;
+      end***interrupt***;
+
+    procedure repeat;
+      begin cycle := cycle+1;
+      goto loop;
+      end***repeat***;
+
+    procedure into(q); ref(queue)q;
+      begin ref(entity)e;
+      if currentq =/= none then
+        begin
+        error(3, this entity, currentq, 0, "e.into(q); ref(queue)q;"
+);
+        out;
+        end;
+      currentq :- q;
+      timein   := time;
+      inspect currentq do
+        begin qint  := qint + (timein-lastqtime)*length;
+        lastqtime := timein;
+        length    := length+1;
+        if length > maxlength then maxlength := length;
+        e :- last;
+        if e == none then first :- last :- this entity else
+        if e.priority >= priority then
+          begin
+          pred :- last;
+          last :- last.suc :- this entity;
+          end else
+          begin
+          e :- first;
+          while e.priority >= priority do
+            e :- e.suc;
+          suc :- e;
+          pred :- e.pred;
+          if pred == none then first    :- this entity
+                          else pred.suc :- this entity;
+          suc.pred :- this entity;
+          end;
+        end otherwise error(2, this entity, none, 0,
+                          "e.into(q); ref(queue)q;");
+      end***into***;
+
+    procedure out;
+      begin real t;
+      t := time;
+      inspect currentq do
+        begin qint  := qint + (t-lastqtime)*length;
+        length    := length-1;
+        lastqtime := t;
+        obs       := obs+1;
+        t         := lastqtime-timein;
+        if t < epsilon then zeros := zeros+1;
+        cum := cum+t;
+        if suc == none then last :- pred else suc.pred :- pred;
+        if pred == none then first :- suc else pred.suc :- suc;
+        suc :- pred :- none;
+        end;
+      currentq :- none;
+      end***out***;
+
+    procedure getserialno;
+      begin ref(zyqenttitle)z;
+      z :- zyqentnames;
+      while (if z == none then false else titlenez.t) do
+        z :- z.nexttitle;
+      if z == none then z :- new zyqenttitle(title);
+      title :- blanks(z.l+2);
+      title := z.t;
+      title.sub(z.l+1, 2).putint(z.n);
+      z.n := z.n+1;
+      if z.n = 100 then z.n := 0;
+      end***get serialno***;
+
+    ref(entity) procedure nextev;
+      if rl =/= lastsqs then  nextev :- rl;
+
+    procedure list;
+      begin
+      ref(entity)r;
+      integer n;
+      outf.setpos(6);
+      printreal(evtime);
+      outf.outchar(' ');
+      outf.outtext(title);
+      n := 30;
+      for r :- ll, rl do
+        begin
+        outf.setpos(n);
+        if r =/= none then outf.outtext(r.title);
+        n := n + 13
+        end;
+      outf.outimage
+      end***list***;
+
+    procedure insert;
+      begin
+                         comment
+      * assume: 
+      *    evtime has been set by hold or schedule
+      *
+      * this routine is called by schedule and hold
+      * and inserts o(n) from 'current' or 'lastsqs'.
+      *
+      *;
+
+      ref(entity)p;
+
+      if evtime < mediansqs.evtime then
+        begin
+        p :- current;
+        while evtime >= p.evtime do  p :- p.rl;
+        ll :- p.ll;
+        rl :- p;
+        p.ll.rl :- p.ll :- this entity;
+        if not balanced then  mediansqs :- mediansqs.ll
+        end
+      else
+        begin
+        p :- lastsqs.ll;
+        while evtime < p.evtime do  p :- p.ll;
+        ll :- p;
+        rl :- p.rl;
+        p.rl.ll :- p.rl :- this entity;
+        if balanced then  mediansqs :- mediansqs.rl
+        end;
+      balanced := not balanced
+      end***insert***;
+
+    procedure insertaftercurrent;
+      begin
+                         comment
+      * assume: 
+      *    ll == rl == none
+      * this routine is called by acquire, release, etc
+      * and inserts o(1) from 'current'.
+      *;
+
+      if evtime < 0.0 then
+        begin
+        ll :- current;
+        rl :- current.rl;
+        current.rl.ll :- current.rl :- this entity;
+        evtime := current.evtime;
+        if not balanced then  mediansqs :- mediansqs.ll;
+        balanced := not balanced
+        end
+      end***insertaftercurrent***;
+
+    procedure insertdelay0;
+
+                         comment
+      * assume: 
+      *    ll == rl == none
+      * this routine is called by acquire, release, etc
+      * and inserts o(1) from 'current'.
+      *
+      *;
+
+      if evtime < 0.0 then
+        begin
+        evtime := current.evtime;
+        insert
+        end***insertdelay0***;
+
+    procedure schedule(t); real t;
+      begin
+                         comment
+      *
+      * a call e.schedule(t) does nothing if e
+      * is already in the event list(e.evtime >= 0.0).
+      * otherwise, it inserts e into the event list
+      * 'delay' t. there are three separate cases: 
+      *  t < 0.0, e preempts current (0(1) insert)
+      *  t = 0.0, e follows  current (o(1) insert)
+      *  t > 0.0, insert e from 'current' or 'lastsqs'
+      *;
+
+      if terminated then error(14, this entity, none, 0,
+                   "e.schedule(t); ref(entity)e; real t;");
+      if evtime < 0.0 then
+        begin
+        if zyqtrace > 0 then
+          note(2,"schedules",this entity, none,t,0);
+        owner :- none;
+        if currentq =/= none then out;
+        preemptcurrent: 
+        if t <= now then
+          begin
+          evtime := current.evtime;
+          ll :- lastsqs;
+          rl :- current;
+          current.ll :- lastsqs.rl :- this entity;
+          current :- this entity;
+          if not balanced then  mediansqs :- mediansqs.ll;
+          balanced := not balanced;
+          resume(current)
+          end
+        else
+          begin
+          if t <= 0.0 then  evtime := current.evtime
+                        else  evtime := current.evtime + t;
+          insert
+          end
+        end
+      else
+        error(16, this entity, none, 0,
+             "e.schedule(t); ref(entity)e; real t;")
+      end***schedule***;
+
+    procedure cancel;
+      begin
+      comment
+      * a call e.cancel deletes e from the event list.
+      * it has no effect if e is passive (e.evtime < 0)
+      *;
+
+      boolean  beforemedian;
+      if evtime >= 0.0 then
+        begin
+        if zyqtrace > 0 and not terminated then
+          note(23,"cancels",this entity,none,0.0,0);
+        if this entity == current then
+          zyqpassivate
+        else
+          begin
+          if evtime <> mediansqs.evtime then
+            beforemedian := (evtime < mediansqs.evtime)
+          else
+            begin   comment  evtime = mediansqs.evtime ;
+            if this entity == mediansqs then
+              begin
+              beforemedian := true;
+              mediansqs :- mediansqs.ll
+              end
+            else
+              begin
+              ref(entity) p;
+              beforemedian := true;
+              p :- mediansqs.rl;
+              while beforemedian and p.evtime = evtime do
+                begin
+                beforemedian := (p =/= this entity);
+                p :- p.rl
+                end
+              end
+            end;
+          evtime := -1.0;
+          ll.rl :- rl;
+          rl.ll :- ll;
+          ll :- rl :- none;
+          if beforemedian then
+            begin
+            if balanced then  mediansqs :- mediansqs.rl
+            end
+          else
+            if not balanced then  mediansqs :- mediansqs.ll;
+          balanced := not balanced
+          end
+        end
+      else
+        error(17, this entity, none, 0,
+              "e.cancel; ref(entity)e;");
+      end***cancel***;
+
+    if title.length > 10 then title :- title.sub(1, 10);
+    getserialno;
+    evtime := -1.0;
+    detach;
+    loop:;
+    inner;
+    terminated := true;
+    if zyqtrace>0 then note(3,"***terminates",none,none,0.0,0)
+;
+    if evtime >= 0.0 then zyqpassivate;
+    end***entity***;
+
+  comment------------h o l d  and  p a s s i v a t e----------;
+
+  real procedure time;
+    time := current.evtime;
+
+
+  procedure zyqpassivate;
+    begin
+    ref(entity)p;
+    if mediansqs == lastsqs then
+      begin
+      comment only one notice left in the event list ;
+      error(13, current, none, 0, "passivate;")
+      end;
+    current.evtime := -1.0;
+    p :- current.rl;
+    current.ll :- current.rl :- none;
+    current :- p;
+    current.ll :- lastsqs;
+    lastsqs.rl :- current;
+    if balanced then  mediansqs :- mediansqs.rl;
+    balanced := not balanced;
+    resume(current)
+    end***zyqpassivate***;
+
+
+  procedure passivate;
+    begin
+    if zyqtrace>0 then note(22,"passivates",none,none,0.0,0);
+    zyqpassivate;
+    end***passivate***;
+
+
+  procedure hold(t); real t;
+    begin
+                       comment
+    *
+    * delays current by t (t >= 0.0).
+    * if t < 0.0, then t := 0.0
+    *;
+
+    ref(entity)p;
+
+    if t < 0.0 then t := 0.0;
+    if zyqtrace>0 then note(21,"holds for",none,none,t,0);
+    current.evtime := current.evtime + t;
+    if current.evtime >= current.rl.evtime then
+      begin
+      current.rl.ll :- lastsqs;
+      lastsqs.rl :- current.rl;
+      p :- current;
+      current :- current.rl;
+      if balanced then  mediansqs :- mediansqs.rl;
+      balanced := not balanced;
+      p.insert;
+      resume(current)
+      end
+    end***hold***;
+
+  comment----------- q u e u e ------------------;
+
+  tab class queue;
+    begin
+                       comment
+    *
+    * queue objects may be used by anyone as they
+    * stand to 'save' entities, but the prime use
+    * of this class is to serve as prefix to
+    *
+    *  res   bin   waitq   condq
+    *
+    * variables: 
+    *    .title        user supplied descriptive text
+    *    .obs          no. of completed waits in this q
+    *    .resetat      time of creation, or last reset
+    *    .next         ref to next tab in reportq
+    *     length       current no. of entities waiting
+    *     zeros        no. of zero (<epsilon) waits
+    *     maxlength    maximum qlength since resetat
+    *     qint         to record av. qlength
+    *     lastqtime    time of last into/out
+    *     cum          to record av. wait
+    *     first        ref to first entity inq
+    *     last         ref to last entity in q
+    *
+    * procedures: 
+    *     list         prints out entities in q,
+    *                  recording their
+    *                  order, title, priority, and
+    *                  time of entry
+    *
+    *     report       prints on one line: 
+    *                  title/reset/obs/maxlength/length/
+    *                  av.wait/zero waits
+    *                  the av.wait includes zeros
+    *                  zero wait means in q for < 0.0005
+    *
+    *     reset        sets zeros, obs to zero
+    *                  qint,cum to zero
+    *                  maxlength to length
+    *                  lastqtime,resetat to time
+    *;
+
+    integer length, zeros, maxlength;
+    real qint, cum, lastqtime;
+    ref(entity)first, last;
+
+    procedure list;
+      begin
+      ref(entity)e;
+      integer l, k;
+      l := title.length;
+      outf.setpos((52 - l)//2);
+      outf.outtext("entities waiting in ");
+      outf.outtext(title);
+      outf.outimage;
+      outf.setpos((52 - l)//2);
+      outf.outtext(stars.sub(1, 20+l));
+      outf.outimage; outf.outimage;
+      outf.setpos(19);
+      if length = 0 then
+        begin
+        outf.outtext("  **** the queue is empty. ****");
+        outf.outimage;
+        end else
+        begin
+        outf.outtext("no object     priority entry in q");
+        outf.outimage;  outf.outimage;
+        k := 0;
+        e :- first;
+        while e =/= none do
+          begin
+          outf.setpos(17);
+          k := k+1;
+          outf.outint(k, 4);
+          outf.setpos(22);
+          outf.outtext(e.title);
+          outf.setpos(33);
+          outf.outint(e.priority, 8);
+          outf.setpos(42);
+          printreal(e.timein);
+          outf.outimage;
+          e :- e.suc;
+          end;
+        end;
+      outf.outimage;
+      outf.outimage;
+      end***list***;
+
+    procedure report;
+      begin
+      real span, t;
+      writetrn;
+      if (if this queue in condq
+             then this queue qua condq.all
+             else this queue in waitq)
+        then outf.image.sub(13,1).putchar('*');
+      outf.outint(maxlength, 6);
+      outf.outint(length, 6);
+      t    := time;
+      span := t - resetat;
+      outf.setpos(44);
+      if span<epsilon then outf.outtext(minuses.sub(1,10)) else
+        printreal((qint + (t-lastqtime)*length)/span);
+      outf.outint(zeros, 6);
+      outf.setpos(61);
+      if obs > 0 then printreal(cum/obs)
+                 else outf.outtext(minuses.sub(1,10));
+      outf.outimage;
+      if this queue is waitq then outf.outimage;
+      end***report***;
+
+    procedure reset;
+      begin
+      zeros     := obs  := 0;
+      qint      := cum  := 0.0;
+      maxlength := length;
+      lastqtime := resetat:= time;
+      end***reset***;
+
+    if this queue is queue then join(queueq);
+    end***queue***;
+
+
+  queue class noqueue;;
+
+  comment------------r e s o u r c e-------------;
+
+  queue class resource(avail); integer avail;
+    begin
+                       comment
+    * defines the common core to res and bin
+    *
+    * variables: 
+    *    .as class queue
+    *     avail        amount of resource currently free
+    *     sint         to maintain usage*time integral
+    *     extreme      min value of avail if res
+    *                  max value of avail if bin
+    *     initial      initial value of the resource
+    *     lastrtime    time of last acquire/return of res
+    *                  or last take/get of bin
+    *
+    * procedures: 
+    *     report       prints on one line
+    *        res =title/reset/obs/limit/min/now/%usage/av.wait/qmax
+    *        bin =title/reset/obs/init/max/now/av.free/wait/qmax
+    *
+    *     reset        sets obs, zeros, users to zero
+    *                  sint, qint, cum to zero
+    *                  lastqtime, resetat to time
+    *                  maxlength to length
+    *                  extreme to avail
+    *;
+    integer extreme, initial, users;
+    real sint, lastrtime;
+
+    procedure report;
+      begin real t, span, x;
+      t    := time;
+      span := t- resetat;
+      writetrn;
+      fudge: outf.image.sub(24, 7).putint(users);
+      outf.outint(initial, 5);
+      outf.outint(extreme, 5);
+      outf.outint(avail, 5);
+      x := sint + (t-lastrtime)*avail;
+      if span < epsilon then outf.outtext(minuses.sub(1, 10)) else
+      if this resource in bin then printreal(x/span) else
+         printreal((1.0-x/(initial*span))*100.0);
+      if obs = 0 then outf.outtext(minuses.sub(1,10))
+                 else printreal(cum/obs);
+      outf.outint(maxlength,5);
+    outf.outint(obs,5);
+    outf.outint(zeros,5);
+      outf.outimage;
+      end***report***;
+
+    procedure reset;
+      begin
+      obs := zeros := users := 0;
+      maxlength := length;
+      lastrtime := lastqtime := resetat := time;
+      qint := sint := cum := 0.0;
+      extreme  := avail;
+      end***reset***;
+
+    initial := avail;
+    end***resource***;
+
+  comment------------r e s-----------------------;
+
+  resource class res;
+    begin
+                       comment
+    * a res object makes mutual exclision available in demos.
+    * an object with limit = n > 0 can be 'used' by up to
+    * n entities at a time, but no more. it can be seized
+    * in integer chunks (0 < chunk <= limit), and returned
+    * all at once or in part chunks. if the amount
+    * requested is not free, the requester is delayed.
+    * when an entity returns units to the res, the
+    * queue of blocked entities is tested from the
+    * front.
+    *
+    * variables: 
+    *    .title        user supplied descriptive text
+    *    .obs          no. of completed usages (calls on return)
+    *    .resetat      time of creation, or last reset.
+    *    .next         ref to next tab in reportq
+    *    .avail        amount currently free
+    *    .sint         maintains time weighted average of
+    *                   resource usage
+    *    .extreme      minimum level reached
+    *     initial      maximum level
+    *
+    * procedures: 
+    *     acquire(n)   success if n <= avail and
+    *                     current.priority > first.priority
+    *                  and then avail := avail - n.
+    *                  else current is blocked in this queue
+    *                 *errors: n < 0
+    *                          n > limit
+    *
+    *     return(n)    avail := avail + n
+    *                  activate first delay 0.0
+    *                  (first will himself see if he can go)
+    *                 *errors: n < 0
+    *                          n > limit
+    *
+    *    .report       see resource
+    *
+    *    .reset        see resource
+    *
+    *;
+
+    procedure acquire(m); integer m;
+      begin
+      real t;
+      if m < 1 or m > initial then
+        error(if m < 1 then 4 else 5, none, this res, m,
+              "r.aquire(n); ref(res)r; integer n;");
+      current.into(this queue);
+      current.wants := m;
+      if m > avail or current =/= first then
+        begin
+        if zyqtrace>0 then note(4,"awaits",none,this res,0.0,m);
+        zyqpassivate;
+        while m > avail or current =/= first do
+          zyqpassivate;
+        end;
+      if zyqtrace>0 then note(5,"seizes",none,this res,0.0,m);
+      t     := time;
+      sint  := sint + (t-lastrtime)*avail;
+      lastrtime := t;
+      avail := avail - m;
+      if avail < extreme then extreme := avail;
+      current.out;
+      current.wants := 0;
+      if (if first == none then false else first.wants <= avail)
+        then first.insertaftercurrent;
+      end***acquire***;
+
+    procedure release(m); integer m;
+      begin
+      real t;
+      if m < 1 or m+avail > initial then
+        error(if m < 1 then 7 else 8, none, this res, m,
+              "r.release(n); ref(res)r; integer n;");
+      if zyqtrace>0 then note(6,"releases",none,this res,0,m);
+      t     := time;
+      sint  := sint + (t-lastrtime)*avail;
+      lastrtime := t;
+      avail := avail + m;
+      users := users + 1;
+      if (if first == none then false else first.wants <= avail)
+        then first.insertdelay0;
+      end***release***;
+
+    if avail < 1 then
+      error(10, none, this res, avail,
+        "new res(title, lim); text title; integer lim;");
+    join(resq);
+    end***res***;
+
+  comment------------b i n-----------------------;
+
+  resource class bin;
+    begin
+                       comment
+    * class bin caters for for the producer/consumer
+    * cooperation : the producer gives, the consumer
+    * takes.
+    *
+    * variables: 
+    *    .title        user supplied descriptive text
+    *    .resetat      time of creation, or last reset
+    *    .obs          no. of completed usages(calls on give)
+    *    .next         ref to next tab in binq
+    *    .avail        amount currently frce
+    *    .sint         keeps time-weighted average of bin usage
+    *    .extreme      maximum level attained
+    *     initial      initial value of avail
+    *
+    * procedures: 
+    *     give(m)      increments avail by m
+    *                  activates first
+    *                  *errors : m <= 0
+    *
+    *     take(m)      blocks current if can't proceed
+    *                   (first in 0 and avail > = m)
+    *                  when can proceed, leaves q
+    *                  decrements avail and activates
+    *                  first
+    *                 *error : m <= 0.
+    *
+    *    .reset        see resource
+    *
+    *    .report       see resource
+    *;
+
+    procedure take(m); integer m;
+      begin
+      real t;
+      if m < 1 then
+        error(6, none, this bin, 0,
+              "b.take(m); ref(bin)b; integer m;");
+      current.into(this queue);
+      current.wants := m;
+      if current =/= first or m > avail then
+        begin
+        if zyqtrace>0 then note(7,"awaits",none,this bin,0.0,m);
+        zyqpassivate;
+        while current =/= first or m > avail do
+          zyqpassivate;
+        end;
+      current.out;
+      current.wants := 0;
+      if zyqtrace>0 then note(8,"seizes",none,this bin,0.0,m);
+      t     := time;
+      sint  := sint + (t-lastrtime)*avail;
+      lastrtime := t;
+      avail := avail - m;
+      if (if first == none then false else first.wants <= avail)
+        then first.insertaftercurrent;
+      end***take***;
+
+    procedure give(m); integer m;
+      begin
+      real t;
+      if m < 1 then error(9, none, this bin, m,
+                   "b.give(n); ref(bin)b;  integer n;");
+      if zyqtrace>0 then note(9,"gives",none,this bin,0.0,m);
+      t := time;
+      sint := sint + (t-lastrtime)*avail;
+      lastrtime := t;
+      avail := avail + m;
+      users := users + 1;
+      if avail > extreme then extreme := avail;
+      if (if first == none then false else first.wants <= avail)
+        then first.insertdelay0;
+      end***give***;
+
+    if avail < 0 then error(11, none, this bin, avail,
+      "new bin(title, init); text title; integer init;");
+    join(binq);
+    end***bin***;
+
+  comment----------------w a i t q--------------------;
+
+  queue class waitq;
+    begin
+    ref(queue)masterq;
+
+    procedure wait;
+      begin
+      current.into(this queue);
+      if zyqtrace>0 then note(14,"waits",none,this queue,0.0,0);
+      if masterq.first =/= none then masterq.first.insertdelay0;
+      zyqpassivate;
+      end***wait***;
+
+    ref(entity)procedure coopt;
+    begin
+      ref(entity) p;
+      current.into(masterq);
+      if length = 0 or current =/= masterq.first then
+        begin
+        if zyqtrace>0 then note(17,"waits",none,masterq,0.0,0);
+        zyqpassivate;
+        while length = 0 do
+          zyqpassivate;
+        p :- current.suc;
+        if p =/= none and length > 1 then p.insertaftercurrent;
+        end;
+      current.out;
+    p:- coopt :- first;
+      p.coopt;
+      end***coopt***;
+
+    boolean procedure avail(e, c); name e, c;
+                     ref(entity)e; boolean c;
+      begin
+      ref(entity)p;
+      e :- p :- first;
+      while (if p == none then false else not c) do
+        p :- e :- p.suc;
+      avail := p =/= none;
+      end***avail***;
+
+    procedure find(e, c); name e, c;
+            ref(entity)e; boolean c;
+      begin
+      ref(entity)p;
+      current.into(masterq);
+      if not avail(e, c) then
+        begin
+        if zyqtrace > 0 then
+          note(15,"is blocked",none,this waitq,0.0,0);
+        zyqpassivate;
+        while not avail(e, c) do
+          begin
+          if current.suc =/= none and length > 0 then
+             current.suc.insertaftercurrent;
+          zyqpassivate;
+          end;
+        end;
+      p :- current.suc;
+      current.out;
+      e.coopt;
+      if zyqtrace>0 then note(16,"finds",e,this waitq,0.0,0);
+      if p =/= none and length > 0 then p.insertaftercurrent;
+      end***find***;
+
+    masterq :- new noqueue(title);
+    masterq.join(waitqq);
+    join(waitqq);
+    end***waitq***;
+
+  comment---------------c o n d q-------------------;
+
+  queue class condq;
+    begin
+                        comment
+    * condq supplies the waituntil capability to demos.
+    * an entity waiting until tests the condition at
+    * once: if true, it proceeds without delay.
+    * otherwise it is delayed until signalled to go on.
+    * if all is set, signal checks each and every entity
+    * waiting until. else only those at the head of the
+    * queue are tested.
+    *
+    * variables: 
+    *    .as queue
+    *     all         signal tests all waiting entities if set
+    *
+    * procedures: 
+    *     waituntil   keeps an entity in this condq
+    *                  until the condition is fulfilled
+    *
+    *     signal      issued by an entity on freeing system
+    *                  resources. tests dormant entities
+    *;
+
+    boolean all;
+
+    procedure waituntil(c); name c; boolean c;
+      begin
+      current.into(this condq);
+      if not c then
+        begin
+        if zyqtrace > 0 then
+          note(19,"w'until in", none,this condq,0.0,0);
+        zyqpassivate;
+        while not c do
+          begin
+          if all and current.suc =/= none then
+            current.suc.insertaftercurrent;
+          zyqpassivate;
+          end;
+        if zyqtrace>0 then note(20,"leaves",none,this condq,0.0,0);
+        end;
+      if current.suc=/=none then current.suc.insertaftercurrent;
+      current.out;
+      end***waituntil***;
+
+    procedure signal;
+      begin
+      if zyqtrace > 0 then
+            note(25, "signals",  none, this condq, 0.0, 0);
+          if length > 0 then first.insertdelay0;
+          end***signal***;
+
+        join(condqq);
+        end***condq***;
+
+      comment----------t r a c i n g   r o u t i n e s-------------;
+
+      real zyqnotelastt;  ref(entity)zyqnotelaste;  integer zyqtrace;
+
+      procedure trace;
+      if zyqtrace > 0 then zyqtrace := zyqtrace+1 else
+      begin outf.outimage; outf.outimage;
+        clocktime;
+        box("t r a c i n g   c o m m e n c e s");
+        outf.outtext("      time/ current     and its action(s)");
+        outf.outimage;  outf.outimage;
+        zyqtrace := 1;
+        end***trace***;
+
+      procedure notrace;
+      if zyqtrace > 1 then zyqtrace := zyqtrace-1 else
+        begin outf.outimage;  outf.outimage;
+        clocktime;
+        box("t r a c i n g   s w i t c h e d   o f f");
+        zyqtrace := 0;
+        zyqnotelastt := -15.0;
+        zyqnotelaste :- none;
+        end***notrace***;
+
+      procedure note(index,action,e,l,t1,n);value action;text action;
+                  integer index, n; real t1; ref(entity)e; ref(tab)l;
+        begin real t; ref(entity)c;
+
+        procedure intout(n); integer n;
+          begin integer p;
+          if n < 0 then
+            begin
+            n := -n;
+            outf.outchar('-');
+            end;
+          p := if n < 10 then 1 else
+               if n < 100 then 2 else
+               if n < 1000 then 3 else
+               if n < 10000 then 4 else
+               if n < 100000 then 5 else 10;
+          outf.outint(n, p);
+          end***intout***;
+
+        procedure realout(x); real x;
+          begin integer p;
+          if x < 0 then
+            begin
+            x := -x;
+            outf.outchar('-');
+            end;
+          p := if x < 10.0 then 5 else
+               if x < 100.0 then 6 else
+               if x < 1000.0 then 7 else
+               if x < 10000.0 then 8 else
+               if x < 100000.0 then 9 else 0;
+          if p = 0 then outf.outreal(x, 5, 10) else outf.outfix(x, 3, p);
+          end***realout***;
+
+        switch message := m1, m2, m3, m4, m5, m6, m7, m8, m9,
+                          m10,m11,m12,m13,m14,m15,m16,m17,m18,
+                          m19,m20,m21,m22,m23,m24,m25;
+        t := time;
+        c :- current;
+        if (abs(t)-zyqnotelastt) > 0.0005 then
+          begin zyqnotelastt := t;
+          printreal(t);
+          end;
+        if zyqnotelaste =/= c then
+          begin outf.setpos(12);
+          zyqnotelaste :- c;
+          outf.outtext(c.title);
+          end;
+
+        outf.setpos(25);
+        outf.outtext(action);
+        outf.outchar(' ');
+        goto message[index];
+
+        m1:     comment e.coopt;
+        m18:    comment q.coopt     - coopts;
+        m23:    comment cancel(e);
+                if e == none then outf.outtext("none!") else
+                if e == current then outf.outtext("itself")
+                                else outf.outtext(e.title);
+                if l =/= none then
+                begin outf.outtext(" from ");
+                  outf.outtext(l.title);
+                end;
+              goto exit;
+
+      m2:     comment e.schedule(t);
+              outf.outtext(e.title);
+              if t1 <= 0.0 then outf.outtext(" now") else
+              begin outf.outtext(" at ");
+                realout(t+t1);
+              end;
+            goto exit;
+
+    m3:     comment terminates;
+            goto exit;
+
+    m4:     comment res.acquire - blocked;
+    m5:     comment res.acquire - seizes;
+    m6:     comment res.release - releases;
+    m7:     comment bin.take    - blocked;
+    m8:     comment bin.take    - seizes;
+    m9:     comment bin.give    - releases;
+            intout(n);
+            if index=6 or index=9 then outf.outtext(" to ")
+                                  else outf.outtext(" of ");
+            outf.outtext(l.title);
+            goto exit;
+
+    m16:    comment q.find      - finds;
+            outf.outtext(e.title);
+            outf.outchar(' ');
+
+    m14:    comment q.wait;
+    m15:    comment q.find      - blocked;
+    m17:    comment q.coopt     - blocked;
+            outf.outtext("in ");
+
+    m19:    comment q.waituntil - waits;
+    m20:    comment q.waituntil - leaves;
+    m25:    comment q.signal;
+            outf.outtext(l.title);
+            goto exit;
+
+    m21:    comment holds;
+            realout(t1);
+            outf.outtext(", until ");
+            realout(t+t1);
+            goto exit;
+
+    m22:    comment zyqpassivate;
+            goto exit;
+
+    m24:    comment e.interrupt(n);
+            outf.outtext(e.title);
+            outf.outtext(", with n = ");
+            intout(n);
+            goto exit;
+
+      m10:m11:m12:m13: 
+    exit:   outf.outimage;
+    end***note***;
+
+  procedure error(no, e, q, n, call);
+           value call; integer no, n;
+           text call; ref(entity)e; ref(tab)q;
+    begin
+
+    procedure nextline;
+      begin
+      outchar('.');
+      outimage;
+      sysout.setpos(9);
+      end***nextline***;
+
+    procedure intout(n); integer n;
+      begin integer p;
+      outchar(' ');
+      if n < 0 then
+        begin
+        n := -n;
+        outchar('-');
+        end;
+      p := if n < 10 then 1 else
+           if n < 100 then 2 else
+           if n < 1000 then 3 else
+           if n < 10000 then 4 else
+           if n < 100000 then 5 else 10;
+      outint(n, p);
+      end***intout***;
+
+    procedure printreal(x); real x;
+      begin integer p;
+      outchar(' ');
+      if x < 0 then
+        begin
+        x := -x;
+        outchar('-');
+        end;
+      p := if x < 10.0 then 5 else
+           if x < 100.0 then 6 else
+           if x < 1000.0 then 7 else
+           if x < 10000.0 then 8 else
+           if x < 100000.0 then 9 else 0;
+      if p = 0 then outreal(x, 5, 10) else outfix(x, 3, p);
+      end***printreal***;
+
+    ref(entity)c;
+    switch case := e1, e2, e3, e4, e5, e6, e7, e8, e9, e10,
+                   e11,e12,e13,e14,e15,e16,e17,e18,e19,e20;
+
+    sysout.setpos(23);
+    outtext("clock time = ");
+    if time > 99999.0 then outreal(time, 5, 12)
+                      else outfix(time, 3, 10);
+    outimage;
+    abort(false);
+
+    outtext("**cause : call on '");
+    outtext(call);
+    outchar(''');
+    nextline;
+
+    outtext("current == ");
+    outtext(current.title);
+    nextline;
+    goto case[no];
+
+    e1:         comment e.coopt;
+        outtext("attempt by current to coopt '");
+        outtext(e.title);
+        outchar(''');
+        nextline;
+        outtext(e.title);
+        outtext(" is already coopted by ");
+        outtext(e.owner.title);
+        goto blowup;
+
+    e2:     comment e.into(q);
+        outtext("q == none");
+        nextline;
+        outtext("attempt by current to place ");
+        if e == current then outtext("itself")
+                else outtext(e.title);
+        outtext(" into a null queue");
+        nextline;
+        outtext("statement ignored.");
+        goto continue;
+
+    e3:     comment e.into(q);
+        outtext("current tries to place ");
+        if e == current then outtext("itself")
+                else outtext(e.title);
+        outtext(" into queue '");
+        outtext(q.title);  outchar(''');
+        nextline;
+        outtext(e.title);
+        outtext(" is already in ");
+        outtext(e.currentq.title);
+        nextline;
+        outtext(e.title);
+        outtext(" leaves ");
+        outtext(e.currentq.title);
+        outtext(" and enters ");
+        if q == none then outtext("a null queue!")
+                 else outtext(q.title);
+        goto continue;
+
+    e4:     comment r.acquire(n) : n < 0;
+    e5:     comment r.acquire(n) : n > r.limit;
+    e6:     comment b.take(n)    : n < 0;
+    e7:     comment r.release(n) : n < 0;
+    e8:     comment r.release(n) : n > r.limit;
+    e9:     comment b.give(n)    : n < 0;
+        outtext("n =");
+        intout(n);
+        nextline;
+        if no <= 6 then outtext("request for ")
+               else outtext("attempt to return ");
+        if n < 1 then outtext("non-positive")
+             else outtext("too many");
+        outtext(" units ");
+        if no <= 6 then outtext("from ") else outtext("to ");
+        if q in res then outtext("res") else outtext("bin");
+        outchar(' ');  outchar(''');
+        outtext(q.title);  outchar(''');
+        nextline;
+        if q in bin then outtext("set n > 0") else
+        begin
+      outtext("check for missing acquire or"); nextline;
+        outtext("set 0 < n <= r.limit (=");
+        intout(q qua resource.initial);
+        outchar(')');
+        end;
+      goto blowup;
+
+  e10:    comment new res(title, limit);
+  e11:    comment new bin(title, initial size);
+      if no = 10 then outtext("limit of res '")
+         else outtext("initial size of bin '");
+      outtext(q.title);
+      outtext("' =");
+      intout(n);
+      nextline;
+      outtext("it should be ");
+      if no=10 then outtext("positive")
+           else outtext("non-negative");
+      outchar('.');  outchar(' ');
+      if no=10 then outtext("set limit > 0")
+           else outtext("set initial size >= 0");
+      goto blowup;
+
+  e12:    comment x.cancel : x idle;
+      outtext("entity '");
+      outtext(e.title);
+      outtext("' is not in the event list.");
+      outimage;
+      goto continue;
+
+  e13:    comment x.cancel : x sole entity in event list;
+      outtext("attempt to cancel last entity in event list");
+      goto blowup;
+
+  e14:    comment e.schedule(t) : e terminated;
+      outtext("e == '");
+      outtext(e.title);
+      outtext("' is terminated and cannot be scheduled");
+      goto blowup;
+
+  e15:    comment implementation error;
+    outtext("last entity in sqs tries to wait:");
+    nextline;
+    outtext("i.e. passivate,acquire,take,wait,waituntil");
+      goto blowup;
+
+  e16:    comment e.schedule(t): ref(entity)t: real t;
+      outtext("e == '");
+      outtext(e.title);
+      outtext("' is already scheduled.");
+      goto join;
+
+  e17:    comment e.cancel: ref(entity)e;
+      outtext("attempt to cancel non-scheduled entity e == '");
+      outtext(e.title);  outchar(''');
+  join:   nextline;
+      outtext("statement ignored.");
+      goto continue;
+
+  e18:    comment t.join(r): ref(tab)t: ref(reportq)r;
+      outtext("tab '");
+      outtext(q.title);
+      outtext("' tries to join a null reportq");
+      nextline;
+      outtext("t will not be reported unless you ");
+      outtext(" call 't.report'.");
+      goto continue;
+
+  e19:    comment new histogram(t, l, u, n);
+      outtext("attempt to create illegal histogram '");
+      outtext(q.title);
+      outchar(''');
+      nextline;
+      outtext("lower bound = ");
+      printreal(q qua histogram.lower);
+      nextline;
+      outtext("upper bound = ");
+      printreal(q qua histogram.upper);
+      nextline;
+      outtext("upper must be greater than lower");
+      nextline;
+      outtext("action: lower <- 0.0, and upper <- 100.0.");
+      goto continue;
+
+  e20:    comment new empirical(t, 1);
+      outtext("attempt to create empirical object '");
+      outtext(q.title);  outchar(''');
+      nextline;
+      outtext("size = 1. set size > 1");
+      goto blowup;
+
+  blowup:     outchar('.'); outimage;
+          abort(true);
+  continue:   outimage; outimage;
+  end***error***;
+
+procedure abort(b); boolean b;
+  begin
+  integer l;
+  if b then l := 27 else l := 28;
+  outtext(minuses);  outimage;
+  outtext(minuses.sub(1, l));
+  if b then outtext("program  aborted")
+       else outtext("serious  error");
+  outtext(minuses.sub(1, l));  outimage;
+  outtext(minuses);  outimage;
+  if b then
+    begin
+    if inf.image =/= notext then inf.close(notext);
+    if outf.image =/= notext then outf.close(notext);
+    l := 0;
+    l := 1/l;
+    end;
+  end***abort***;
+
+comment---------s n a p p i n g   r o u t i n e s------------;
+
+procedure report;
+  begin ref(reportq)r;
+  if outf.line <> 1 then outf.eject(1)
+  else begin outf.outimage;outf.outimage end;
+  clocktime;
+  box("r e p o r t");
+  for r:-distq,empq,accumq,countq,tallyq,histoq,regressq,
+         resq,binq,queueq,waitqq,condqq do
+  if r.first =/= none then
+    begin
+    outf.outimage;
+    outf.outimage;
+    r.report;
+    end;
+  end***report***;
+
+procedure noreport;
+  zyqreport := false;
+
+procedure reset;
+  begin ref(reportq)r;
+  for r:-distq,empq,accumq,countq,tallyq,histoq,regressq,
+        resq,binq,queueq,waitqq,condqq do
+  if r.first =/= none then r.reset;
+  end***reset***;
+
+procedure snapqueues;
+  begin ref(tab)q; integer k; ref(entity)e;
+  outf.outimage; outf.outimage;
+  clocktime;
+  box("l i s t   o f   p a s s i v e   o b j e c t s");
+  for q :- queueq.first, condqq.first, waitqq.first do
+    begin
+    while q =/= none do
+      begin
+      q qua queue.list;
+      outf.outimage;  outf.outimage;
+      q :- q.next;
+      end;
+    outf.outimage; outf.outimage;
+    end;
+  end***snapqueues***;
+
+procedure snapsqs;
+  begin
+  ref(entity) p;
+  integer k;
+  outf.outimage;
+  outf.outimage;
+  clocktime;
+  box("e v e n t   l i s t");
+  outf.setpos(6);
+  if balanced then  outf.outtext("balanced")
+                else  outf.outtext("not balanced");
+  outf.outimage;
+  outf.outimage;
+  outf.outtext("    n/ ev. time/obj. title / ");
+  outf.outtext("ll           rl");
+  outf.outimage;
+  p :- current;
+  k := 1;
+  outf.outint(k,5);
+  p.list;
+  p :- p.rl;
+  while p =/= current do
+    begin
+    k := k + 1;
+    if p =/= mediansqs then  outf.outint(k,5)
+                         else  outf.outtext("medsq");
+    p.list;
+    p :- p.rl
+    end;
+  outf.outimage;
+  outf.outimage
+  end***snapsqs***;
+
+entity class mainprogram;
+  begin
+  loop: 
+  detach;
+  goto loop;
+  end***mainprogram***;
+
+class zyqenttitle(t); text t;
+  begin integer n, l;
+  ref(zyqenttitle)nexttitle;
+  nexttitle   :- zyqentnames;
+  zyqentnames :- this zyqenttitle;
+  l := t.length;
+  n := 1;
+  end***zyqenttitle***;
+
+comment--------local variables and their initialisations ----;
+
+ref(reportq)empq, tallyq, accumq, histoq, countq, distq;
+ref(reportq)resq, binq, queueq, condqq, waitqq, regressq;
+text tallyheading, accumheading, distheading;
+text headingrtn, stars, minuses, zyqreason, zyqrecvry;
+text resheading, binheading, qheading;
+text array disttype[0:9];
+integer zyqseed, zyqmodulo;
+ref(infile)inf;
+ref(printfile) outf;
+real zyqelapsed;
+ref(zyqenttitle)zyqentnames;
+ref(mainprogram)mpdemos;
+ref(entity)current, mediansqs, lastsqs, zyqp;
+boolean balanced;
+real now, simperiod, epsilon;
+boolean zyqreport;
+
+zyqreport := true;
+
+epsilon := 0.00001;
+
+headingrtn  :-copy("title       /   (re)set/   obs");
+accumheading:-copy("/  average/est.st.dv/  minimum/  maximum");
+distheading :-copy("/type     /        a/        b/     seed");
+tallyheading:-accumheading;
+resheading  :-
+      copy("/ lim/ min/ now/  % usage/ av. wait/qmax/seiz/zero");
+binheading  :-copy("/init/ max/ now/ av. free/ av. wait/qmax");
+qheading    :-copy("/ qmax/ qnow/ q average/zeros/  av. wait");
+
+disttype[0] :-copy("undefined");
+disttype[1] :-copy("normal");   disttype[2] :-copy("uniform");
+disttype[3] :-copy("erlang");   disttype[4] :-copy("randint");
+disttype[5] :-copy("negexp");   disttype[6] :-copy("poisson");
+disttype[7] :-copy("draw");     disttype[8] :-copy("constant");
+disttype[9] :-copy("empirical");
+
+accumq :- new reportq("a c c u m u l a t e s",
+                          headingrtn, accumheading);
+countq :- new reportq("c o u n t s", blanks(20), headingrtn);
+distq  :- new reportq("d i s t r i b u t i o n s",
+                          headingrtn, distheading );
+empq   :- new reportq("e m p i r i c a l s", notext, notext);
+regressq:-new reportq("r e g r e s s i o n s",notext,notext);
+histoq :- new reportq("h i s t o g r a m s", notext, notext);
+tallyq :- new reportq("t a l l i e s",headingrtn,tallyheading);
+resq   :- new reportq("r e s o u r c e s",headingrtn,
+                                          resheading);
+binq   :- new reportq("b i n s",headingrtn,binheading);
+queueq :- new reportq("q u e u e s",headingrtn,qheading);
+condqq :- new reportq("c o n d i t i o n   q u e u e s",
+                          headingrtn, qheading);
+waitqq :- new reportq("w a i t   q u e u e s",
+                          headingrtn, qheading);
+
+stars :- blanks(70);
+while stars.more do
+  stars.putchar('*');
+
+minuses :- blanks(70);
+while minuses.more do
+  minuses.putchar('-');
+
+inf       :- sysin;
+outf      :- sysout;
+zyqreason :- copy("**reason   : ");
+zyqrecvry :- copy("**recovery : ");
+zyqmodulo := 67099547;  zyqseed := 907;
+now := -1020;
+zyqnotelastt := -15.0;
+current :- mpdemos :- new mainprogram( mpdemos );
+mediansqs :- lastsqs :- new entity( sentinel );
+mpdemos.evtime := 0.0;
+mpdemos.title :- mpdemos.title.sub(1, 5);
+lastsqs.evtime := 1321;
+mpdemos.ll :- mpdemos.rl :- lastsqs;
+lastsqs.ll :- lastsqs.rl :- mpdemos;
+zyqelapsed:= elapsed;
+if outf.line <> 1 then outf.eject(1);
+
+inner;
+
+zyqp :- mpdemos.nextev;
+while (if zyqp == none then false else zyqp.evtime = time) 
+do
+  begin
+  hold(0.0);
+  zyqp :- mpdemos.nextev;
+  end;
+if zyqreport then report;
+inspect outf do
+begin
+   eject(line+2);
+   outtext("cp msec. for this simulation= ");
+   printreal(elapsed-zyqelapsed);
+   outimage;
+end;
+if inf  =/= sysin then inf.close(notext);
+if outf =/= sysout then outf.close(notext);
+end***demos***;

@@ -1,0 +1,178 @@
+% =====================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 54
+%
+%  PURPOSE:     Test virtual switches and labels
+%
+%  REWRITTEN BY:  BEH   01/08-86
+% ====================================================================
+BEGIN
+   Boolean found_error;
+
+   text t;
+
+   Class A (L, S, I);
+      Boolean L, S;
+      Integer I;
+      Virtual: Label L1, L2;
+               Switch S1, S2;
+   BEGIN
+      Switch S1 := L1, L2;
+
+      If L then Goto L1;
+      If S then Goto S1 (I);
+
+      Goto OutA;
+
+      L1: Outtext (" A.L1 "); Goto OutA;
+      L2: Outtext (" A.L2 "); Goto OutA;
+      L3: Outtext (" A.L3 "); Goto OutA;
+
+     OutA:
+   END;
+
+   A Class B (L, S, I);
+      Boolean L, S;
+      Integer I;
+      Virtual: Label L3;
+   BEGIN
+      Switch S2 := L3, L4;
+
+      If L then Goto L2;
+      If S then Goto S2 (I);
+
+      Goto OutB;
+
+      L2: Outtext (" B.L2 "); Goto OutB;
+      L3: Outtext (" B.L3 "); Goto OutB;
+      L4: Outtext (" B.L4 "); Goto OutB;
+
+     OutB:
+   END;
+
+   B Class C (L, S, I);
+      Boolean L, S;
+      Integer I;
+   BEGIN
+      Switch S1 := L1, L3, L6;
+      Switch S3 := L4, L6;
+
+      Goto OutC;
+
+      If L then Goto L3;
+      If S then Goto S3 (I);
+
+      L1: Outtext (" C.L1 "); Goto OutC;
+      L3: Outtext (" C.L3 "); Goto OutC;
+      L4: Outtext (" C.L4 "); Goto OutC;
+      L6: Outtext (" C.L6 "); Goto OutC;
+
+     OutC:
+   END;
+
+   A Class D (L, S, I);
+      Boolean L, S;
+      Integer I;
+      Virtual: Switch S3;
+   BEGIN
+      Switch S1 := L1, L3;
+      Switch S2 := L4;
+
+      If L then Goto L4;
+      If S then Goto S2 (I);
+
+      Goto OutD;
+
+      L1: Outtext (" D.L1 "); Goto OutD;
+      L3: Outtext (" D.L3 "); Goto OutD;
+      L4: Outtext (" D.L4 ");
+
+     OutD:
+   END;
+
+   D Class E (L, S, I);
+      Boolean L, S;
+      Integer I;
+   BEGIN
+      Switch S3 := L2;
+
+      If L then Goto L3;
+      If S then Goto S3 (I);
+
+      Goto OutE;
+
+      L2: Outtext (" E.L2 "); Goto OutE;
+      L3: Outtext (" E.L3 ");
+
+     OutE:
+   END;
+
+   Ref (A) RA;
+   Ref (B) RB;
+   Ref (C) RC;
+   Ref (D) RD;
+   Ref (E) RE;
+
+   Outtext ("--- START Simula a.s. TEST 54");
+   Outimage;
+   Outtext ("--- Test virtual switches and labels.");
+   Outimage; Outimage;
+
+   RA :- New A (false, true, 2);
+   RB :- New B (true, false, 0, false, true, 1);
+   RB :- New B (false, true, 2, false, true, 2);
+   RC :- New C (false, true, 3, true, false, 0, false, true, 1);
+   RC :- New C (true, false, 0, false, true, 2, false, true, 2);
+   RC :- New C (false, false, 0, false, true, 1, false, true, 1);
+
+   t :- copy(sysout.image.strip);
+   sysout.image.setpos (1);
+   sysout.image := notext ;
+
+   if t = " A.L2  A.L1  B.L3  B.L2  C.L6  C.L1  C.L3" then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong sequence of statements (1).");
+      Outimage;
+      Outtext ("            Erroneus output :");
+      Outimage;
+      Outtext ("            ");
+      Outtext (t);
+      Outimage;
+      found_error := true
+   end;
+
+
+   RD :- New D (false, true, 2, true, false, 0);
+   RD :- New D (false, true, 3, true, false, 0);
+   RE :- New E (false, false, 0, false, true, 2, false, true, 1);
+   RE :- New E (true, false, 0, true, true, 1, false, true, 1);
+   RA :- New D (false, true, 2, true, false, 0);
+   RB :- New C (false, true, 2, false, true, 1, false, true, 1);
+
+   t :- copy(sysout.image.strip);
+   sysout.image.setpos (1);
+   sysout.image := notext ;
+
+   if t = " D.L3  D.L4  E.L2  D.L1  E.L2  D.L3  C.L3" then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong sequence of statements (2).");
+      Outimage;
+      Outtext ("            Erroneus output :");
+      Outimage;
+      Outtext ("            ");
+      Outtext (t);
+      Outimage;
+      found_error := true
+   end;
+
+   If found_error then
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END;
+
+   Outtext ("--- END Simula a.s. TEST 54");
+   Outimage
+ END

@@ -1,0 +1,86 @@
+% ===================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 86
+%
+%  PURPOSE: Test reading of real numbers from SYSIN.
+%
+%  METHOD:
+%
+%  WRITTEN BY: THE 21/7 - 83
+% =============================================================
+BEGIN
+LONG REAL          realnumber;
+INTEGER            intnumber, deci, field;
+CHARACTER          answer;
+
+outtext("--- START Simula a.s. TEST 86"); outimage;
+outtext("    The program must get input on SYSIN."
+        " Compare output with input!!!"); outimage; outimage;
+
+answer := 'H';
+
+WHILE  answer <> 'E'  DO
+   BEGIN
+   IF answer = 'R' THEN
+      BEGIN
+      OUTTEXT ("Give REAL number:");
+      OUTIMAGE; INIMAGE;
+      realnumber := sysin.image.strip.GETREAL;
+
+      OUTTEXT("                FIX :                          REAL :");
+      OUTIMAGE;
+      OUTFIX(realnumber,  2, 35); OUTREAL(realnumber,  2, 35); OUTIMAGE;
+      OUTFIX(realnumber,  5, 35); OUTREAL(realnumber,  5, 35); OUTIMAGE;
+      OUTFIX(realnumber, 10, 35); OUTREAL(realnumber, 10, 35); OUTIMAGE;
+      OUTFIX(realnumber, 15, 35); OUTREAL(realnumber, 15, 35); OUTIMAGE;
+      OUTFIX(realnumber, 20, 35); OUTREAL(realnumber, 20, 35); OUTIMAGE;
+      OUTFIX(realnumber, 25, 35); OUTREAL(realnumber, 25, 35); OUTIMAGE;
+      END
+   ELSE
+
+   IF answer = 'D' THEN
+      BEGIN
+      OUTTEXT("Give parameter nr 2 of OUTREAL/OUTFIX : "); OUTIMAGE;
+      deci := ININT;
+      IF deci<0  THEN deci := 0;
+      IF deci>29 THEN deci := 29;
+      OUTTEXT("Give length of field : "); OUTIMAGE;
+      field := ININT;
+      OUTTEXT("Give REAL number: "); OUTIMAGE; INIMAGE;
+      realnumber := sysin.image.strip.GETREAL;
+      OUTFIX(realnumber,deci,field); OUTREAL(realnumber,deci,field);
+      OUTIMAGE;
+      END
+   ELSE
+
+   IF answer = 'I' THEN
+      BEGIN
+      OUTTEXT("Give INTEGER number:");
+      OUTIMAGE; INIMAGE;
+      INTNUMBER := sysin.image.strip.GETINT;
+
+      OUTINT (intnumber, 12); OUTIMAGE
+      END
+   ELSE
+
+   IF answer = 'H' THEN
+      BEGIN
+      OUTTEXT("  I : INTEGER"); OUTIMAGE;
+      OUTTEXT("  R : REAL with 2,5,10,15 20 and 25 decimals"); OUTIMAGE;
+      OUTTEXT("  D : REAL with choice of decimals and field"); OUTIMAGE;
+      OUTTEXT("  H : This menu"); OUTIMAGE;
+      OUTTEXT("  E : Exit"); OUTIMAGE;
+      END
+   ELSE
+
+   BEGIN OUTTEXT(" 'H' = Help"); OUTIMAGE; END;
+
+   OUTTEXT ("Command : ");
+   OUTIMAGE;
+   INIMAGE;
+   answer := INCHAR;
+   END of WHILE-loop;
+
+OUTIMAGE ;
+OUTTEXT ("--- END Simula a.s. TEST 86");
+OUTIMAGE
+END of program

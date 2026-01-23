@@ -1,0 +1,7 @@
+Begin
+   Integer i;
+   For i:= 1,13, 20 step 10 until 40, 70, i+1 while i lt 76,
+           100 step 50 until 250, 1000, 1500 do begin
+       OutInt(i,5);
+   End For
+End;

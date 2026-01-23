@@ -1,0 +1,160 @@
+% =======================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 100
+%
+%  PURPOSE:  Test monotoneity of putreal and getreal.
+%            Test that put-get-put delivers the identity.
+%
+%  METHOD:   - see procedure testputget:
+%              step from selected values up/down
+%            testing the results of (de)editing.
+%            Deviations are written to file "out100"
+%
+%  NOTE:     Standard procedures add/subepsilon and maxlongreal used
+%            Writes outfile "out100"
+%            Constants signpos, signpos1 must be set, see below
+%            Constant 'ten' in 'testputget' should be set according to
+%            the internal coding of characters, if diff. from ISO
+%
+%  WRITTEN BY:  Peter Jensen September 1987
+% =====================================================================
+%
+begin  integer signpos=17;  !***  number of sign. digits in long real;
+       integer signpos1=signpos+1;
+       integer iterationcount = 1000; !*** number of tests made ***;
+% *********************************************************************
+       integer min_signif, max_signif, i;
+       long real r;
+       long real TENPOWER;    !*** 10**signpos ***;
+       long real DELTA;       !*** TENPOWER(**(-1) ***;
+       boolean up,down;  ref(outfile) putget;
+
+       text t,prevt,st,putgetput,heading;  ! local use in testputget ;
+       procedure testputget(prevr,up); long real prevr; boolean up;
+       begin long real r,s;  text swapt;  integer significance, stepi;
+             integer ten = 57 + 1;  !*** i.e. rank('9') + 1 ***;
+
+             boolean procedure expcom;
+             begin text t1,t2; t.setpos(1); prevt.setpos(1);
+                while t.getchar<>'&' do;
+                t1:-t.sub(t.pos,t.length-t.pos+1);
+                while prevt.getchar<>'&' do;
+                t2:-prevt.sub(prevt.pos,prevt.length-prevt.pos+1);
+                expcom:= if up then t1.getint<=t2.getint
+                         else t1.getint>=t2.getint;
+             end;
+
+             procedure err(messt); text messt;
+             begin text t1,t2; long real diff; integer ndigits;
+                   boolean ident;
+                   ident:= messt==putgetput;
+                   t1:-if ident then st else prevt;
+                   t2:-t; t1.setpos(1); t2.setpos(1);
+                   if t1=t2 then goto PRINT;
+                   while t1.getchar<>'.' do t2.getchar;
+                   t2.setpos(t2.pos+1);
+                   ndigits:=signpos-1; !*** digit before dot ignored;
+                   if t1.getchar<>t2.getchar
+                   then begin
+                        while rank(t1.getchar)+rank(t2.getchar)=ten
+                           do ndigits:=ndigits-1 end
+                   else while t1.getchar=t2.getchar
+                           do ndigits:=ndigits-1;
+                   diff:=abs(  t1.sub(t1.pos-1,ndigits).getint
+                             - t2.sub(t2.pos-1,ndigits).getint);
+                   while diff/(10.0&&0**ndigits) <= 0.47
+                      do ndigits:=ndigits-1;
+                   if ndigits>0 then ndigits:=ndigits-1;
+                   if signpos-ndigits<significance then begin
+                      significance:=signpos-ndigits;
+             PRINT:   inspect putget do begin
+                         outimage;
+                         outtext(t1); outtext(heading); outimage;
+                         outtext(t2); outtext("   "); outtext(messt);
+                         outtext(", i="); outint(stepi,4); outimage;
+                      end
+                   end
+                   else if ident then goto PRINT;
+                   !*** put.get.put must be the identity ***;
+             end;
+
+             significance:=signpos;
+             prevt.putreal(prevr,signpos1);
+             heading:=prevt;
+             heading.sub(signpos+10,5):=if up then " up" else " down";
+             ! *** test identity on argument ***;
+             s:=prevt.getreal; st.putreal(s,signpos1);
+             if st<>prevt then begin t:=prevt; err(putgetput) end;
+             while stepi<iterationcount do begin stepi:=stepi+1;
+                 r:=if up then addepsilon(prevr) else subepsilon(prevr);
+                 t.putreal(r,signpos1);
+                 s:=t.getreal; st.putreal(s,signpos1);
+                 if st<>t then err(putgetput)
+            else if up then begin
+                    if t<prevt then begin
+                       if expcom then begin
+                          err("putreal decreases"); goto LOOP end;
+                    end;
+                    if s<prevr then err("getreal decreases");
+                 end
+                 else begin
+                    if t>prevt then begin
+                       if expcom then begin
+                          err("putreal increases"); goto LOOP end;
+                    end;
+                    if s>prevr then err("getreal increases");
+                 end;
+       LOOP:     prevr:=r; swapt:-prevt; prevt:-t; t:-swapt; ! swap ;
+             end;
+             inspect putget do begin
+                outimage;
+                outtext("*** SIGNIFICANCE from "); outtext(heading);
+                outtext(" is "); outint(significance,2); outimage;
+                if significance<min_signif
+                then min_signif:=significance;
+             end;
+             if max_signif<significance then max_signif:=significance;
+       end;
+
+       outtext("START Simula a.s test 100");
+       outimage;
+       outtext("    Test monotoneity of putreal and getreal.");
+       outimage;
+       outtext("    Test that put-get-put delivers the identity.");
+       outimage;
+       outtext("    - report on outfile ""out100""");
+       outimage; outimage;
+
+       min_signif:=signpos; max_signif:=0;
+       putget:-new outfile("out100");
+       if not putget.open(blanks(80)) then begin
+          outtext("ERROR: CAN'T OPEN FILE ""out100"""); outimage;
+          goto EXIT end;
+       heading:-blanks(signpos+15);
+       t:-blanks(signpos+8);
+       prevt:-blanks(signpos+8); st:-blanks(signpos+8);
+       putgetput:-"put o get o put";
+       up:=true; down:=false;
+       TENPOWER := 10.0&&0 ** (signpos-1);  DELTA := 1 / TENPOWER;
+       testputget(0,up);               testputget(maxlongreal,down);
+       r:=345; r:=r/100;
+       testputget(r-DELTA,up);         testputget(r+DELTA,down);
+       r:=4499999; r:=r/1000000;
+       testputget(r-DELTA,up); testputget(r+DELTA,down);
+       r:=0; i:=signpos;
+       while i>=9 do begin r:= r*1000000000 + 999999999; i:=i-9 end;
+       r:= ( r*(10**i) + (10**i-1) ) / TENPOWER;
+       testputget(r-DELTA,up); testputget(r+DELTA,down);
+
+       r:=10&&30; testputget(r,up);
+       r:=10&&40; testputget(r,up);
+EXIT:
+       outtext("..END Simula a.s test 100");
+       if min_signif=signpos
+       then outtext(" (no significant deviations found) ")
+       else begin outimage;  putget.outimage;
+            outtext(" Number of significant digits varies between");
+            outint(min_signif,3); outtext(" and"); outint(max_signif,3);
+       end;
+       putget.outtext(sysout.image); putget.outimage;  putget.close;
+       outimage;
+end

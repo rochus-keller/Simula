@@ -1,0 +1,953 @@
+simulation class gpsss ;
+begin
+ 
+ 
+comment*************************************************
+ 
+      montreal  gpsss package + version 5.1 +
+      =======================================
+ 
+      updated - may 1977        version 5.1
+      updated - september 1974  version 4.1
+      written - february 1972   version 4.0
+
+      author  - Jean Vaucher
+                Professeur titulaire
+                departement d'informatique
+                universite de montreal
+                c.p. 6128, succursale a
+                montreal, canada
+                h3c 3j7
+     Email: vaucher@iro.umontreal.ca
+     
+Example of use: see simul.sim
+
+Brief Notes:
+=============
+   GPSSS extends the class SIMULATION to imitate IBM's GPSS
+   package.  Perhaps the first SIMULA package written outside
+   Oslos's Norwegian Computer Center.  It inspired Graham
+   Birtwistle's much more complete DEMOS.
+**************************************************************;
+ 
+ 
+   ref (head) facilityq,
+                regionq,
+                storageq,
+                tableq ;
+ 
+   integer trans_id, passe, u ;
+   real time_origin, simulation_start_time ;
+ 
+   link class entity (ident) ; value ident ; text ident ;
+   if ident.length > 15 then ident :- ident.sub(1,15) ;
+ 
+comment**************************************************
+ 
+          facility definition
+ 
+**********************************************************;
+ 
+entity class facility ;
+begin
+   ref(head) inq ;
+   ref(transaction) occupier ;
+   integer entries ;
+   long real tlast, busy_time ;
+ 
+   inq :- new head ;
+   tlast := time_origin ;
+   into (facilityq)
+end facility definition ;
+ 
+comment**************************************************
+ 
+         storage definition
+ 
+**********************************************************;
+ 
+entity class storage (capacity) ; integer capacity ;
+begin
+   ref (head) inq ;
+   integer max, entries, unit_entries ;
+   long real contents, intgrl, tlast ;
+ 
+   procedure check_inq ;
+   begin
+      ref (transaction) client, next_client ;
+      client :- inq.first ;
+      while client =/= none and contents <> capacity do
+         begin
+            next_client :- client.suc ;
+            activate client ;
+            client :- next_client
+         end
+   end check_inq ;
+ 
+   inq :- new head ;
+   tlast := time_origin ;
+   into (storageq)
+end storage definition ;
+ 
+comment**************************************************
+ 
+         region definition
+ 
+**********************************************************;
+ 
+entity class region ;
+begin
+   integer entries, zero_entries, max ;
+   long real contents, intgrl, tlast ;
+ 
+   tlast := time_origin ;
+   into (regionq)
+end region definition ;
+ 
+comment**************************************************
+ 
+          group definition
+ 
+**********************************************************;
+ 
+class group (taille) ; integer taille ;
+begin
+   integer n ;
+   ref (head) inq ;
+ 
+   boolean procedure ready ;
+   ready := (n+1 = taille) ;
+ 
+   inq :- new head
+end group definition ;
+ 
+comment**************************************************
+ 
+         table definition
+ 
+**********************************************************;
+ 
+entity class table (n, lower, inter) ;
+integer n ;
+real lower, inter ;
+begin
+   integer array a (-1 : n) ;
+   integer entries ;
+   real min, max, sum ;
+ 
+   procedure add (x) ; real x ;
+   begin
+      integer index ;
+      sum := sum + x ;
+      entries := entries + 1 ;
+      if entries = 1 then begin min := x; max := x end RK fixed syntax
+      else if x < min then min := x
+      else if x > max then max := x ;
+      index := entier((x - lower) / inter) ;
+      if index < 0 then a(-1) := a(-1) + 1
+      else if index > n then a(n) := a(n) + 1
+      else a(index) := a(index) + 1
+   end ;
+ 
+   into (tableq)
+end table definition ;
+ 
+comment**************************************************
+ 
+         transaction definition
+ 
+**********************************************************;
+ 
+process class transaction ;
+begin
+   real time_mark, priority, last_region_entry_time ;
+   integer id ;
+   ref (region) last_region ;
+ 
+comment************
+ 
+     enter_facility
+ 
+********************;
+ 
+   procedure enter_facility (f) ; name f ; ref (facility) f ;
+   begin
+      if f == none then f :- new facility ("err") ;
+      inspect f do
+         begin
+            if occupier == this transaction then erreur (6,f)
+            else if occupier =/= none then
+               begin
+                  priority_into (inq) ;
+                  passivate ;
+                  this transaction . out
+               end
+            else
+               begin
+                  occupier :- this transaction ;
+                  tlast := time
+               end ;
+            entries := entries + 1
+         end
+   end  enter_facility ;
+ 
+comment************
+ 
+     leave_facility
+ 
+********************;
+ 
+   procedure leave_facility (f) ; ref (facility) f ;
+   begin
+      inspect f do
+         if occupier =/= this transaction then erreur (3,f)
+         else
+            begin
+               occupier :- inq.first ;
+               if occupier == none then
+                   busy_time := busy_time + time - tlast
+               else activate occupier delay 0
+            end
+      otherwise erreur (10,none)
+   end  leave_facility ;
+ 
+comment************
+ 
+     enter_storage
+ 
+********************;
+ 
+   procedure enter_storage (s, required) ;
+   name s ; ref (storage) s ;
+   integer required ;
+   begin
+      if s == none then s :- new storage ("err", 1000000) ;
+      inspect s do
+         if required > capacity then erreur (4,s)
+         else
+            begin
+               priority_into (inq) ;
+               while contents + required > capacity do passivate ;
+               this transaction . out ;
+               entries := entries + 1 ;
+               unit_entries := unit_entries + required ;
+               accum (intgrl, tlast, contents, required) ;
+               if contents > max then max := contents ;
+               hold (0)
+            end
+   end enter_storage ;
+ 
+comment************
+ 
+     leave_storage
+ 
+********************;
+ 
+   procedure leave_storage (s, released) ;
+   ref (storage) s ;
+   integer released ;
+   inspect s do
+      begin
+         accum (intgrl, tlast, contents, -released) ;
+         if contents < 0 then
+            begin
+               contents := 0 ;
+               erreur (5,s)
+            end ;
+         check_inq
+      end
+   otherwise erreur (11,none) ;
+ 
+comment************
+ 
+     enter_region
+ 
+********************;
+ 
+   procedure enter_region (r) ; name r ; ref (region) r ;
+   begin
+      if r == none then r :- new region ("err") ;
+      last_region :- r ;
+      last_region_entry_time := time ;
+      inspect r do
+         begin
+            entries := entries + 1 ;
+            accum (intgrl, tlast, contents, 1) ;
+            if contents > max then max := contents
+         end
+   end enter_region ;
+ 
+comment************
+ 
+     leave_region
+ 
+********************;
+ 
+   procedure leave_region (r) ; ref (region) r ;
+   inspect r do
+      if contents = 0 then erreur (7,r)
+      else
+         begin
+            if last_region == r and last_region_entry_time = time
+               then zero_entries := zero_entries + 1 ;
+            accum (intgrl, tlast, contents, -1)
+         end
+   otherwise erreur (12,none) ;
+ 
+comment************
+ 
+     priority_into
+ 
+********************;
+ 
+   procedure priority_into (q) ; ref (head) q ;
+   begin
+      ref (transaction) p ;
+      p :- q.first ;
+      if p == none then into (q)
+      else if priority < p.priority or
+                  (priority = p.priority and priority < 0)
+               then precede (p)
+      else
+         begin
+            p :- q.last ;
+            if priority < 0 then
+               begin
+                  while priority <= p.priority do p :- p.pred
+               end
+            else while priority < p.priority do p :- p.pred ;
+            follow (p)
+         end
+   end  priority_into ;
+ 
+comment*********
+ 
+    wait_until
+ 
+*****************;
+ 
+   procedure wait_until (b) ; name b ; boolean b ;
+   if not b then
+      begin
+            activate wait_monitor after nextev ;
+         priority_into (waitq) ;
+         passivate ;
+         while not b do
+            if suc == none
+            then resume(wait_monitor)
+            else resume(suc);
+         out ;
+         wait_action := true;
+         activate this process;
+      end wait_until ;
+ 
+comment************
+ 
+         join
+ 
+********************;
+ 
+   procedure join (g) ; ref (group) g ;
+   begin
+      ref (process) p ;
+      inspect g do
+         begin
+            n := n + 1 ;
+            if n < taille then
+               begin
+                  wait(inq) ;
+                  out
+               end
+            else
+               begin
+                  n := 0 ;
+                  p :- inq.first ;
+                  while p =/= none do
+                     begin
+                        activate p delay 0 ;
+                        p :- p.suc
+                     end ;
+                  hold (0)
+               end
+         end
+      otherwise erreur (8,none)
+   end join ;
+ 
+ 
+   time_mark := gpsss_time ;
+   trans_id := trans_id + 1; comment fixed by RK;
+   id := trans_id;
+ 
+end class transaction ;
+ 
+ 
+comment*******************************
+   wait_until paraphenalia
+***************************************;
+ 
+ref (head) waitq ;
+ref (wait_moniteur) wait_monitor ;
+boolean wait_action ;
+ 
+process class wait_moniteur ;
+while true do
+begin
+   wait_action := false;
+   resume (waitq . first);
+   while not wait_action do
+   begin
+      reactivate current after nextev;
+      resume (waitq . first);
+   end;
+   if waitq . empty then passivate;
+end;
+ 
+ 
+comment
+******************************
+  procedures utilitaires
+******************************;
+ 
+procedure skip (n) ;
+integer n ;
+begin
+   outimage ;
+   if n > 0 then eject (line + n)
+  end skip ;
+ 
+real procedure gpsss_time ;
+   gpsss_time := time - simulation_start_time ;
+ 
+procedure clear_sqs ;
+while current.nextev =/= none do cancel(current.nextev) ;
+ 
+procedure restart ;
+begin
+   if current =/= main then erreur(9,none)
+   else
+      begin
+         error_report ;
+         standard_report ;
+         passe := passe + 1 ;
+      comment cancel all resources ;
+         facilityq.clear ;
+         regionq.clear ;
+         storageq.clear ;
+         tableq.clear ;
+      comment cancel all events ;
+         clear_sqs ;
+         simulation_start_time := time ;
+         trans_id := 0 ;
+         u := 987654321
+      end
+end restart ;
+ 
+procedure reset ;
+begin
+   ref (entity) p ;
+   time_origin := time ;
+   for p :- facilityq.first, regionq.first,
+              storageq.first, tableq.first do
+      while p =/= none do
+         begin
+            inspect p
+              when facility do
+                  begin
+                     boolean sbus ;
+                     sbus := occupier =/= none ;
+                     entries := 0 ;
+                     busy_time := 0 ;
+                     tlast := time
+                  end
+               when storage do
+                  begin
+                     entries := 0 ;
+                     intgrl := 0 ;
+                     unit_entries := 0 ;
+                     tlast := time ;
+                     max := contents
+                  end
+               when region do
+                  begin
+                     zero_entries := 0 ;
+                     entries := 0;
+                     max := contents;
+                     intgrl := 0 ;
+                  end
+               when table do
+                  begin
+                    integer i ;
+                     entries := 0 ;
+                     min := 0;
+                     max := 0;
+                     sum := 0 ; comment fixed by RK;
+                     for i := -1 step 1 until n do a(i) := 0
+                  end ;
+            p :- p.suc
+         end
+end ;
+ 
+ 
+comment*****************************************
+         enquiry procedures
+*************************************************;
+ 
+integer procedure contents_facility (f) ; ref (facility) f ;
+inspect f do
+   if occupier =/= none then contents_facility := 1 ;
+ 
+integer procedure waiting_facility (f) ; ref (facility) f ;
+inspect f do
+   waiting_facility := inq.cardinal ;
+ 
+integer procedure contents_storage (s) ; ref (storage) s ;
+inspect s do
+   contents_storage := contents ;
+ 
+integer procedure waiting_storage (s) ; ref (storage) s ;
+inspect s do
+   waiting_storage := inq.cardinal ;
+ 
+integer procedure contents_region (r) ; ref (region) r ;
+inspect r do
+   contents_region := contents ;
+ 
+integer procedure waiting_region (r) ; ref (region) r ;
+waiting_region := 0 ;
+ 
+integer procedure contents_group (g) ; ref (group) g ;
+inspect g do
+   contents_group := n ;
+ 
+integer procedure waiting_group (g) ; ref (group) g ;
+waiting_group := 0 ;
+ 
+integer procedure contents_table (t) ; ref (table) t ;
+inspect t do
+   contents_table := entries ;
+ 
+integer procedure waiting_table (t) ; ref (table) t ;
+waiting_table := 0 ;
+ 
+comment**************************************************
+ 
+         report  generator
+ 
+**********************************************************;
+ 
+procedure standard_report ;
+begin
+ 
+   ref (entity) p ;
+   real dtime ;
+ 
+   procedure facilities_report ;
+   begin
+      boolean sbus ;
+      if facilityq.cardinal + 5 + line > 60 then eject(1) ;
+      outtext("* facilities *") ; skip(0) ;
+      outtext("**************") ; skip(0) ;
+      setpos(16);
+      outtext("          avg.    avg.time");
+      skip(0) ;
+      setpos(16);
+      outtext(" entries contents  transit   status");
+      skip(1) ;
+      for p :- facilityq.first, p.suc while p=/=none do
+      inspect p when facility do
+         begin
+            sbus := occupier =/= none ;
+            if sbus then busy_time:=busy_time+time-tlast ;
+            outtext(ident); setpos(16);
+            outint(entries,7);
+            outfix(busy_time/dtime,2,9) ;
+            if entries <> 0 then
+               outfix(busy_time/entries,2,9) ;
+            setpos(45) ;
+            if sbus then outtext("busy")
+            else outtext("free") ;
+            skip(0);
+         end;
+   end facilities_report ;
+ 
+   procedure storages_report ;
+   begin
+      if storageq.cardinal + 5 + line > 60 then eject(1) ;
+      outtext("* storages *") ; skip(0) ;
+      outtext("************") ; skip(0) ;
+      setpos(16);
+      outtext("          avg.    avg.time");
+         outtext("   contents");
+      skip(0) ;
+      setpos(16);
+      outtext(" entries contents  transit   now   max ");
+         outtext("capacity   util.");
+      skip(1) ;
+      for p :- storageq.first,p.suc while p =/= none do
+      inspect p when storage do
+         begin
+            accum(intgrl,tlast,contents,0) ;
+            outtext (ident) ; setpos (16) ;
+            outint(entries,7) ;
+            outfix(intgrl/dtime,2,9) ;
+            if unit_entries = 0 then setpos(pos+9)
+            else outfix (intgrl / unit_entries,2,9) ;
+            outint(contents,6) ;
+            outint(max,6);
+            outint(capacity,9);
+            if capacity = 0 then setpos(52)
+            else outfix( 100*intgrl / (dtime * capacity),2,9) ;
+            outtext("%");
+            skip(0) ;
+         end
+   end  storages_report ;
+ 
+   procedure regions_report ;
+   begin
+      if regionq.cardinal + 5 + line > 50 then eject(1) ;
+      outtext ("* regions *") ; skip(0) ;
+      outtext ("***********") ; skip(0) ;
+      setpos(16);
+      outtext("          avg.    avg.time");
+         outtext("   contents  non-zero   zero");
+      skip(0) ;
+      setpos(16);
+      outtext(" entries contents  transit   now   max ");
+         outtext(" transit  entries");
+      skip(1) ;
+      for p :- regionq.first,p.suc while p =/= none do
+      inspect p when region do
+         begin
+            accum(intgrl,tlast,contents,0) ;
+            outtext (ident) ; setpos (16) ;
+            outint (entries,7) ;
+            outfix (intgrl/dtime,2,9) ;
+            if entries = 0 then setpos (pos+9)
+            else outfix (intgrl / entries,2,9) ;
+            outint (contents,6) ;
+            outint (max,6);
+            if entries <> 0 and
+                  entries <> zero_entries then
+                     outfix (intgrl / (entries - zero_entries), 2, 9) ;
+            outint (zero_entries, 7) ;
+            skip (0) ;
+         end
+   end regions_report ;
+ 
+   procedure tables_report ;
+   begin
+      boolean detail ;
+      integer cpl, lpss, tl, i, j, k ;
+ 
+   procedure histo (t) ; ref (table) t ;
+   begin
+      text stars ;
+      real scalelevel, linestep ;
+      integer freqmax, champ, nbcar, scale, scalestep ;
+ 
+      inspect t do
+         begin
+            comment trouver la frequence maximum ;
+               freqmax := a(-1) ;
+               for i := 0 step 1 until n do
+                  if freqmax < a(i) then freqmax := a(i) ;
+            comment trouver l echelle (min = 10) ;
+               scale := 10 ;
+               nbcar := 2 ;
+               if freqmax > 10 then
+                  begin
+                     while freqmax > scale do
+                        begin
+                           scale := scale * 10 ;
+                           nbcar := nbcar + 1
+                        end ;
+                     if scale > freqmax then
+                        begin
+                           nbcar := nbcar - 1 ;
+                           if scale // 5 > freqmax then
+                              scale := scale // 5
+                           else if scale // 2 > freqmax then
+                              scale := scale // 2 ;
+                        end
+                  end ;
+               scalestep := scale // 10 ;
+               linestep := scalestep / lpss ;
+            comment trouver la largeur d une colonne ;
+               champ := (cpl-10) // (n+2) ;
+               if champ > 20 then champ := 20 ;
+               stars :- copy (" *******************") ;
+               stars :- stars.sub(1,champ) ;
+            comment imprimer les tetes de colonnes si possible ;
+               outtext ("entries  :") ;
+               if nbcar > champ-1 then detail := true
+               else for i := -1 step 1 until n do
+                          outint (a(i), champ) ;
+               outimage ;
+               for i := 1 step 1 until champ*(n+2)+10 do
+                     outchar ('.') ;
+               outimage ;
+            comment tracer les colonnes ;
+               for i := 1 step 1 until 10 do
+                  begin
+                     outint (scale, 8) ;
+                     scalelevel := scale + linestep / 2 ;
+                     scale := scale - scalestep ;
+                     for j := 1 step 1 until lpss do
+                        begin
+                           setpos (9) ;
+                           outtext (" :") ;
+                           scalelevel := scalelevel - linestep ;
+                           for k := -1 step 1 until n do
+                              if a(k) < scalelevel
+                                 then setpos (pos+champ)
+                              else outtext (stars) ;
+                           outimage
+                        end
+                  end ;
+               for i := 1 step 1 until champ*(n+2)+10 do
+                  outchar ('.') ;
+               outimage ;
+            comment identifier les intervalles ;
+               outtext ("interval :") ;
+               for i := 0 step 1 until n+1 do outint (i,champ) ;
+               skip (2) ;
+         end
+   end    histo ;
+ 
+      cpl := 80 ;       comment character per line ;
+      lpss := 2 ;        comment lines per scale s step ;
+      tl := lpss * 10 ;  comment total lines for the histogram ;
+ 
+      for p :- tableq.first, p.suc while p =/= none do
+      inspect p qua table do
+      begin
+         eject (1) ;
+         outtext ("* table *   ") ; outtext (ident) ; outimage ;
+         outtext ("*********") ; skip (2) ;
+         if (n+2) > ((cpl-10) // 3) then detail := true
+         else histo (p) ;
+ 
+      comment decrire les intervalles ;
+         outtext("interval width   =") ; outfix(inter,2,10) ;
+         outimage ;
+         outtext("interval no.  1  =") ; outfix(lower,2,10) ;
+         outtext(" to") ; outfix(lower+inter,2,10) ;
+         outimage ;
+         outtext("interval no. ") ; outint(n,2) ; outtext("  =") ;
+         outfix(lower+(n-1)*inter,2,10) ; outtext(" to") ;
+         outfix(lower+n*inter,2,10) ; outimage ;
+         skip (2) ;
+ 
+         outtext("average       =") ; outfix(sum/entries,2,10) ;
+         outimage ;
+         outtext("min value     =") ; outfix(min,2,10) ;
+         outimage ;
+         outtext("max value     =") ; outfix(max,2,10) ;
+         outimage ;
+         outtext("total entries =") ; outint(entries,7) ;
+         outimage ;
+ 
+         if detail then
+            begin
+               eject(1) ;
+               outtext("* table *   ") ; outtext(ident) ;
+               outtext("   nb of entries for each interval") ;
+               skip (3) ;
+               k := cpl // 25 ;
+               j := 0 ;
+               for i := -1 step 1 until n do
+                  begin
+                     outtext ("int. ") ;
+                     outint (i+1, 2) ;
+                     outtext (" =") ;
+                     outint (a(i), 11) ;
+                     setpos(pos+5) ;
+                     j := j + 1 ;
+                     if j = k then
+                        begin outimage ; j := 0 end
+                  end
+            end
+      end
+   end table_report ;
+ 
+   comment  debut, procedure standard_report ;
+ 
+   dtime := time - time_origin ;
+   eject(1) ;
+   outtext("***************************") ;
+   outtext("   -version 5.1-") ; outimage ;
+   outtext("***   montreal  gpsss   ***") ; skip(0) ;
+   outtext("***  simulation_report  ***") ; skip(0) ;
+   outtext("***************************") ; skip(2) ;
+   outtext("passe =") ;
+   outint(passe,3) ;
+   skip(0) ;
+   outtext("start time=") ;
+   outfix(time_origin - simulation_start_time,2,10) ;
+   skip(0) ;
+   outtext("end   time=") ;
+   outfix(gpsss_time,2,10) ;
+   if dtime = 0 then
+      begin
+         skip(2) ;
+         outtext("elapsed time = 0 - report skipped")
+      end
+   else
+      begin
+         skip(1) ;
+         if facilityq.empty then outtext ("* no facilities *")
+         else facilities_report ;
+         skip(1) ;
+         if storageq.empty then outtext ("* no storages *")
+         else storages_report ;
+         skip(1) ;
+         if regionq.empty then outtext ("* no regions *")
+         else regions_report ;
+         skip(1) ;
+         if tableq.empty then outtext ("* no tables *")
+         else tables_report
+      end ;
+   outimage ;
+   reset
+end standard_report ;
+ 
+comment ******************************
+ 
+   error   package
+ 
+***************************************;
+ 
+integer ernum ;
+integer array ertype(1:15), ertran(1:15) ;
+ref (entity) array erres (1:15) ;
+real array ertime (1:15) ;
+ 
+procedure erreur (n,erloc) ;
+integer n ;
+ref (entity) erloc ;
+begin
+   ernum := ernum + 1 ;
+   ertime (ernum) := gpsss_time ;
+   if n<2 or n>12 then ertype(ernum) := 1
+   else
+      begin
+         ertype(ernum) := n ;
+         erres (ernum) :- erloc ;
+         inspect current when transaction do
+            ertran (ernum) := id
+         otherwise
+            ertran (ernum) := 0
+      end ;
+   if ernum = 14 then
+      begin
+         erreur(2,none) ;
+         clear_sqs ;
+         error_report ;
+         if current =/= main then
+            begin
+               activate main delay 0 ;
+               passivate
+            end
+      end
+end erreur ;
+ 
+procedure error_report ;
+begin
+   integer i ;
+ 
+   procedure phrase1 (n) ; integer n ;
+   begin
+      if n=1 then outtext("in facility")
+      else if n=2 then outtext("in storage")
+      else if n=3 then outtext("in region")
+      else outtext("in xxx") ;
+      setpos (pos + 1) ;
+      outtext (erres(i).ident) ;
+      outimage
+   end ;
+ 
+   procedure phrase2 ;
+   begin
+      outtext("              transaction") ;
+      outint(ertran(i),4)
+   end ;
+ 
+   if ernum <> 0 then
+   begin
+      skip(100) ;
+      outtext("gpsss error_report   - at time=") ;
+      outfix(gpsss_time,2,10) ;
+      outimage ;
+      outtext("******************") ; skip(1) ;
+      outtext("passe =") ;
+      outint(passe,3) ;
+      skip(1) ;
+      outtext("** time **") ; outimage ;
+      for i:=1 step 1 until ernum do
+      begin
+         switch msg := l1,l2,l3,l4,l5,l6,l7,l8,l9,l10,l11,l12 ;
+         outimage ;
+         outfix(ertime(i),2,10) ;
+         outtext("  - ") ;
+         goto msg(ertype(i));
+      l1:outtext("system error") ;
+         goto out ;
+      l2:outtext("too many errors - simulation terminated");
+         goto out ;
+      l3:phrase1 (1) ; phrase2 ;
+         outtext(" tries to leave before entering") ;
+         goto out ;
+      l4:phrase1 (2) ; phrase2 ;
+         outtext(" requires more than max capacity") ;
+         goto out ;
+      l5:phrase1 (2) ; phrase2 ;
+         outtext(" causes overflow when leaving") ;
+         goto out ;
+      l6:phrase1 (1) ; phrase2 ;
+         outtext(" tries to re-enter") ;
+         goto out ;
+      l7:phrase1 (3) ; phrase2 ;
+         outtext(" tries to leave empty region") ;
+         goto out ;
+      l8:phrase2 ;
+         outtext (" tries to join a non-existent group") ;
+         goto out ;
+      l9:outtext("restart used outside main program");
+         outtext(" - no action") ;
+         goto out ;
+     l10:phrase2 ;
+         outtext (" tries to leave non-exixtent facility") ;
+         goto out ;
+     l11:phrase2 ;
+         outtext(" tries to leave non-existent storage") ;
+         goto out ;
+     l12:phrase2 ;
+         outtext (" tries to leave non-existent region") ;
+      out: 
+         outimage ;
+      end ;
+      ernum := 0
+   end
+end  error_report ;
+ 
+comment************************************
+   initialisation
+********************************************;
+ 
+ 
+   u :=987654321;
+   passe := 1 ;
+   facilityq :- new head ;
+   regionq   :- new head ;
+   storageq  :- new head ;
+   tableq    :- new head ;
+   waitq     :- new head ;
+   wait_monitor :- new wait_moniteur ;
+   outimage;
+ 
+   inner ;
+ 
+   error_report ;
+   outimage;
+ 
+end gpsss definition **************************************;

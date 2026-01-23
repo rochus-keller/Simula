@@ -1,0 +1,164 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 63
+%
+%  PURPOSE:     Test transmission by name of reference types.
+%
+%  WRITTEN BY:  BEH   06/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   class A ;
+   begin
+      integer aa ;
+   end ;
+
+   A Class B ;
+   begin
+      integer bb ;
+   end ;
+
+   B Class C ;
+   begin
+      integer cc ;
+   end ;
+
+   ref (A) array X (0:2) ;
+   integer i ;
+
+   procedure P (Q, x, i) ;
+      name x, i ;
+      procedure Q ; Ref (C) x ; integer i ;
+   begin
+      Q (x, i) ;
+   end ;
+
+   procedure Q (y, i) ;
+      name y, i ;
+      Ref (A) y ; integer i ;
+   begin
+      i := 0 ; y.aa := 1 ;
+      i := 1 ; y qua B.bb := x (0).aa ;
+      i := 2 ; y qua C.cc := x (0).aa ;
+   end ;
+
+
+   procedure R (y, i) ;
+      name y, i ;
+      ref (A) y ; integer i ;
+   begin
+      integer j ;
+      for j := 0,1,2 do
+      begin
+         i := j ;
+         inspect y
+            when C do
+               cc := x (0).aa
+            when B do
+               bb := x (0).aa
+            when A do
+               aa := 2 ;
+      end ;
+   end ;
+
+   procedure S (y, i) ;
+      name y, i ;
+      ref (A) y ; integer i ;
+   begin
+      integer j ;
+      for j := 0, 1, 2 do
+      begin
+         i := j ;
+         if y is C then
+            y qua C.cc := x (0).aa
+         else
+         if y is B then
+            y qua B.bb := x (0).aa
+         else
+         if y is A then
+            y.aa := 3 ;
+      end ;
+   end ;
+
+   Outtext ("--- START Simula a.s. TEST 63") ;
+   Outimage ;
+   Outtext ("--- Test transmission by name of reference types.") ;
+   Outimage ; Outimage ;
+
+   x (0) :- new A ;
+   x (1) :- new B ;
+   x (2) :- new C ;
+
+   P (Q, x (i), i) ;
+
+   if     x (0).aa = 1
+      and x (1) qua B.bb = 1
+      and x (2) qua C.cc = 1 then
+   else
+   begin
+      Outtext ("*** ERROR : Call by name (1).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : x (0).aa = ") ;
+      Outint (x (0).aa, 4) ;
+      Outimage ;
+      Outtext ("                              x (1).bb = ") ;
+      Outint (x (1) qua B.bb, 4) ;
+      Outimage ;
+      Outtext ("                              x (2).cc = ") ;
+      Outint (x (2) qua C.cc, 4) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   P (R, x (i), i) ;
+
+   if     x (0).aa = 2
+      and x (1) qua B.bb = 2
+      and x (2) qua C.cc = 2 then
+   else
+   begin
+      Outtext ("*** ERROR : Call by name (2).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : x (0).aa = ") ;
+      Outint (x (0).aa, 4) ;
+      Outimage ;
+      Outtext ("                              x (1).bb = ") ;
+      Outint (x (1) qua B.bb, 4) ;
+      Outimage ;
+      Outtext ("                              x (2).cc = ") ;
+      Outint (x (2) qua C.cc, 4) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   P (S, x (i), i) ;
+
+   if     x (0).aa = 3
+      and x (1) qua B.bb = 3
+      and x (2) qua C.cc = 3 then
+   else
+   begin
+      Outtext ("*** ERROR : Call by name (3).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : x (0).aa = ") ;
+      Outint (x (0).aa, 4) ;
+      Outimage ;
+      Outtext ("                              x (1).bb = ") ;
+      Outint (x (1) qua B.bb, 4) ;
+      Outimage ;
+      Outtext ("                              x (2).cc = ") ;
+      Outint (x (2) qua C.cc, 4) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 63") ;
+   Outimage
+ END

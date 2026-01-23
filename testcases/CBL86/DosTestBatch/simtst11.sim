@@ -1,0 +1,215 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   SIMULA A/S - SIMULA TEST NO 11
+%
+%  PURPOSE:     To test the text attributes constant, start, length, pos and
+%               main.
+%
+%  METHOD:      Try some examples and see if they work as expected.
+%
+%  WRITTEN BY:  BEH  10/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   text t1, t2 ;
+
+   Outtext ("--- START Simula a.s. TEST 11") ;
+   Outimage ;
+   Outtext ("--- Test the text attributes constant, start, length,") ;
+   Outimage ;
+   Outtext ("--- pos and main.") ;
+   Outimage ; Outimage ;
+
+
+   if     t1.constant
+      and t1.start = 1
+      and t1.length = 0
+      and t1.pos = 1
+      and t1 = notext
+      and t1.main = ""
+      and t1.main.pos = 1
+      and t1.main.length = 0
+      and t1.main.start = 1 then
+   else
+   begin
+      Outtext ("*** ERROR : Text attributes (1)") ;
+      Outimage ;
+      Outtext ("            Erroneus values : ") ;
+      Outimage ;
+      Outtext (if t1.constant then "            true" else "            false");
+      Outint (t1.start, 3) ;
+      Outint (t1.length, 3) ;
+      Outint (t1.pos, 3) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t1) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t1.main) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   t1 :- copy ("abcd") ;
+
+   if not t1.constant
+      and t1.start = 1
+      and t1.length = 4
+      and t1.pos = 1
+      and t1 = "abcd"
+      and t1.main = "abcd"
+      and t1.main.pos = 1
+      and t1.main.length = 4
+      and t1.main.start = 1 then
+   else
+   begin
+      Outtext ("*** ERROR : Text attributes (2).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : ") ;
+      Outimage ;
+      Outtext (if t1.constant then "            true" else "            false");
+      Outint (t1.start, 3) ;
+      Outint (t1.length, 3) ;
+      Outint (t1.pos, 3) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t1) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t1.main) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   t1 := "123" ;
+
+   if not t1.constant
+      and t1.start = 1
+      and t1.length = 4
+      and t1.pos = 1
+      and t1 = "123 "
+      and t1.main = "123 "
+      and t1.main.pos = 1
+      and t1.main.length = 4
+      and t1.main.start = 1 then
+   else
+   begin
+      Outtext ("*** ERROR : Text attributes (3).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : ") ;
+      Outimage ;
+      Outtext (if t1.constant then "            true" else "            false");
+      Outint (t1.start, 3) ;
+      Outint (t1.length, 3) ;
+      Outint (t1.pos, 3) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t1) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t1.main) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   t2 :- t1 ;
+
+   if not t2.constant
+      and t2.start = 1
+      and t2.length = 4
+      and t2.pos = 1
+      and t2 = "123 "
+      and t2.main = "123 " then
+   else
+   begin
+      Outtext ("*** ERROR : Text attributes (4).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : ") ;
+      Outimage ;
+      Outtext (if t2.constant then "            true" else "            false");
+      Outint (t2.start, 3) ;
+      Outint (t2.length, 3) ;
+      Outint (t2.pos, 3) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t2) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t2.main) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   t1 :- "abcdef" ;
+
+   if     t1.constant
+      and t1.start = 1
+      and t1.length = 6
+      and t1.pos = 1
+      and t1 = "abcdef"
+      and t1.main = "abcdef" then
+   else
+   begin
+      Outtext ("*** ERROR : Text attributes (5).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : ") ;
+      Outimage ;
+      Outtext (if t1.constant then "            true" else "            false");
+      Outint (t1.start, 3) ;
+      Outint (t1.length, 3) ;
+      Outint (t1.pos, 3) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t1) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t1.main) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   t2 :- t1 ;
+
+   if     t2.constant
+      and t2.start = 1
+      and t2.length = 6
+      and t2.pos = 1
+      and t2 = "abcdef"
+      and t2.main = "abcdef" then
+   else
+   begin
+      Outtext ("*** ERROR : Text attributes (6).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : ") ;
+      Outimage ;
+      Outtext (if t2.constant then "            true" else "            false");
+      Outint (t2.start, 3) ;
+      Outint (t2.length, 3) ;
+      Outint (t2.pos, 3) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t2) ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t2.main) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END OF Simula a.s. TEST 11") ;
+   Outimage
+ END

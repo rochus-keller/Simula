@@ -1,0 +1,110 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 71
+%
+%  PURPOSE:     Test visibility of identifiers.
+%
+%  WRITTEN BY:  BEH   22/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   integer i;
+
+   Class A ;
+      Virtual : Procedure P1;
+   BEGIN
+      Procedure P1; i := 1;
+   END ;
+
+   A Class B ;
+   BEGIN
+      Procedure P1; i := 2;
+      Procedure P2; i := 3;
+   END ;
+
+   Ref (A) rA ;
+
+   Procedure P2; i := 4;
+
+   Outtext ("--- START Simula a.s. TEST 71") ;
+   Outimage ;
+   Outtext ("--- Test visibility of identifiers.") ;
+   Outimage ; Outimage ;
+
+   rA :- new B ;
+
+   Inspect rA do
+   Begin P2 end;
+
+   If i = 4 then
+   else
+   Begin
+      Outtext ("*** ERROR : Visibility of identifiers (1).") ;
+      Outimage ;
+      Outtext ("            Value of i : ") ;
+      Outint (i, 3) ;
+      Outimage; Outimage;
+      found_error := true
+   End ;
+
+   rA :- new B ;
+
+   Inspect rA when B do
+   Begin P2 End;
+
+   If i = 3 then
+   else
+   Begin
+      Outtext ("*** ERROR : Visibility of identifiers (2).") ;
+      Outimage ;
+      Outtext ("            Value of i : ") ;
+      Outint (i, 3) ;
+      Outimage; Outimage;
+      found_error := true
+   End ;
+
+
+   rA :- new B;
+
+   Inspect rA do
+   Begin P1 End;
+
+   If i = 2 then
+   else
+   Begin
+      Outtext ("*** ERROR : Visibility of identifiers (3).") ;
+      Outimage ;
+      Outtext ("            Value of i : ") ;
+      Outint (i, 3) ;
+      Outimage; Outimage;
+      found_error := true
+   End ;
+
+
+   rA :- new A;
+
+   inspect rA do
+   Begin P1 end;
+
+
+   If i = 1 then
+   else
+   Begin
+      Outtext ("*** ERROR : Visibility of identifiers (4).") ;
+      Outimage ;
+      Outtext ("            Value of i : ") ;
+      Outint (i, 3) ;
+      Outimage; Outimage;
+      found_error := true
+   End ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 71") ;
+   Outimage
+ END

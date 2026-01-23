@@ -1,0 +1,429 @@
+begin
+  short integer Nmen, Nfloors, Nlifts, maxload, j;
+  short integer neutral=0, wayup=1, waydown=2;
+  integer Base1, Base2, Base3, Base4;
+  long real Marrival, Stdev;
+  real    Mgiveup, Gintime, Goutime, Dslamt,
+          Ftoftime, Acctime, Dectime, Strtt, Endtm, Allwait, Rhlp;
+%+G external class Simclift;
+
+  ! Read default input for Simulation and display;
+  inspect new infile("lift90.ini") do
+  if open(blanks(80)) then begin
+    inimage; while image.sub(1,1)="*" do inimage;
+    Nmen:= inint;
+    inimage; Nfloors:= inint;
+    inimage; Nlifts:= inint;
+    inimage; Maxload:= inint;
+    inimage; Gintime:= inreal;
+    inimage; Goutime:= inreal;
+    inimage; Dslamt:= inreal;
+    inimage; Ftoftime:= inreal;
+    inimage; Acctime:= inreal;
+    inimage; Dectime:= inreal;
+    inimage; Base1:= inint;
+    inimage; Base2:= inint;
+    inimage; Base3:= inint;
+    inimage; Base4:= inint;
+    inimage; Mgiveup:= inreal;
+    inimage; Stdev:= inreal;
+    inimage; Marrival:= inreal;
+    inimage; Strtt:= inreal;
+    inimage; Endtm:= inreal;
+    close;
+  end Init_System;
+%page
+%-G Simulation begin
+%+G Simclift(Nfloors,Nlifts) begin
+    ref (elevator) array lifts(1:Nlifts);
+
+    Process class Man(Nr, Off);
+    short integer  Nr, Off; begin
+      ref (Elevator) procedure GetLiftGoingUp; begin
+         Ref (Elevator) LLift;
+         LLift:- Storey.Ul.first;
+         While LLift =/= none and then not LLift.Space do
+            LLift:- LLift.suc;
+         GetLiftGoingUp:- LLift;
+      end GetLiftGoingUp;
+
+      ref (Elevator) procedure GetLiftGoingDown; begin
+         Ref (Elevator) LLift;
+         LLift:- Storey.Dl.first;
+         While LLift =/= none and then not LLift.Space do
+            LLift:- LLift.suc;
+         GetLiftGoingDown:- LLift;
+      end GetLiftGoingDown;
+
+      ref (Level) Storey;
+      ref (Elevator) Lift;
+      Real GiveUp, Leave, Lunch, Waiting, Arrival;
+      Short Integer Dest;
+
+      Arrival:= time;
+      Leave:= Arrival + 8.0 + Uniform(-1.0, 1.0, Base4);
+      Lunch:= Arrival + 4.0 + Uniform(-0.5, 1.0, Base2);
+      Storey:- Floor(0); Dest:= Off;
+%+G   ManArrives(0);
+      Lift:- GetLiftGoingUp;
+      while Lift == none or else not Lift.Space do begin
+         Storey.PushUp;
+         Wait(Storey.Um);   ! Enter queue going up;
+         out; Lift:- GetLiftGoingUp; end;
+      Waiting:= Waiting + time - Arrival;
+%+G   lfts(lift.no).ManEntersLift;
+      Into(Lift.Throng);
+      Hold(Gintime);
+      Lift.PushBtn(Dest);
+      Activate Lift after Current;
+      Passivate; out;
+      Hold(Goutime);
+      ! Follow elevator, check every storey for possible exit;
+%+G   lfts(lift.no).ManLeavesLift;
+      Activate Lift after Current;
+      Reactivate Current at Lunch;
+      Storey:- Floor(Off); Dest:= 0;
+%+G   ManArrives(Off);
+      Lift:- GetLiftGoingDown;
+      while Lift == none or else not Lift.Space do begin
+         Storey.PushDown;
+         Wait(Storey.Dm); ! Enter queue going down;
+         out; Lift:- GetLiftGoingDown; end;
+      Waiting:= Waiting+time-Lunch;
+%+G   lfts(lift.no).ManEntersLift;
+      Into(Lift.Throng);
+      Hold(Gintime);
+      Lift.PushBtn(Dest);
+      Activate Lift after Current;
+      Passivate; out;
+      Hold(Goutime);
+%+G   lfts(lift.no).ManLeavesLift;
+      Activate Lift after Current;
+      Reactivate Current at Lunch + 0.5;
+      Storey:- Floor(0); Dest:= Off;
+%+G   ManArrives(0);
+      Lift:- GetLiftGoingUp;
+      while Lift == none or else not Lift.Space do begin 
+         Storey.PushUp;
+         Wait(Storey.Um); ! Enter queue going up;
+         out; Lift:- GetLiftGoingUp; end;
+      Waiting:= Waiting+time-Lunch-0.5;
+%+G   lfts(lift.no).ManEntersLift;
+      Into(Lift.Throng);
+      Hold(Gintime);
+      Lift.PushBtn(Dest);
+      Activate Lift after Current;
+      Passivate; out;
+      Hold(Goutime);
+%+G   lfts(lift.no).ManLeavesLift;
+      Activate Lift after Current;
+      Reactivate Current at Leave;
+      Storey:- Floor(Off); Dest:= 0;
+%+G   ManArrives(Off);
+      Lift:- GetLiftGoingDown;
+      while Lift == none or else not Lift.Space do begin
+         Storey.PushDown;
+         Wait(Storey.Dm); ! Enter queue going down;
+         out; Lift:- GetLiftGoingDown; end;
+      Waiting:= Waiting+time-Leave;
+%+G   lfts(lift.no).ManEntersLift;
+      Into(Lift.Throng);
+      Hold(Gintime);
+      Lift.PushBtn(Dest);
+      Activate Lift after Current;
+      Passivate; out;
+      Hold(Goutime);
+%+G   lfts(lift.no).ManLeavesLift;
+      Activate Lift after Current;
+      Allwait:= Allwait + Waiting;
+    end of Man;
+%page
+    Process class Elevator(no); integer no; begin
+      boolean procedure Space; Space:= Throng.cardinal < maxload;
+      procedure PushBtn(sn); short integer sn; Button(sn):= true;
+
+      short integer Position, State, Goal, i;
+      boolean Opened;
+      boolean array Button (0:Nfloors);
+      ref (Level) Storey;
+      ref (Head) Throng;
+      ref (Man) rm;
+
+      Throng:- new Head;
+      state:= neutral;
+      while true do begin
+         ! Elevator is empty at this stage, at least the first time;
+%+G      lfts(no).LiftAt(Position);
+         while state = neutral do begin
+            Goal:= AnyCallsUp(Position);
+            if Goal>=0 then state:= wayup else begin
+               Goal:= AnyCallsDown(Position);
+               if Goal>=0 then state:= waydown else begin
+                  Goal:= AnyCallsUp(0);
+                  if Goal>=0 then state:= waydown else begin
+                     Goal:= AnyCallsDown(Nfloors);
+                     if Goal>=0 then state:= wayup;
+                  end;
+               end;
+            end;
+            if state = neutral then begin Wait(Idly); out; end;
+         end;
+         if Goal <> Position then begin
+            out;
+            if opened then begin
+%+G            lfts(no).CloseDoor;
+               opened:= false;
+               Hold(Dslamt); end; 
+            hold(Acctime);
+            if state = waydown then begin
+               while Position > Goal do begin
+%+G               lfts(no).LiftBelow(Position);
+                  hold(Ftoftime);
+                  Position:= Position-1;
+%+G               lfts(no).LiftAbove(Position);
+                  if not Floor(Position).Dm.empty then Goal:= Position;
+               end;
+            end else
+            if state = wayup then begin
+               while Position < Goal do begin
+%+G               lfts(no).LiftAbove(Position);
+                  hold(Ftoftime);
+                  Position:= Position+1;
+%+G               lfts(no).LiftBelow(Position);
+                  if not Floor(Position).Um.empty then Goal:= Position;
+               end;
+            end;
+            Hold(Dectime);
+         end;
+         Storey:- Floor(position);
+         if state=waydown then into(Storey.Dl) else into(Storey.Ul);
+%+G      lfts(no).LiftAt(Position);
+         if not opened then begin
+%+G         lfts(no).OpenDoor;
+            Hold(Dslamt);
+            opened:= true; end;
+         ! Men leaving here exit elevator;
+         Button(Position):= false;
+         rm:- Throng.first;
+         while rm =/= none do begin
+            if rm.dest=Position then begin
+               Activate rm after Current;
+               Passivate;
+               rm:- Throng.first;
+            end else rm:- rm.suc;
+         end;
+         ! Men entering elevator here;
+         if state=wayup then begin
+            while (not Storey.Um.empty) and Space do begin
+               inspect Storey.Um do begin
+                  Activate first after Current;
+                  Passivate; end;
+            end;
+         end else
+         if state=waydown then begin
+            while (not Storey.Dm.empty) and Space do begin
+               inspect Storey.Dm do begin
+                  Activate first after Current;
+                  Passivate; end;
+            end;
+         end;
+         if not Throng.empty then begin
+            if state=wayup then begin
+               Goal:= Nfloors+1;
+               for i:= Nfloors step -1 until Position+1 do
+                  if Button(i) then Goal:= i;
+               if Goal > Nfloors then begin
+                  for i:= 0 step 1 until Position-1 do
+                     if Button(i) then Goal:= i;
+                  state:= waydown; end;
+            end else
+            if state=waydown then begin
+               Goal:= -1;
+               for i:= 0 step 1 until Position-1 do
+                  if Button(i) then Goal:= i;
+               if Goal < 0 then begin
+                  for i:= Nfloors step -1 until Position+1 do
+                     if Button(i) then Goal:= i;
+                  state:= wayup; end;
+            end;
+         end else state:= neutral;
+      end while;
+    end of Elevator;
+%page
+    Head class Level; begin
+      boolean procedure GoingUp;   GoingUp:=   Um.first =/= none;
+      boolean procedure GoingDown; GoingDown:= Dm.first =/= none;
+      Procedure PushUp;
+      if not Idly.empty then begin
+         Activate Idly.first after Current;
+         Idly.first.out;
+      end PushUp;
+      Procedure PushDown;
+      if not Idly.empty then begin
+         Activate Idly.first after Current;
+         Idly.first.out;
+      end PushDown;
+
+      ref (Head) Um, Dm, Ul, Dl;
+      Um:- new Head; Dm:- new Head;
+      Ul:- new Head; Dl:- new Head;
+    end class Level;
+
+    Short Integer Procedure AnyCallsUp(n); short integer n; begin
+      short integer j;
+      AnyCallsUp:= -1;
+      for j:= n step 1 until Nfloors do
+      if Floor(j).GoingUp then begin
+         AnyCallsUp:= j; goto xt; end;
+    xt:
+    end AnyCallsUp;
+
+    Short Integer Procedure AnyCallsDown(n); short integer n; begin
+      short integer j;
+      AnyCallsDown:= -1;
+      for j:= n step -1 until 0 do
+      if Floor(j).GoingDown then begin
+         AnyCallsDown:= j; goto xt; end;
+    xt:
+    end AnyCallsDown;
+
+    ref (Head) Idly; ref (Level) array Floor(0:Nfloors);
+    real tm;
+
+    Idly:- new Head;
+    hold(Strtt);
+%+G activate new timer;
+    for j:=0 step 1 until Nfloors do Floor(j):- new Level;
+    for j:=1 step 1 until Nlifts do begin
+       lifts(j):- new elevator(j);
+       Activate lifts(j); end;
+    for j:=1 step 1 until Nmen do begin
+      Rhlp:= normal(Strtt+1.0&&0, Stdev, Base3);
+      Activate new Man(j, randint(1,Nfloors,Base1)) at Rhlp;
+    end of loop;
+kol:tm:= Endtm - time;
+    hold(tm);
+    if not Idly.cardinal=Nlifts and tm>0.0 then goto kol;
+  end ofsimulation;
+  outimage;
+  outtext("Total waiting time was: ");
+  outfix(Allwait,3,8); outimage;
+end program;
+
+      if Floor(j).GoingUp then begin
+         AnyCallsUp:= j; goto xt; end;
+    xt:
+    end AnyCallsUp;
+
+    Short Integer Procedure AnyCallsDown(n); short integer n; begin
+      short integer j;
+      AnyCallsDown:= -1;
+      for j:= n step -1 until 0 do
+      if Floor(j).GoingDown then begin
+         AnyCallsDown:= j; goto xt; end;
+    xt:
+    end AnyCallsDown;
+
+    ref (Head) Idly; ref (Level) array Floor(0:Nfloors);
+    real tm;
+
+    Idly:- new Head;
+    hold(Strtt);
+%+G activate new timer;
+    for j:=0 step 1 until Nfloors do Floor(j):- new Level;
+    for j:=1 step 1 until Nlifts do begin
+       lifts(j):- new elevator(j);
+       Activate lifts(j); end;
+    for j:=1 step 1 until Nmen do begin
+      hold(negexp(Marrival, Base3));
+      Activate new Man(j, randint(1,Nfloors,Base1), time);
+    end of loop;
+kol:tm:= Endtm - time;
+    hold(tm);
+    if not Idly.cardinal=Nlifts and tm>0.0 then goto kol;
+  end ofsimulation;
+  outimage;
+  outtext("Total waiting time was: ");
+  outfix(Allwait,3,8); outimage;
+end program;
+p(Marrival, Base3));
+      Activate new Man(j, randint(1,Nfloors,Base1), time);
+    end of loop;
+kol:tm:= Endtm - time;
+    hold(tm);
+    if not Idly.cardinal=Nlifts and tm>0.0 then goto kol;
+  end ofsimulation;
+  outimage;
+  outtext("Total waiting time was: ");
+  outfix(Allwait,3,8); outimage;
+end program;
+am;
+rst.out;
+      end PushUp;
+      Procedure PushDown;
+      if not Idly.empty then begin
+         Activate Idly.first after Current;
+         Idly.first.out;
+      end PushDown;
+
+      ref (Head) Um, Dm, Ul, Dl;
+      Um:- new Head; Dm:- new Head;
+      Ul:- new Head; Dl:- new Head;
+    end class Level;
+
+    Short Integer Procedure AnyCallsUp(n); short integer n; begin
+      short integer j;
+      AnyCallsUp:= -1;
+      for j:= n step 1 until Nfloors do
+      if Floor(j).GoingUp then begin
+         AnyCallsUp:= j; goto xt; end;
+    xt:
+    end AnyCallsUp;
+
+    Short Integer Procedure AnyCallsDown(n); short integer n; begin
+      short integer j;
+      AnyCallsDown:= -1;
+      for j:= n step -1 until 0 do
+      if Floor(j).GoingDown then begin
+         AnyCallsDown:= j; goto xt; end;
+    xt:
+    end AnyCallsDown;
+
+    ref (Head) Idly; ref (Level) array Floor(0:Nfloors);
+    real tm;
+
+    Idly:- new Head;
+    hold(Strtt);
+%+G activate new timer;
+    for j:=0 step 1 until Nfloors do Floor(j):- new Level;
+    for j:=1 step 1 until Nlifts do begin
+       lifts(j):- new elevator(j);
+       Activate lifts(j); end;
+    for j:=1 step 1 until Nmen do begin
+      hold(negexp(Marrival, Base3));
+      Activate new Man(j, randint(1,Nfloors,Base1), time);
+    end of loop;
+kol:tm:= Endtm - time;
+    hold(tm);
+    if not Idly.cardinal=Nlifts and tm>0.0 then goto kol;
+  end ofsimulation;
+  outimage;
+  outtext("Total waiting time was: ");
+  outfix(Allwait,3,8); outimage;
+end program;
+image;
+end program;
+
+time was: ");
+  outfix(Allwait,3,8); outimage;
+end program;
+
+simulation;
+  outimage;
+  outtext("Total waiting time was: ");
+  outfix(Allwait,3,8); outimage;
+end program;
+: ");
+  outfix(Allwait,3,8); outimage;
+end program;
+

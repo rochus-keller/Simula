@@ -1,0 +1,57 @@
+!	      OOP in the Simula language	      ;
+!						      ;
+!   This program tests the main class "Geometry".     ;
+!   In the prefixed block the "Colour_Point" and      ;
+!   the "Square" are defined as subclasses of point   ;
+!   and rectangle respectively. 		      ;
+!   Simple use of all objects is shown. 	      ;
+
+
+External Class Geometry;
+Geometry begin
+		 ! The prefixing means that all classes and    ;
+		 ! variables of geometry may be used in this   ;
+		 ! block as if they were standard identifiers. ;
+
+  Point Class Color_Point(C); Character C;
+		 ! The knowledge of "Point" is used to declare ;
+		 ! the "Color_Point". One more attribute is    ;
+		 ! defined. The life is ammended.	       ;
+  Begin
+    ! This life of color_point follows the life of point: ;
+    OutText("Color is "); OutChar(C); OutImage
+  End of Color_Point;
+
+
+  Rectangle Class Square;
+  Begin
+    Height := Width;  !Life of square;
+    Update;
+    OutText("Has been changed to a square !"); OutImage;
+  End of Square;
+
+  !Variables declared in the prefixed block: ;
+
+  Ref(Color_Point) A1;
+  Ref(Point) C,D;
+  Ref(Circle) K;
+  Ref(Line) E,F;
+  Ref(Rectangle) R1;
+  Ref(Square) S1;
+
+  !Block body - here the program starts: ;
+
+  C  :- New Point(5,6);
+  D  :- New Point(20,30);
+  A1 :- New Color_Point(3,4,'G');
+  K  :- New Circle(10,C);
+  E  :- New Line(C,D);
+  F  :- X;
+  K.Shift(1,1);
+  R1 :- New Rectangle("Rec_R1",5,4);
+  S1 :- New Square("Square_S1",4,6);
+  S1.Show;
+  OutImage;
+End of prefixed block;
+
+

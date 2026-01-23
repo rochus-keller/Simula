@@ -1,0 +1,327 @@
+% =================================   Main   Program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 6
+%
+%  PURPOSE:  To test the mathematical functions x**y, Sqrt, Ln, Exp, Sin, Cos
+%            and ArcTan on variables of type long real.
+%
+%  METHOD:   Compare the results obtained by using the functions in different
+%            ways, which should give the same answer.  If the difference is
+%            unacceptable, an error-message is given.
+%
+%  NOTE: 1 - At line marked with NOTE 1, the lowest acceptable difference
+%            between answers should be filled in.
+%
+%  REWRITTEN AND COMMENTED BY:   BEH  09/07-86
+% ===============================================================
+begin
+
+class testmatlib;
+begin
+
+    Boolean found_error;
+    long real maxlongdig;
+
+    procedure error (t); value t; text t;
+    begin
+          outtext ("*** Error in the ");
+          outtext (t);
+          outtext (" routine");
+          outimage;
+          found_error:= true;
+    end of procedure error;
+
+
+    boolean procedure realdiff (x, y); long real x, y;
+    begin
+       long real diff; integer pow;
+%      if x > maxlongdig then begin 
+%         while x > 10 do begin x:=x/(10&&16); pow:=pow+16 end;
+%         x:=x*(10&&0**pow);
+%      end;
+%      if y > maxlongdig then begin
+%         while y > 10 do begin y:=y/(10&&16); pow:=pow+16 end;
+%         y:=y*(10&&0**pow);
+%      end;
+
+       diff:= abs (if x=0 then x-y else (x-y) / x);
+
+       if diff > 7.0&-14 then                             !***** NOTE 1 *****;
+       begin
+          outtext ("*** rel. error= ");
+          outreal (diff, 16, 23);
+          outimage;
+          realdiff:=  true;
+       end
+    end of procedure realdiff;
+
+
+    long real procedure rpower (x, y); long real x, y;
+       rpower:= exp (y * ln (x) );
+
+
+    long real procedure ipower (b, j); long real b; integer j;
+    begin
+       integer exp; long real prod, base;
+
+       boolean procedure bit0 (n); integer n;
+          bit0:= (n//2) * 2<n;
+
+       base:= b; exp:= abs (j);
+       prod:= if bit0 (exp) then base else 1.0;
+
+       while exp > 1 do
+       begin
+          base:= base * base; exp:= exp//2;
+          if bit0 (exp) then prod:= prod * base;
+       end;
+
+       ipower:= if j>0 then prod else 1.0 / prod;
+
+    end of procedure ipower;
+
+
+    procedure testrpower (b, e); long real b, e;
+    begin
+       long real x, y;
+
+       if b>0.0 then
+       begin
+          x:= rpower (b, e); y:= b**e;
+
+          if realdiff (x, y) then
+          begin
+             error ("rpower");
+             outtext ("  base=");
+             outreal (b, 16, 23);
+             outtext ("          exp=");
+             outreal (e, 16, 23);
+             outimage;
+             outtext ("  exp(y*ln(x))= ");
+             outreal (x, 16, 23);
+             outimage;
+             outtext ("  base**exp=    ");
+             outreal (y, 16, 23);
+             outimage; outimage
+          end if
+       end
+    end of procedure testrpower;
+
+
+    procedure testipower (b, e); integer b, e;
+    begin
+       long real x, y, z, r;
+       Boolean n;
+
+       r:= b;
+       if b<>0 and e<>0 then
+       begin
+          if e<0 then begin n:= true; e:= -e end;
+
+          x:= ipower (b, e); y:= b**e; z:= r**e;
+
+          if realdiff (x, y) or realdiff (y, z) then
+          begin
+             if n then e:= -e;
+             error ("ipower");
+             outtext ("  base=");
+             outint (b, 12);
+             outtext ("                     exp=");
+             outint (e, 12);
+             outimage;
+             outtext ("  base**abs(exp) ="); outimage;
+             outtext("  ipower: "); outreal (x, 16, 23); outimage;
+             outtext("  i**i:   "); outreal (y, 16, 23); outimage;
+             outtext("  r**i:   "); outreal (z, 16, 23); outimage;
+             outimage
+          end error
+       end
+    end of procedure testipower;
+
+
+    procedure testsqrt (x); long real x;
+    begin
+       long real a;
+
+       a:= sqrt (x)**2;
+
+       if realdiff (a, x) then
+       begin
+          error ("sqrt");
+          outtext ("  x=            ");
+          outreal (x, 16, 23); outimage;
+          outtext ("  sqrt(x)**2=   ");
+          outreal (a, 16, 23);
+          outimage; outimage;
+        end;
+    end of procedure testsqrt;
+
+
+    procedure testln (x, y); long real x, y;
+    begin
+       long real a, b;
+
+       a:= ln (x*y);
+       b:= ln (x) + ln (y);
+
+       if realdiff (a, b) then
+       begin
+          error ("ln");
+          outtext ("  x=");
+          outreal (x, 16, 23);
+          outtext ("             y=  ");
+          outreal (y, 16, 23);
+          outimage;
+          outtext ("  ln(x*y)=      ");
+          outreal (a, 16, 23); outimage;
+          outtext ("  ln(x)+ln(y) = ");
+          outreal (b, 16, 23);
+          outimage; outimage
+        end;
+    end of procedure testln;
+
+
+    procedure testexp (x, y); long real x, y;
+    begin
+       long real a, b;
+
+       a:= exp (x+y); b:= exp (x) * exp (y);
+
+       if realdiff (a, b)  then
+       begin
+          error ("exp");
+          outtext ("  x="); outreal (x, 16, 23); outtext("           ");
+          outtext ("  y=  "); outreal (y, 16, 23); outimage;
+          outtext ("  exp (x+y)=    ");   outreal (a, 16, 23);
+          outimage;
+          outtext ("  exp(x)*exp(y)=");    outreal (b, 16, 23);
+          outimage; outimage;
+        end;
+    end of procedure testexp;
+
+
+    procedure testlnexp (x); long real x;
+    begin
+       long real a, b;
+
+       a:= exp (ln (x) );
+       b:= ln (exp (x) );
+
+       if realdiff (a, b)  or realdiff (b, x)  then
+       begin
+          error ("ln or exp");
+          outtext ("  x=");
+          outreal (x, 16, 23); outimage;
+          outtext ("  exp (ln (x) )="); outreal (a, 16, 23); outimage;
+          outtext ("  ln (exp (x) )="); outreal (b, 16, 23);
+          outimage; outimage
+        end
+    end of procedure testlnexp;
+
+
+    procedure testsincos (x); long real x;
+    begin
+       long real a;
+
+       a:= sin (x)**2 + cos (x)**2;
+
+       if realdiff (a, 1) then
+       begin
+          error ("sin or cos");
+          outtext ("  x=");
+          outreal (x, 16, 23); outimage;
+          outtext ("  sin(x)**2+cos(x)**2=");
+          outreal (a, 16, 23); outimage;
+          outtext ("  Theoretical value=   1.0");
+          outimage; outimage
+        end
+    end of procedure testsincos;
+
+
+    procedure testarctan (x); long real x;
+    begin
+       long real a;
+
+       a:= arctan (sin (x) / cos (x) );
+
+       if realdiff (a, x) then
+       begin
+          error ("arctan");
+          outtext ("  x=                     ");
+          outreal (x, 16, 23); outimage;
+          outtext ("  arctan(sin(x)/cos(x))= ");
+          outreal (a, 16, 23); outimage;
+          outtext ("  Theoretical value = x");
+          outimage; outimage
+        end
+    end of procedure testarctan;
+
+    procedure testepsilon(x); long real x;
+    begin
+       long real a, b;
+       a:= subepsilon(addepsilon(x));
+       b:= addepsilon(subepsilon(x));
+       if realdiff(a,x) or realdiff (b,x) then
+       begin
+          error("Add/sub-epsilon");
+          outtext("  x=");
+          outreal(x,16,23); outimage;
+       end;
+    end procedure testepsilon;
+
+    maxlongdig:= 10.0&&17;
+
+    Outtext ("--- START Simula a.s. TEST 6");
+    Outimage;
+    Outtext ("--- Test of math. functions");
+    Outimage; Outimage;
+
+    inner;
+
+    IF found_error THEN  ELSE
+       begin Outtext ("--- NO ERRORS FOUND IN THIS TEST"); Outimage; end;
+    outtext ("--- END Simula a.s. TEST 6");
+    outimage;
+
+end of class testmatlib;
+
+testmatlib
+begin integer i, j, k, u1, u2; long real x, y;
+    Long Real limexp=7.09782712893384&&2; ! ln(maxlongreal);
+    Integer Ipowbaselim=215,          
+            Ipowexplim=4;               ! base**exp<maxint;
+    Long Real Lpowbaselim=1.844674407370955&&19,
+              Lpowexplim=1.60&&1;       ! base**exp<maxlongreal;
+    Long Real Twopi = 6.2831853&&0;
+    Long Real Pihalf= 1.5707963&&0;
+    long real hlexp;
+    u1:=  455470314;                    ! Start values chosen to avoid;
+    u2:= 2011455689;                    ! dependent series;
+
+    for k:= 1 step 1 until 20 do
+    begin
+        i:= randint (-Ipowbaselim, Ipowbaselim, u1);
+        j:= randint (0, Ipowexplim, u2);
+        testipower (i, j);
+        x:= uniform (0.0&&0, Lpowbaselim, u1);
+        y:= uniform (-Lpowexplim, Lpowexplim, u2);
+        testrpower (x, y);
+        x:= uniform (0.0&&0, maxlongreal, u1);
+        testsqrt (x);
+        y:= uniform (0.0&&0, maxlongreal/x, u2);
+        testln (x, y);
+        x:= uniform (-limexp, limexp, u1);
+        y:= abs(x);
+        hlexp:= if y<1.0&&0 then limexp else limexp/y;
+        y:= uniform (-hlexp, hlexp, u2);
+        testexp (x, y);
+        testlnexp (abs (x) );
+        x:= uniform (-Twopi, Twopi, u1);
+        testsincos (x);
+        x:= uniform (-Pihalf, Pihalf, u1);
+        testarctan (x);
+        testepsilon(x);
+
+    end;
+    testepsilon(0.0&&0);
+ end of prefixed block;
+end of program

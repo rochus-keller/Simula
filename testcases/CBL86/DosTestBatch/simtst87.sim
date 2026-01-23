@@ -1,0 +1,87 @@
+% ====================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 87
+%
+%  PURPOSE: Test SIMULATION, simple example.
+%
+%  METHOD:
+%
+%  WRITTEN BY:
+% ==================================================================
+begin integer kunder,servm,servs,U1,U2; 
+      real ankomst; Boolean grund;
+
+      outtext("--- START Simula a.s. TEST 87"); outimage;
+      outtext("--- Test Simulation, simple example");
+      Outimage; Outimage;
+
+      ankomst:=1/30; servm:=90; servs:=30;
+      kunder:=20; U1:=99999; U2:=12345;
+      outtext("Konfiguration medel  total"); outimage;
+
+      for grund := true,false do
+      begin outtext(if grund then " grund      " else " alternativ ");
+
+            SIMULATION
+            begin integer i,klara; real tid,slut;
+                  ref(head) array kundq(1:4),statq(1:2);
+                  ref(station) array stat(3:4);
+
+                  process class kund;
+                  begin integer efter; real intid; array servtid(1:2);
+                        servtid(1):=normal(servs,servm,U2);
+                        servtid(2):=normal(servs,servm,U2);
+                        intid:=time;
+                        activate statq(1).first delay 0;
+                        wait(kundq(1));
+                        activate if grund then stat(efter)
+                                          else statq(2).first delay 0;
+                        wait(kundq(efter));
+                        tid:=tid+time-intid; klara:=klara+1;
+                        if klara=kunder then activate main;
+                  end;
+
+                  process class station(nr,position);
+                  integer nr,position;
+                  while true do inspect kundq(nr).first when kund do
+                  begin out; efter:=nr+2;
+                        hold(servtid(position));
+                        activate this kund delay 0;
+                  end
+                  otherwise begin wait(statq(position)); out end;
+
+                  kundq(1):-kundq(2):-new head;
+                  if kundq(1)==none then 
+                  begin outtext("error-1");outimage; end;
+                  if kundq(2)==none then 
+                  begin outtext("error-2");outimage; end;
+                  kundq(3):-new head;
+                  if kundq(3)==none then 
+                  begin outtext("error-3");outimage; end;
+
+                  kundq(4):-if grund then new head else kundq(3);
+                  if kundq(4)==none then 
+                  begin outtext("error-4");outimage; end;
+
+                  for i:=1,2 do
+                  begin statq(i):-new head;
+                        activate new station(i,1) delay 0;
+                  end;
+
+                  for i:=3,4 do
+                  begin stat(i):-new station(I,2);
+                        activate stat(i) delay 0;
+                  end;
+
+                  for i:=1 step 1 until kunder do
+                  begin hold(negexp(ankomst,U1));
+                        activate new kund delay 0;
+                  end;
+
+                  passivate;
+
+                  outfix(tid/kunder,1,8); outfix(time,1,8); outimage;
+
+            end;
+      end;
+      Outimage; Outtext("--- END Simula a.s. TEST 87"); outimage;
+end; 

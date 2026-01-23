@@ -1,0 +1,245 @@
+% ==================================   Main   program =============
+%  PROGRAM NAME:   SIMULA A/S - SIMULA TEST NO 17
+%
+%  PURPOSE:     To test the de-editing text attributes getint, getreal
+%               and getfrac, and the editing text attributes putint, putfix,
+%               putreal and putfrac.
+%
+%  NOTE:    1 - no test of getreal, putfix and putreal yet.
+%
+%  WRITTEN BY:  BEH   14/07-86
+% =====k===================================================
+BEGIN
+   Boolean found_error;
+
+   text t1, t2;
+
+   Outtext ("--- START Simula a.s. TEST 17");
+   Outimage;
+   Outtext ("--- Test the (de-)editing text attributes getint,");
+   Outimage;
+   Outtext ("--- getreal, getfrac, putint, putfix, putreal and putfrac. ");
+   Outimage; Outimage;
+
+                                      !******************************;
+                                      ! Test of integer procedure   ;
+   begin                              ! getint and procedure putint.;
+      integer i, j;                   !******************************;
+
+      t1 :- blanks (8);
+      i := 12345;
+      t1.putint (i);
+
+      if     t1 = "   12345"
+         and t1.getint = 12345
+         and t1.pos = 9
+         and t1.sub (3, 3).getint = 12 then
+      else
+      begin
+         Outtext ("*** ERROR : Text attributes putint or getint (1).");
+         Outimage;
+         Outtext ("            Erroneous values :");
+         Outtext ("            ");
+         Outint (t1.start, 3);
+         Outint (t1.length, 3);
+         Outint (t1.pos, 3);
+         Outimage;
+         Outtext ("            ");
+         Outtext (t1);
+         Outtext ("            ");
+         Outint (i, 8); Outint (j, 8);
+         Outimage; Outimage;
+         found_error := true
+      end;
+
+      t1 := notext;
+      t1.setpos (2);
+      t1.putchar ('+');
+      t1.setpos (4);
+      t1.putchar ('2');
+      t1.putchar ('4');
+      t1.putchar (' ');
+      t1.putchar ('2');
+      i := t1.getint;
+      t1.putchar ('3');
+      t1.setpos (2);
+      t1.putchar ('-');
+      j := t1.getint;
+
+      if     i = 24
+         and j = -2432
+         and t1.pos = 8 then
+      else
+      begin
+         Outtext ("*** ERROR : Text attributes putint or getint (2).");
+         Outimage;
+         Outtext ("            Erroneous values :");
+         Outimage;
+         Outtext ("            ");
+         Outint (t1.start, 3);
+         Outint (t1.length, 3);
+         Outint (t1.pos, 3);
+         Outimage;
+         Outtext ("            ");
+         Outtext (t1);
+         Outimage;
+         Outtext ("            ");
+         Outint (i, 12); Outint (j, 12);
+         Outimage; Outimage;
+         found_error := true
+      end;
+
+      i := 12345678;
+      t1 := notext;
+      t2 :- t1.sub (3, 4);
+      t1.putint (i);
+      t2.putint (i);
+
+      if     t1 = "12****78"
+         and t2 = "****"
+         and t1.sub (1, 2).getint = 12
+         and t1.sub (7, 2).getint = 78
+         and not t1.more then
+      else
+      begin
+         Outtext ("*** ERROR : Text attributes putint or getint (3).");
+         Outimage;
+         Outtext ("            Erroneous values :");
+         Outtext ("            ");
+         Outint (t1.start, 3);
+         Outint (t1.length, 3);
+         Outint (t1.pos, 3);
+         Outimage;
+         Outtext ("            ");
+         Outtext (t1);
+         Outtext ("            Erroneous values :");
+         Outtext ("            ");
+         Outint (t2.start, 3);
+         Outint (t2.length, 3);
+         Outint (t2.pos, 3);
+         Outimage;
+         Outtext ("            ");
+         Outtext (t2);
+         Outtext ("            ");
+         Outint (i, 12); Outint (j, 12);
+         Outimage; Outimage;
+         found_error := true
+      end;
+
+      t1.putint (-1440/12);
+
+      if     t1 = "    -120"
+         and t1.getint = -120
+         and t1.sub (2, 5).getint = -1 then
+      else
+      begin
+         Outtext ("*** ERROR : Text attributes putint or getint (4).");
+         Outimage;
+         Outtext ("            Erroneous values :");
+         Outtext ("            ");
+         Outint (t1.start, 3);
+         Outint (t1.length, 3);
+         Outint (t1.pos, 3);
+         Outimage;
+         Outtext ("            ");
+         Outtext (t1);
+         Outimage; Outimage;
+         found_error := true
+      end
+
+   end;
+
+   begin
+      real x, y;                      !******************************;
+                                      ! Test of long real procedure ;
+                                      ! getreal, procedure putfix   ;
+                                      ! procedure putreal.          ;
+                                      !******************************;
+
+      Outimage;
+      Outtext ("*** Test of long real procedure getreal, procedure putfix ");
+      Outimage;
+      Outtext ("*** and procedure putreal is not implemented.");
+      Outimage;
+      Outimage;
+   end;
+
+   begin
+      integer i, j, k;                !******************************;
+                                      ! Test of integer procedure   ;
+                                      ! getfrac and procedure putfrac;
+      t1 :- copy ("12 3 45 . 67");   !******************************;
+      i := t1.getfrac;
+      t1.putchar ('0');
+      j := t1.getfrac;
+      t1.setpos (10);
+      t1.putchar ('0');
+      t1.sub (1, 4) := notext;
+      k := t1.getfrac;
+
+      if     i = 12345
+         and j = 123450
+         and k = 450067 then
+      else
+      begin
+         Outtext ("*** ERROR : Text attribute getfrac (5).");
+         Outimage;
+         Outtext ("            Erroneous values : ");
+         Outimage;
+         Outtext ("            ");
+         Outint (i, 12);
+         Outint (j, 12);
+         Outint (k, 12);
+         Outimage; Outimage;
+         found_error := true
+      end;
+
+      t1 :- blanks (14);
+      t1.putfrac (123456789, 2);
+      t2 :- blanks (10);
+      t2.putfrac (1234567, 0);
+
+      if     t1 = "  1 234 567.89"
+         and t2 = " 1 234 567" then
+      else
+      begin
+         Outtext ("*** ERROR : Text attribute putfrac (6).");
+         Outimage;
+         Outtext ("            Erroneous values :");
+         Outimage;
+         Outtext ("            ");
+         Outtext (t1);
+         Outimage;
+         Outtext ("            ");
+         Outtext (t2);
+         Outimage; Outimage;
+         found_error := true
+      end;
+
+      t1 :- blanks (5);
+      t1.putfrac (12345,2);
+
+      if t1 = "*****" then
+      else
+      begin
+         Outtext ("*** ERROR : Text attribute putfrac (7).");
+         Outimage;
+         Outtext ("            Erroneous values :");
+         Outimage;
+         Outtext ("            ");
+         Outtext (t1);
+         Outimage; Outimage;
+         found_error := true
+      end
+   end;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST"); Outimage;
+      Outtext ("--- Two edit overflows should be signaled."); Outimage;
+   END;
+
+   Outtext ("--- END Simula a.s. TEST 17");
+   Outimage
+ END

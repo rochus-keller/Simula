@@ -1,0 +1,33 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 53
+%
+%  PURPOSE:     Check that no syntax error occures when the virtual part on a
+%               prefix level contains an identifier which is defined on a lower
+%               prefix level, but not in a virtual part (see ERRTEST-35).
+%
+%  WRITTEN BY:  BEH   31/07-86
+% ==============================================================================
+BEGIN
+   Class A ;
+      Virtual : procedure P1 ;
+   begin
+      Procedure P ;;
+   end ;
+
+   A Class B ;
+   begin
+      Procedure P1 ;;
+   end ;
+
+   B Class C ;
+      Virtual : Procedure P ;
+   begin
+      Procedure P ;;
+   end ;
+
+   outtext("--- START Simula a.s. TEST 53"); Outimage;
+   outtext("--- Test simple virtual"); Outimage; Outimage;
+   C begin P1; end;
+   outtext("--- NO ERRORS FOUND IN THIS TEST"); Outimage;
+   outtext("--- END Simula a.s. TEST 53"); Outimage;
+END

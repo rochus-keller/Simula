@@ -1,0 +1,165 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 68
+%
+%  PURPOSE:     Test of coroutines.
+%
+%  WRITTEN BY:  BEH   08/08-86
+% ==============================================================================
+Begin
+   Boolean found_error ;
+
+   Text array lines, facit (1:20) ;
+   Integer lnr ;
+
+   Procedure Saveline ;
+   Begin
+      lnr := lnr + 1 ;
+      lines (lnr) :- Copy (sysout.image.strip) ;
+      sysout.image.setpos (1) ;
+      sysout.image := Notext
+   End ;
+
+   Procedure Checklines (n, e) ;
+      integer n, e ;
+   begin
+      Boolean Ok ;
+      integer i ;
+
+      Ok := true ;
+
+      if n = lnr then
+      Begin
+         For i := 1 step 1 until n do
+         If lines (i) <> facit (i) then
+            Ok := false ;
+      End else
+         Ok := false ;
+
+      If not Ok then
+      Begin
+         Outtext ("*** ERROR : Coroutines (") ;
+         Outint (e, if e < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus output : lnr = ") ;
+         Outint (lnr, 3) ;
+         Outimage ;
+         For i := 1 step 1 until lnr do
+         begin
+            Outtext ("                 ") ;
+            Outtext (lines (i)) ;
+            Outimage ;
+         end ;
+         Outimage ;
+         found_error := true
+      end ;
+
+      For i := 1 step 1 until 20 do
+         lines (i) :- facit (i) :- notext ;
+      lnr := 0 ;
+
+   end pros. checklines ;
+
+
+   Character c1, c2 ;
+
+   Class Coroutine ;
+      detach ;
+
+   Coroutine Class Reader ;
+   While true do
+   Begin
+      c1 := inchar ;
+      Detach ;
+   End ;
+
+   Coroutine Class Changer ;
+   Begin
+      Call (r) ;
+      While true do
+      Begin
+         if c1 = '*' then
+         Begin
+            Call (r) ;
+            if c1 = '*' then
+               c2 := '$'
+            else
+            Begin
+               c2 := '*' ;
+               Resume (w) ;
+               c2 := c1
+            End ;
+         End else c2 := c1 ;
+         Resume (w) ; Call (r) ;
+      End ;
+   End class changer ;
+
+   Coroutine Class Writer ;
+   Begin
+      Integer i ;
+
+      While true do
+      Begin
+         for i := 1 step 1 until 15 do
+         Begin
+            if c2 = '!' then
+            Begin
+               Saveline ;
+               detach ;
+               Goto R
+            End else
+            Begin
+               outchar(c2) ;
+               Resume (c)
+            End ;
+         End ;
+         Saveline ;
+       R :
+      End ;
+   End ;
+
+   Ref (Coroutine) r, c, w ;
+
+   Outtext ("--- START Simula a.s. TEST 68") ;
+   Outimage ;
+   Outtext ("--- Test coroutines.") ;
+   Outimage ; Outimage ;
+
+   r :- New Reader ;
+   c :- New Changer ;
+   w :- New Writer ;
+
+   sysin.image := "|lhkjdfjg*fdgh*98dsgh**kjdk*sgjfhgh***kljhasdg*kfhgs!ksdf" ;
+   sysin.image.setpos (1) ;
+
+   resume (c) ;
+
+   facit (1) :- "|lhkjdfjg*fdgh*" ;
+   facit (2) :- "98dsgh$kjdk*sgj" ;
+   facit (3) :- "fhgh$*kljhasdg*" ;
+   facit (4) :- "kfhgs" ;
+
+   Checklines (4, 1) ;
+
+   sysin.image.setpos (1) ;
+   sysin.image := "hi*auer****5tp9a**e598yu5e*890u**yj89u***53pq**98790!" ;
+
+   resume (c) ;
+
+   facit (1) :- "hi*auer$$5tp9a$" ;
+   facit (2) :- "e598yu5e*890u$y" ;
+   facit (3) :- "j89u$*53pq$9879" ;
+   facit (4) :- "0" ;
+
+   Checklines (4, 2) ;
+
+   IF found_error THEN
+   ELSE
+   Begin
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   End ;
+
+   OutText ("--- END Simula a.s. TEST 68") ;
+   Outimage
+ End

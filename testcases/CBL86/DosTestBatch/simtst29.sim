@@ -1,0 +1,195 @@
+% ======================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 29
+%
+%  PURPOSE:     Test that transmission of procedure parameters by value
+%               do not effect the actual parameters and that the formal
+%               parameters get the rigth values.
+%
+%  WRITTEN BY:  BEH   21/07-86
+% =====================================================================
+BEGIN
+   Boolean found_error;
+
+   Boolean b;
+   character c;
+   short integer si;
+   integer i;
+   real r, q;
+   long real lr, lq;
+   text t, s;
+   integer array Ai(3:4, 7:8);
+
+
+   procedure p1(fb, fc, fsi, fi, fr, flr, ft, fAi);
+      value ft, fAi;
+      Boolean fb;
+      character fc;
+      short integer fsi;
+      integer fi;
+      real fr;
+      long real flr;
+      text ft;
+      integer array fAi;
+   begin
+      if fb eqv b and fc=c and fsi=si and fi=i and fr=r and flr=lr then
+      else begin
+         Outtext("*** ERROR: Standard transmission of value type(1).");
+         Outimage;
+         Outtext("           Erroneous values: ");
+         Outimage;
+         Outtext("            ");
+         Outtext(if fb then "true " else "false ");
+         Outchar(fc);
+         Outint(fsi, 5);
+         Outint(fi, 7);
+         Outimage;
+         Outtext("            ");
+         Outreal(fr, 5, 12);
+         Outreal(flr, 5, 12);
+         Outimage;
+         found_error := true
+      end;
+
+      fb := true;
+      fc := 'd';
+      fsi := 234;
+      fi := 456;
+      fr := 2.3&+2;
+      flr := 4.5&&+3;
+
+
+      if ft=t and ft =/= t and ft.start=1 and ft.pos=1 then
+      else
+      begin
+         Outtext("*** ERROR: Transmission of text by value (2).");
+         Outimage;
+         Outtext("           Erroneous values : ");
+         Outint(ft.start, 3);
+         Outint(ft.pos, 3);
+         Outimage;
+         Outtext("            ");
+         Outtext(ft);
+         Outtext("  ft =/= t - ");
+         Outtext(if ft =/= t then "true" else "false");
+         Outimage;
+         found_error := true
+      end;
+
+      ft := "hei";
+
+      if     fAi(3, 7)=Ai(3, 7)
+         and fAi(3, 8)=Ai(3, 8)
+         and fAi(4, 7)=Ai(4, 7)
+         and fAi(4, 8)=Ai(4, 8) then
+      else
+      begin
+         Outtext("*** ERROR: Transmission of array by value (3).");
+         Outimage;
+         Outtext("           Erroneous values :");
+         Outimage;
+         Outtext("            ");
+         Outint(fAi(3, 7), 3);
+         Outint(fAi(3, 8), 3);
+         Outint(fAi(4, 7), 3);
+         Outint(fAi(4, 8), 3);
+         Outimage;
+         found_error := true
+      end;
+
+      fAi(3, 7) := 123;
+      fAi(4, 7) := 234
+   end pros. p1;
+
+
+
+
+   Outtext("--- START Simula a.s. TEST 29");
+   Outimage;
+   Outtext("--- Test that transmission of parameters by value to");
+   Outimage;
+   Outtext("--- procedures do not effect the actual parameters and");
+   Outimage;
+   Outtext("--- that the formal parameters get the rigth values. ");
+   Outimage; Outimage;
+
+
+   c := 'a';
+   si := 654;
+   i := 432;
+   q := r := 4.3&+3;
+   lr := lq := 2.1&&+1;
+
+   t :- s :- copy("Morn");
+   t.setpos(3);
+
+   Ai(4, 7) := 321;
+   Ai(3, 8) := 543;
+   Ai(3, 7) := 432;
+
+   p1(b, c, si, i, r, lr, t, Ai);
+
+
+   if     not b
+      and c='a'
+      and si=654
+      and i=432
+      and r=q
+      and lr=lq then
+   else
+   begin
+      Outtext("*** ERROR: Value of actual parameters ");
+      Outtext("after proc. call (4).");
+      Outimage;
+      Outtext("           Erroneous values:");
+      Outimage;
+      Outtext("            ");
+      Outtext(if b then "true " else "false ");
+      Outchar(c);
+      Outint(si, 5);
+      Outint(i, 5);
+      Outimage;
+      Outtext("            ");
+      Outreal(r, 5, 12);
+      Outreal(lr, 5, 12);
+      Outimage;
+      found_error := true
+   end;
+
+
+   if     t == s  and  t="Morn"  and  t.pos=3  then
+   else
+   begin
+      Outtext("*** ERROR: Value of text variable after call (5).");
+      Outimage;
+      Outtext("           Erroneous values: ");
+      Outint(t.start, 3); Outint(t.length, 3); Outint(t.pos, 3);
+      Outimage;
+      Outtext("            ");
+      Outtext(t);
+      Outtext("  t == s  - ");
+      Outtext(if t == s then "true" else "false");
+      Outimage;
+      found_error := true
+   end;
+
+
+   if     Ai(3, 7)=432  and  Ai(3, 8)=543   and
+          Ai(4, 7)=321  and  Ai(4, 8)=0     then
+   else
+   begin
+      Outtext("*** ERROR: Value of array after call (6).");
+      Outimage;
+      Outtext("           Erroneous values: ");
+      Outint(Ai(3, 7), 3);
+      Outint(Ai(3, 8), 3);
+      Outint(Ai(4, 7), 3);
+      Outint(Ai(4, 8), 3);
+      Outimage;
+      found_error := true
+   end;
+
+   IF found_error THEN else begin
+      Outtext("--- NO ERRORS FOUND IN THIS TEST"); outimage; end;
+   Outtext("--- END Simula a.s. TEST 29");
+   Outimage;
+ END

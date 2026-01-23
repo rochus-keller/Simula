@@ -1,0 +1,194 @@
+% =====================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 8
+%
+%  PURPOSE:  To test scope of variables.
+%
+%  METHOD:  Try and fail.
+%
+%  WRITTEN BY:  THE  27/10-83
+% ====================================================================
+BEGIN
+BOOLEAN            found_error;        ! Set to true when errors are ;
+                                       ! found.                      ;
+INTEGER            isum;               ! To contain control sum.     ;
+REAL               rsum;               ! To contain control sum.     ;
+TEXT               txt;                ! Used in controlling real    ;
+                                       ! controll sum.               ;
+
+Outtext ("--- START Simula a.s. TEST 8");
+Outimage;
+Outtext ("--- Simple scope test");
+Outimage; Outimage;
+
+   BEGIN
+   INTEGER            int;
+   REAL               rea;
+
+   int := 1;
+   rea := 1;
+
+      BEGIN
+      INTEGER            int;
+      REAL               rea;
+
+      int := 10;
+      rea := 10;
+
+         BEGIN
+         INTEGER            int;
+         REAL               rea;
+
+         int := 100;
+         rea := 100;
+
+            BEGIN
+            INTEGER            int;
+            REAL               rea;
+
+            int := 1000;
+            rea := 1000;
+
+            isum := isum + int;
+            rsum := rsum + rea
+            END;
+
+         isum := isum + int;
+         rsum := rsum + rea
+         END;
+
+         BEGIN
+         INTEGER            int;
+         REAL               rea;
+
+         int := 200;
+         rea := 200;
+
+         isum := isum + int;
+         rsum := rsum + rea
+         END;
+
+      isum := isum + int;
+      rsum := rsum + rea
+      END;
+
+      BEGIN
+      INTEGER            int;
+      REAL               rea;
+
+      int := 20;
+      rea := 20;
+
+      isum := isum + int;
+      rsum := rsum + rea
+      END;
+
+      BEGIN
+      INTEGER            int;
+      REAL               rea;
+
+      int := 30;
+      rea := 30;
+
+         BEGIN
+         INTEGER            int;
+         REAL               rea;
+
+         int := 300;
+         rea := 300;
+
+            BEGIN
+            INTEGER            int;
+            REAL               rea;
+
+            int := 2000;
+            rea := 2000;
+
+               BEGIN
+               INTEGER            int;
+               REAL               rea;
+
+               int := 10000;
+               rea := 10000;
+
+               isum := isum + int;
+               rsum := rsum + rea
+               END;
+
+               BEGIN
+               INTEGER            int;
+               REAL               rea;
+
+               int := 20000;
+               rea := 20000;
+
+               isum := isum + int;
+               rsum := rsum + rea
+               END;
+
+            isum := isum + int;
+            rsum := rsum + rea;
+            END;
+
+         isum := isum + int;
+         rsum := rsum + rea;
+         END;
+
+      isum := isum + int;
+      rsum := rsum + rea;
+      END;
+
+      BEGIN
+      INTEGER            int;
+      REAL               rea;
+
+      int := 50;
+      rea := 50;
+
+         BEGIN
+         INTEGER            int;
+         REAL               rea;
+
+         int := 500;
+         rea := 500;
+
+         isum := isum + int;
+         rsum := rsum + rea
+         END;
+
+         BEGIN
+         INTEGER            int;
+         REAL               rea;
+
+         int := 700;
+         rea := 700;
+
+         isum := isum + int;
+         rsum := rsum + rea
+         END;
+
+      isum := isum + int;
+      rsum := rsum + rea
+      END;
+
+   isum := isum + int;
+   rsum := rsum + rea
+   END;
+
+txt :- blanks (6);
+txt.putfix (rsum, 0);
+found_error := isum <> 34911 or txt <> " 34911";
+
+IF found_error THEN
+   BEGIN
+   outtext ("*** ERROR : In variable scope. Result sums was : ");
+   outtext (txt);
+   outint (isum, 8);
+   outimage
+   END;
+
+if not found_error then
+   begin Outtext("--- NO ERRORS FOUND IN THIS TEST"); Outimage; end;
+outtext ("--- END Simula a.s. TEST 8");
+outimage;
+
+END of program

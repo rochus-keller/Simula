@@ -1,0 +1,6487 @@
+% ***********************************************************************
+% ***********************************************************************
+% ***********************************************************************
+% *
+% *     W I N D O W T O O L S (v5.0)
+% *
+% *     Xwindow Graphic Tools for  Simula.
+% *     (Updated 26 aout 1997)
+% ***********************************************************************
+% *
+% *   Designed and programmed by Bjorn Kirkerud
+% *
+% *   Start:        Fall 1988
+% *   X10-version:      Summer 1989
+% *   X11-version:      Spring 1990
+% *   Redesigned and extended and corrected:
+% *                     1991 - 1994
+% ***********************************************************************
+% *   Corrections:      Fall 1995
+%          Svein Johansen       (SAJ), student:         sveinj@ifi.uio.no
+% ***********************************************************************
+% ***********************************************************************
+% *  RECENT UPDATES:
+%   ================
+%
+%  v5.0 Aug. 1997: Last mods from J.Houle
+%  v4.9 July 1997: Split in two windowtools + wincore (Xwindow,Xdisplay..)
+%  v4.8 July 1997: Integrated JH modifications
+%  v4.7 June 1997: Wholesale reorganisation of LISTWINDOW & SCROLLWINDOW
+%                   List split into TexArea & ListWindow
+%  v4.6 may 1997:
+% ************************************************************************
+%  - Added functions from our BEGINNER'S interface
+%
+% XWindow:
+%     - Fontname : made more robust for Helvetica, Times or Courier
+%         - selects using first 3 letters and for these limits sizes
+%           to: 8,10,12,14,18,20,24,36 
+%    - CenteredText( x, y, t ) synonym for DrawTextCenterIn 
+%    - DrawPolygon:  arrays indexes now go from 1 to N not 0..N-1
+%    - Flash:   NEW procedure
+%    - GETFILE:  uses Mac-like interface to get Name of an existing file
+
+%    - In the drawing of arcs and ellipses, changed parameters from
+%          (x1,y1, x2,y2) format to the ( x, y, w, h ) X format 
+%       = PROCEDURE DrawArc( x, y, w, h, ang1, ang2 );
+%       = PROCEDURE DrawEllipse( x, y, w, h );
+%       = PROCEDURE FillArc( x, y, w, h, ang1, ang2 );
+%       = PROCEDURE FillEllipse( x, y, w, h );
+%
+% MainWindow: 
+%
+%     Procedure WaitForClick(X,Y);  name X,Y;
+%         This waits for a click and then returns its position 
+%
+%  - SetTypeFont( font_name, Size ); no need to specify BOLD or Italic
+%  - Reset: Clears window & resets linewidth, Fill and foreground colours
+
+%  v4.5 may 1997:
+% ************************************************************************
+%   - Formatted with SIMPP
+
+% Simplified DATA ENTRY:  this remains based on the various editable 
+%        "itemWindows" for Bool, Int, Real, Char and Text but confusion
+%        was introduced by the parallel PARAMETER classes. Consequently:
+%
+%     1) we eliminated the PARAMETERWINDOWS
+%     2) we replaced the ParameterList & ParameterMenu with class ITEMLIST
+%          which is a PANEL made up of ItemWindows with their LABELS. 
+%          The methods for ItemList are a distillation of those for 
+%          ParameterList & Menu
+%
+% ItemWindows:  Added stuff
+%   - BoolItemWindow:  changed accepted characters and put TOGGLE as default
+
+%  - Changed RESIZE in BUTTON to allow buttons to shrink 
+
+
+%  v4.4 april 1997:
+% ************************************************************************
+%   - XTextWidth
+%   - XDrawString
+%   - XDrawImageString
+% ======================
+%  Added LEN parameter to avoid creating temporary strings with "!00!" for
+%  strlen' to work. Change in Windowtools and xinterface.c
+%
+% Modified the DESTROY algorithm
+% ===============================
+%   - when we have to destroy a window, we call XDestroyWindow only once
+%      for the top window and we let X destroy all sub-windows.
+%
+%   - an advantage of this is that we no longer get late events for
+%     'destroyed' sub-windows (except for Destroy_Notify)
+%
+% in XWINDOW.Destroy:
+% ---------------------
+%   - we set the window attribute DESTROYED and call XDestroyWindow
+%   - we remove the window from its parent's list od children
+%   - and call a new function: ReleaseResources.
+%      which: - releases the GC
+%             - empties the CHILDREN list and invokes ReleaseResources
+%               on all of them (recursively)
+%             - calls the virtual routine "handle_destroy" to allow user
+%               to add his own processing.
+%
+%  ERROR message produced if Destroyed = true on entry.
+%
+% in XDisplay:
+% -------------
+%   - removed the "Destroy_subwindows" method which removed Windows from the
+%     local window dictionary used to map WINDOWID to WINDOW_refs
+%   - Windows are now removed on receipt of a "Destroy_Notify" event
+%   - This is the only event we treat for a  window marked 'destroyed'
+%
+% ************************************************************************
+%   v4.3 march 1997
+% ************************************************************************
+% = Traced DIV by zero problems in SCROLL-Window to a code generation
+%       problem with "//" by Lund compiler on SGI.  Mainly in "line_of"
+%       of LISY_window and Scroll_window
+%       _ Solution: introduced temp. variables
+%           wherever there was DIV with result of function
+%
+% ************************************************************************
+% *  version M3.4:  march 1996
+% *      Cleaned up our 6.1 and merged with some parts of Oslo 3.4
+% *      -  took out commented OLD code
+% *
+% ***********************************************************************
+% *   Montreal Modifications:
+% *                     Spring 1995
+%
+%   Charles De Lean (CDL), summer student:  delean@iro.umontreal.ca
+%   Jean Vaucher    (JV),  professor:   vaucher@iro.umontreal.ca
+%   Dep. informatique et RO,
+%   Universite de Montreal
+%   Montreal, CANADA
+% *
+% ************************************************************************
+
+
+
+Class windowtools;
+BEGIN
+   Real version = 5.0;
+
+END;
+
+External Class wincore; 
+External Class directory; 
+
+% External Class containers; 
+% External Class Utilities;
+
+% *************************************
+% *************************************
+% *******                       *******
+% *******      W I N D O W      *******
+% *******                       *******
+% *************************************
+% *************************************
+
+% Extension of XWindow introduced to allow seperate compilation
+% of XDisplay & XWindow etc... It contains references to particular
+% kinds of windows....thus cannot be compiled in isolation with
+% sub-classes
+
+
+XWindow Class Window;
+Virtual:
+
+% -------------------------------------------------------
+% -------- WindowTool Event Handlers --------------------
+% -------------------------------------------------------
+
+     PROCEDURE Handle_ButtonClick Is   
+        PROCEDURE Handle_ButtonClick( B );
+           Ref(Button) B;
+           ;
+
+     PROCEDURE Handle_Selection Is       
+        PROCEDURE Handle_Selection(Window, Item, ItemN); 
+           Ref(XWindow) Window;
+           Text         Item;
+           Integer      ItemN;
+           ;
+           
+     PROCEDURE Handle_Typing Is       
+        PROCEDURE Handle_Typing( Window );
+           Ref(XWindow) Window;
+           ;
+           
+% -------------------------------------------------------
+%     3 others are already defined in XWindow 
+% -------------------------------------------------------
+%        PROCEDURE Handle_Alarm;
+%        PROCEDURE Handle_Click( X,Y ); Integer X,Y;
+%        PROCEDURE DoubleClick( Window ); Ref(XWindow) Window;
+% =======================================================
+
+     PROCEDURE SizeChange_in_SubWindow Is
+        PROCEDURE SizeChange_in_SubWindow( wnd );
+           Ref(SubWindow) wnd;
+           ;
+           
+% -------------------------------------------------------
+%    Obsolete Handlers
+% -------------------------------------------------------
+     PROCEDURE ClickInButton Is
+        PROCEDURE ClickInButton( b );
+           Ref(Button) b;
+           ;
+%     PROCEDURE ClickInRadioPanel Is
+%        PROCEDURE ClickInRadioPanel( rb );
+%           Ref(RadioPanel) rb;
+%           ;
+%     PROCEDURE InputInSubwindow Is
+%        PROCEDURE InputInSubwindow( sw );
+%           Ref(SubWindow) sw;
+%           ;
+           
+%     PROCEDURE Perform Is
+%        PROCEDURE Perform( heading );
+%           Text heading;
+%           ;
+
+%     PROCEDURE ChoiceIn Is
+%        PROCEDURE ChoiceIn( Window, Message, Number );
+%           Ref(XWindow) Window;
+%           Text Message;
+%           Integer Number;
+%           ;
+%           
+%     PROCEDURE LineChoiceIn Is
+%        PROCEDURE LineChoiceIn( line, line_number );
+%           Text line;
+%           Integer line_number;
+%           ;
+
+
+begin
+
+   Text PROCEDURE window_kind;
+      window_kind :- "XWindow";
+
+
+% ------------------------------------------------------------
+%  DESTROY:   Changed whole approach in ***v4.4:
+% ------------------------------------------------------------
+
+   PROCEDURE Destroy;
+      IF destroyed THEN BEGIN
+         outtext( " *** Attempt to destroy destroyed " & window_kind & key );
+         outimage;
+      END
+      ELSE BEGIN
+         External C PROCEDURE xdestroywindow Is
+            PROCEDURE XDestroyWindow( WindowID );
+               Integer WindowID;
+               ;
+         Hide;
+         INSPECT( This XWindow ) When SubWindow DO 
+           parent.remove_window( This XWindow );
+
+         destroyed := True;
+         XDestroyWindow( windowID );
+         Release_resources;
+      END;
+
+
+
+% ******************************************************
+% *
+% *               EVENTS and MESSAGES
+% *
+% ******************************************************
+
+   Ref(Button) EventButton;
+   Integer  EventItemNumber;
+   Text     EventItem;
+
+! --------------------------------------- CLICK IN BUTTON ------;
+        
+    PROCEDURE Handle_ButtonClick( B ); Ref(Button) B;
+    BEGIN
+      ClickInButton( b );          ! For compatibility ;
+      AddBit(ButtonEvt, EventSet);
+      EventButton :- B;
+    END;
+    
+    PROCEDURE ClickInButton( b ); Ref(Button) b;;
+           
+    procedure WaitForButtonClick( B ); name B; Ref(Button) B;
+    Begin
+        WaitFor(ButtonEvt);
+        B :- EventButton;
+        SubBit(ButtonEvt, EventSet);
+    End;
+    
+    Boolean procedure ButtonClicked( B ); name B; Ref(Button) B;
+    if BitIn(ButtonEvt, EventSet) then
+    begin
+        ButtonClicked := true;
+        B :- EventButton;
+        SubBit(ButtonEvt, EventSet) ;
+    end;        
+    
+    Text PROCEDURE ButtonChoice;
+    BEGIN
+        WaitFor(ButtonEvt);
+        if EventButton =/= none then
+            ButtonChoice :- EventButton.Heading;
+        SubBit(ButtonEvt, EventSet);
+    END;
+    
+! ----------------------------------- SELECTION ------; 
+
+    PROCEDURE Handle_Selection(W, Item, ItemN); 
+           Ref(XWindow) W;
+           Text         Item;
+           Integer      ItemN;
+    BEGIN
+      AddBit(SelectionEvt, EventSet);
+      EvtWindow :- W;
+      EventItemNumber := ItemN;
+      EventItem :- Item;
+    END;
+    
+    PROCEDURE WaitForSelection(W, ItemN, Item); Name W, ItemN, Item;
+        ref(XWindow) W;  
+        integer      ItemN;
+        Text         Item;
+    BEGIN
+      WaitFor(SelectionEvt);
+      W     :- EvtWindow;
+      ItemN := EventItemNumber;
+      Item  :- EventItem;
+    END;
+    
+    BOOLEAN PROCEDURE SelectionIn(W, ItemN, Item); Name W, ItemN, Item;
+        ref(XWindow) W;  
+        integer      ItemN;
+        Text         Item;
+    IF BitIn(SelectionEvt, EventSet) THEN
+    BEGIN
+      SelectionIn := TRUE;
+      W     :- EvtWindow;
+      ItemN := EventItemNumber;
+      Item  :- EventItem;
+    END;
+    
+! ---------------------------------- KEYBOARD INPUT ------;     
+
+    PROCEDURE Handle_Typing(W); 
+        ref(XWindow) W;  
+    BEGIN
+      AddBit(TypingEvt, EventSet);
+      EvtWindow :- W;
+    END;
+    
+    PROCEDURE WaitForTyping(W); Name W;
+        ref(XWindow) W;  
+    BEGIN
+      WaitFor(TypingEvt);
+      W     :- EvtWindow;
+    END;
+    
+    BOOLEAN PROCEDURE TypingIn(W); Name W;
+        ref(XWindow) W;  
+    IF BitIn(TypingEvt, EventSet) THEN
+    BEGIN
+      TypingIn := TRUE;
+      W     :- EvtWindow;
+    END;
+    
+
+% **************** OLD STUFF *************************
+%   PROCEDURE InputInSubwindow( sw );
+%        Ref(SubWindow) sw;
+%      ;
+%   PROCEDURE ClickInRadioPanel( rb );
+%        Ref(RadioPanel) rb;
+%      ;
+%   PROCEDURE Perform( heading );
+%        Text heading;
+%      ;
+%   PROCEDURE LineChoice( line );
+%        Text line;  ;
+%   PROCEDURE LineChoiceIn( line, line_number );
+%        Text line;
+%        Integer line_number;
+%      ;
+%   PROCEDURE ChoiceIn( W, T, N ); Ref(Xwindow) W;
+%        Text T;
+%        Integer N;
+%      ;
+% ******************************************************
+% ******************************************************
+
+
+% -----------------------------------------------
+%    Procedures    MAKE...
+% -----------------------------------------------
+
+   Ref(Button) PROCEDURE MakeButton( heading );
+        Text heading;
+      MakeButton :- IF fancy THEN
+                      MakeFancyButton( heading )
+                    ELSE New Button( This XWindow, heading )
+                          .DefaultPlace.Show;
+
+   REF(Button) PROCEDURE MakePictureButton(Filename); TEXT Filename;
+      MakePictureButton :- New Button( This XWindow, notext )
+                                   .SetIcon(Filename)
+                                   .DefaultPlace
+                                   .Show;
+      
+   Ref(FancyButton) PROCEDURE MakeFancyButton( heading );
+        Text heading;
+      MakeFancyButton :- New FancyButton( This XWindow, heading )
+                           .DefaultPlace.Show;
+
+   REF(Icon) PROCEDURE MakeIcon(PictName);
+      TEXT PictName;
+   MakeIcon :- NEW Icon(THIS XWindow, "", PictName)
+      .PlaceAfter(LastSubWindow)
+      .Show;
+
+
+   Ref(PromptWindow) PROCEDURE MakePromptWindow;
+      MakePromptWindow :-( IF fancy THEN MakeFancyPromptWindow
+                           ELSE New PromptWindow( This XWindow ) );
+
+   Ref(PromptWindow) PROCEDURE MakeFancyPromptWindow;
+      MakeFancyPromptWindow :- New PromptWindow( This XWindow ).SetFancy;
+
+   Ref(MessageWindow) PROCEDURE MakeMessageWindow;
+      MakeMessageWindow :- New MessageWindow( This XWindow );
+
+   Ref(PromptWindow) PROCEDURE MakeDispPromptWindow;
+      IF fancy THEN
+         MakeDispPromptWindow :- MakeDispFancyPromptWindow
+      ELSE BEGIN
+         IF the_display.the_promptwindow == None THEN
+            the_display.the_promptwindow :- New PromptWindow( This XWindow );
+         MakeDispPromptWindow :- the_display.the_promptwindow;
+      END;
+
+   Ref(PromptWindow) PROCEDURE MakeDispFancyPromptWindow;
+   BEGIN
+      IF the_display.the_promptwindow == None THEN
+         the_display.the_promptwindow :- New PromptWindow( This XWindow ).
+                                             SetFancy;
+      MakeDispFancyPromptWindow :- the_display.the_promptwindow;
+   END;
+
+   Ref(MessageWindow) PROCEDURE MakeDispMessageWindow;
+   BEGIN
+      IF the_display.the_messagewindow == None THEN
+         the_display.the_messagewindow :- New MessageWindow( This XWindow );
+      MakeDispMessageWindow :- the_display.the_messagewindow;
+   END;
+
+
+% JPH
+   Ref(PopupMenu) PROCEDURE MakePopupMenu( choices, default );
+        Text choices, default;
+   BEGIN
+      Ref(PopupMenu) wnd;
+
+      wnd :- New PopupMenu( This XWindow );
+      wnd.SetMenu( choices, default );
+      wnd.DefaultPlace;
+      wnd.show;
+      MakePopupMenu :- wnd;
+   END;
+   
+   
+   ref(CheckBox) PROCEDURE MakeCheckBox( Temp );
+      TEXT Temp;
+   MakeCheckBox :- NEW CheckBox(THIS XWindow)
+                          .SetText( Temp )
+                          .DefaultPlace
+                          .Show;
+
+
+
+      REF(ItemWindow) PROCEDURE PlaceItemWindow (Temp);
+         REF(ItemWindow)   Temp;
+%      PlaceItemWindow :- Temp.DefaultPlace
+      PlaceItemWindow :- Temp.PlaceAfter(LastSubwindow)
+                             .AllowInput
+                             .Show;
+      
+      Ref(TextItemWindow) PROCEDURE MakeTextItem(lb, nc);
+         TEXT      lb;
+         INTEGER   nc;
+      MakeTextItem :- PlaceItemWindow(NEW TextItemWindow(THIS XWindow))
+                             .SetLabel(lb)
+                             .SetMaxChars(nc);
+
+      Ref(IntItemWindow) PROCEDURE MakeIntItem(lb, nc);
+         TEXT      lb;
+         INTEGER   nc;
+      MakeIntItem :- PlaceItemWindow(NEW IntItemWindow(THIS XWindow))
+                             .SetLabel(lb)
+                             .SetMaxChars(nc);
+      
+      REF(RealItemWindow) PROCEDURE MakeRealItem(lb, nc);
+         TEXT      lb;
+         INTEGER   nc;
+      MakeRealItem :- PlaceItemWindow(NEW RealItemWindow(THIS XWindow))
+                             .SetLabel(lb)
+                             .SetMaxChars(nc);
+      
+
+      REF(CharItemWindow) PROCEDURE MakeCharItem(lb);
+         TEXT      lb;
+      MakeCharItem :- PlaceItemWindow(NEW CharItemWindow(THIS XWindow))
+                             .SetLabel(lb);
+
+      REF(BoolItemWindow) PROCEDURE MakeBoolItem(lb);
+         TEXT      lb;
+      MakeBoolItem :- PlaceItemWindow(NEW BoolItemWindow(THIS XWindow))
+                             .SetLabel(lb);
+
+ 
+   Ref(TextArea) PROCEDURE MakeTextArea;
+      MakeTextArea :- New TextArea( This XWindow )
+                          .SetSize( width-2*( depth_border + subwindow_spacing )
+                              , height-2*( depth_border + subwindow_spacing )-(
+                              IF LastSubWindow == None THEN 0
+                              ELSE LastSubWindow.max_y ) )
+                              .PlaceLeftBelow( LastSubWindow ).Show;
+ 
+   Ref(ScrollWindow) PROCEDURE MakeScrollWindow;
+      MakeScrollWindow :- New ScrollWindow( This XWindow )
+                          .SetSize( width-2*( depth_border + subwindow_spacing )
+                              , height-2*( depth_border + subwindow_spacing )-(
+                              IF LastSubWindow == None THEN 0
+                              ELSE LastSubWindow.max_y ) ).PlaceLeftBelow(
+                              LastSubWindow ).Show;
+
+   Ref(ListWindow) PROCEDURE MakeListWindow;
+      MakeListWindow :- New ListWindow( This XWindow )
+                        .SetSize( width-2*( depth_border + subwindow_spacing ),
+                            height-2*( depth_border + subwindow_spacing )
+                        -( IF  LastSubWindow == None THEN 0
+                          ELSE LastSubWindow.max_y ) ).PlaceLeftBelow(
+                            LastSubWindow ).Show;
+
+   Ref(MenuScrollWindow) PROCEDURE MakeMenuScrollWindow;
+      MakeMenuScrollWindow :- New MenuScrollWindow( This XWindow )
+                                  .SetSize( width-2*( depth_border +
+                                  subwindow_spacing ), height-2*( depth_border +
+                                  subwindow_spacing )-( IF LastSubWindow == None
+                                      THEN 0
+                                ELSE LastSubWindow
+                                    .max_y ) ).PlaceLeftBelow( LastSubWindow )
+                                  .Show;
+
+   Ref(SelectionListWindow) PROCEDURE MakeSelectionListWindow;
+      MakeSelectionListWindow :- New SelectionListWindow( This XWindow )
+                                     .SetSize( width-2*( depth_border +
+                                     subwindow_spacing ), height-2*(
+                                     depth_border + subwindow_spacing )-( IF
+                                         LastSubWindow == None THEN 0
+                                   ELSE LastSubWindow
+                                       .max_y ) ).PlaceLeftBelow( LastSubWindow
+                                     ).Show;
+
+   Ref(RadioPanel) PROCEDURE MakeRadioPanel;
+      MakeRadioPanel :- New RadioPanel( This XWindow ).DefaultPlace.Show;
+
+%   Ref(MenuWindow) PROCEDURE MakeMenu;
+%      MakeMenu :- New MenuWindow( This XWindow ).DefaultPlace.
+%                      Show;
+
+
+% === v4.5 === added MakeItemList ===
+
+   Ref(ItemList) PROCEDURE MakeItemList;
+      MakeItemList :- New ItemList( This XWindow ).DefaultPlace.
+                          Show;
+   
+   Ref(DrawWindow) PROCEDURE MakeDrawWindow;
+      MakeDrawWindow :- New DrawWindow( This XWindow ).SetSize( width-2*(
+                            depth_border + subwindow_spacing ), height-2*(
+                            depth_border + subwindow_spacing )-( IF
+                                LastSubWindow == None THEN 0
+                          ELSE LastSubWindow.max_y ) ).PlaceLeftBelow(
+                            LastSubwindow ).Show;
+
+% ------------------------------------------------
+%      Buttons
+% ------------------------------------------------
+
+   Ref(XWindow) PROCEDURE MakeButtonsSameWidth;
+   BEGIN
+      Ref(XWindow) w;
+      Integer sub_max_w;
+
+      PROCEDURE find_max_w( w );
+           Ref(element) w;
+         IF w In Button THEN
+            sub_max_w := max( sub_max_w, w Qua Button.width );
+
+      PROCEDURE set_max_w( w );
+           Ref(element) w;
+         IF w In Button THEN
+            w Qua Button.SetWidth( sub_max_w );
+
+      sub_max_w := minint0;
+      children.for_each_element( find_max_w );
+      IF sub_max_w > minint0 THEN
+         children.for_each_element( set_max_w );
+      MakeButtonsSameWidth :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE AllowButtonsInWindow;
+   BEGIN
+
+      PROCEDURE allow( wnd );
+           Ref(element) wnd;
+         IF wnd In Button THEN
+            wnd Qua Button.Allow;
+
+      children.for_each_element( allow );
+      AllowButtonsInWindow :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DisallowButtonsInWindow;
+   BEGIN
+
+      PROCEDURE disallow( wnd );
+           Ref(element) wnd;
+         IF wnd In Button THEN
+            wnd Qua Button.DisAllow;
+
+      children.for_each_element( disallow );
+      DisallowButtonsInWindow :- This XWindow;
+   END;
+
+
+% ------------------------------------------------
+%      HeadWindows
+% ------------------------------------------------
+
+
+   Ref(XWindow) PROCEDURE SetHeading( heading );
+        Text heading;
+      SetHeading :- MakeHeadWindow( heading );
+
+   Ref(XWindow) PROCEDURE MakeHeadWindow( heading );
+        Text heading;
+   BEGIN
+      IF head_window == None THEN BEGIN
+         head_window :- New HeadWindow( This XWindow );
+         SetHeight( head_height + height );
+      END;
+      head_window.SetHeading( heading );
+%        if this XWindow in ItemWindow then
+      BEGIN
+         Integer w;
+
+         w := 1.1*head_window.width_of_text( heading ) + 4;
+         IF w > width THEN
+            SetWidth( w );
+      END;
+      MakeHeadWindow :- This XWindow;
+   END;
+
+   Integer PROCEDURE head_height;
+      head_height := IF head_window == None THEN 0
+                     ELSE( head_window.max_y + 2 );
+%                     (head_window.max_y + head_window.head_gap);
+
+   Integer PROCEDURE head_width;
+      head_width := IF head_window == None THEN 0
+                    ELSE head_window.head_width;
+
+   Ref(XWindow) PROCEDURE SetHeadFont( font_name );
+        Text font_name;
+   BEGIN
+      IF head_window =/= None THEN
+         head_window.SetFont( font_name );
+      SetHeadFont :- This XWindow;
+   END;
+
+
+% ******************************************************
+% *
+% *     Input procedures moved from SIMPLEWINDOW
+% *
+% ******************************************************
+
+   Ref(PromptWindow) procedure the_promptwindow;
+      the_promptwindow :- the_display.the_promptwindow;
+      
+   Ref(MessageWindow) procedure the_messagewindow;
+      the_messagewindow :- the_display.the_messagewindow;
+      
+      
+   Text PROCEDURE ask_for_text( prompt );
+        Text prompt;
+      ask_for_text :- the_promptwindow.ask_for_text( prompt );
+
+   Integer PROCEDURE ask_for_int( prompt );
+        Text prompt;
+      ask_for_int := the_promptwindow.ask_for_int( prompt );
+
+   Character PROCEDURE ask_for_char( prompt );
+        Text prompt;
+      ask_for_char := the_promptwindow.ask_for_char( prompt );
+
+   Real PROCEDURE ask_for_real( prompt );
+        Text prompt;
+      ask_for_real := the_promptwindow.ask_for_real( prompt );
+
+   Boolean PROCEDURE ask_for_Bool( prompt );
+        Text prompt;
+      ask_for_Bool := the_promptwindow.ask_for_Bool( prompt );
+
+   Ref(XWindow) PROCEDURE TimedMessage( mess, Time );
+        Text mess;
+        Integer Time;
+   BEGIN
+      the_messagewindow.TimedMessage( mess, Time );
+      TimedMessage :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE Message( mess );
+        Text mess;
+   BEGIN
+      the_messagewindow.Message( mess );
+      Message :- This XWindow;
+   END;
+
+   Text PROCEDURE GetFile( Prompt, Path );
+        Text Prompt, Path;
+   BEGIN
+      Ref(DirectoryWindow) Temp;
+
+      Temp :- New DirectoryWindow("Get File", This Window, Prompt, Path, 0, Notext );
+      GetFile :- Temp.WaitForFile;
+      Temp.Destroy;
+   END  --- GetFile ---;
+
+   Text PROCEDURE GetNewFile( Prompt, Path, DefName );
+        Text Prompt, Path, DefName;
+   BEGIN
+      Ref(DirectoryWindow) Temp;
+
+      Temp :- New DirectoryWindow( "Get New File", This Window, Prompt, Path, 1, DefName );
+      GetNewFile :- Temp.WaitForFile;
+      Temp.Destroy;
+   END  --- GetNewFile ---;
+
+   Text PROCEDURE GetDirectory( Prompt, Path );
+        Text Prompt, Path;
+   BEGIN
+      Ref(DirectoryWindow) Temp;
+
+      Temp :- New DirectoryWindow( "Get Directory", This Window, Prompt, Path, 2, Notext );
+      GetDirectory :- Temp.WaitForFile;
+      Temp.Destroy;
+   END  --- GetDirectory ---;
+
+end  ===  XWindow  === ;
+
+
+
+
+% *****************************************
+% *****************************************
+% *******                           *******
+% *******   M A I N W I N D O W     *******
+% *******                           *******
+% *****************************************
+% *****************************************
+
+Window Class MainWindow( window_name );
+     Text window_name;
+Virtual:
+     PROCEDURE FindRoot Is
+        PROCEDURE FindRoot;
+           ;
+
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Main window " & window_name;
+
+   Boolean Procedure isMainWindow;  isMainWindow := TRUE ;
+
+   PROCEDURE CreateWindow;
+   BEGIN
+      External C PROCEDURE xcreatewindow Is
+         Integer PROCEDURE XCreateWindow( parentID, window_name );
+% CIM                                   name              window_name ;
+            Integer parentID;
+            Text window_name;
+            ;
+
+      FindRoot;
+      IF the_display =/= None THEN BEGIN
+         windowID := XCreateWindow( parentID, window_name & "!0!" );
+         the_display.add_window( This XWindow );
+         Initialize;
+            key_sensitize;
+            button_sensitize;
+         SetXfont( the_display.find_font( DefaultFont ) );
+         the_display.the_promptwindow :- 
+                   New PromptWindow( This XWindow ).SetFancy;
+         the_display.the_messagewindow :- 
+                   New MessageWindow( This XWindow ).SetFancy;
+         TraceCreation;
+      END;
+   END  CreateWindow;
+
+        
+   procedure Reset;
+   begin
+        Clear;
+        SetLineWidth(1);
+        SetFill("black");
+        SetForeGround ("black");
+   end;
+    
+   Ref(XWindow) PROCEDURE SetTypeFont( font_name, Size );
+        Text font_name;
+        Integer Size;
+      SetTypeFont :- SetFont( FontName( font_name, size, false, false ) );
+
+
+   PROCEDURE FindAbsolutePos( posx, posy );
+        Name posx, posy;
+        Integer posx, posy;
+   BEGIN
+      Integer x,    y,  p_width,    p_height,   p_border,   p_depth;
+      Ref(XWindow) wnd, next;
+      Integer rootID,   ParentID,   ID;
+
+      External C PROCEDURE xqueryparent Is
+         Boolean PROCEDURE XQueryParent( WindowID, rootID, parent );
+            Name rootID, parent;
+            Integer WindowID, rootID, parent;
+            ;
+
+      External C PROCEDURE xgetgeometry Is
+         Boolean PROCEDURE XGetGeometry( WindowID, rootID, x, y, width, height,
+             borderwidth, depth );
+
+            Name rootID, x, y, width, height, borderwidth, depth;
+            Integer WindowID, rootID, x, y, width, height, borderwidth, depth;
+            ;
+
+      ID := WindowID;
+      posx :=-borderwidth;
+      posy :=-borderwidth;
+
+      WHILE ID <> rootID DO BEGIN
+           !Trouver sa position relative avec son parent;
+         XGetGeometry( ID, rootID, x, y, p_width, p_height, p_border, p_depth );
+         posx := posx + x + p_border;
+         posy := posy + y + p_border;
+
+           !Trouver le parent. La boucle s'arrete a la fenetre root;
+         XQueryParent( ID, rootID, parentID );
+         ID := ParentID;
+
+      END;
+   END;
+
+   PROCEDURE FindRoot;
+   BEGIN
+      External C PROCEDURE xrootwindow Is
+         Integer PROCEDURE XRootWindow;
+            ;
+
+      the_display :- New XDisplay;
+      parentID := XRootWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE Owner;
+      Owner :- None;
+
+   Ref(XWindow) PROCEDURE TopWindow;
+      TopWindow :- This XWindow;
+
+   Ref(XWindow) PROCEDURE SetLabel( a_label );
+        Text a_label;
+      ;
+
+   PROCEDURE ShowCurrentLabel;
+      ;
+
+   Integer PROCEDURE sw_gap;
+      sw_gap := SubwindowSpacing;
+
+   Ref(XWindow) PROCEDURE PlaceCentered;
+      PlaceCentered :- Placeat(( DisPlayWidth-width )//2,( DisplayHeight-height-
+                           head_height )//2 );
+
+   Ref(XWindow) PROCEDURE PlaceUpLeft;
+      PlaceUpLeft :- Placeat( sw_gap, sw_gap );
+
+   Ref(XWindow) PROCEDURE PlaceUpRight;
+      PlaceUpRight :- Placeat( DisPlayWidth-( max_x-min_x )-sw_gap, sw_gap );
+
+   Ref(XWindow) PROCEDURE PlaceDownLeft;
+      PlaceDownLeft :- Placeat( sw_gap, DisplayHeight-( max_y-min_y )-sw_gap );
+
+   Ref(XWindow) PROCEDURE PlaceDownRight;
+      PlaceDownRight :- Placeat( DisPlayWidth-( max_x-min_x )-sw_gap,
+                            DisplayHeight-( max_y-min_y )-sw_gap );
+
+   Ref(XWindow) PROCEDURE PlaceAfter( wnd );
+        Ref(XWindow) wnd;
+      PlaceAfter :- IF wnd == None THEN PlaceUpLeft
+                    ELSE IF wnd.max_x + 2*sw_gap + width > DisPlayWidth THEN
+                      PlaceLeftBelow( wnd )
+                    ELSE PlaceAt( wnd.max_x + sw_gap, wnd.min_y );
+
+   Ref(XWindow) PROCEDURE PlaceBefore( wnd );
+        Ref(XWindow) wnd;
+      PlaceBefore :- IF wnd.min_x-2*sw_gap < width THEN
+                       Placeat( DisPlayWidth-( max_x-min_x )-sw_gap, wnd.max_y +
+                           sw_gap )
+                     ELSE Placeat( wnd.min_x-sw_gap-2-width, wnd.min_y );
+
+   Ref(XWindow) PROCEDURE PlaceLeftBelow( wnd );
+        Ref(XWindow) wnd;
+      PlaceLeftBelow :- Placeat( sw_gap,( IF wnd =/= None THEN
+                            wnd.max_y
+                          ELSE 0 ) + sw_gap );
+
+   Ref(XWindow) PROCEDURE PlaceRightBelow( wnd );
+        Ref(XWindow) wnd;
+      PlaceRightBelow :- Placeat( DisPlayWidth-( max_x-min_x )-sw_gap,( IF wnd
+                                 =/= None THEN
+                             wnd.max_y
+                           ELSE 0 ) + sw_gap );
+
+   Ref(XWindow) PROCEDURE PlaceBelow( wnd );
+        Ref(XWindow) wnd;
+      PlaceBelow :- Placeat( wnd.min_x,( IF wnd =/= None THEN
+                                           wnd.max_y
+                                         ELSE 0 ) + sw_gap );
+
+   Ref(XWindow) PROCEDURE PlaceAbove( wnd );
+        Ref(XWindow) wnd;
+      PlaceAbove :- IF wnd == None THEN PlaceUpLeft
+                    ELSE Placeat( wnd.min_x, wnd.min_y-sw_gap-height );
+
+   Ref(XWindow) PROCEDURE PlaceRightof( wnd );
+        Ref(XWindow) wnd;
+      PlaceRightof :- Placeat( wnd.max_x + sw_gap, wnd.min_y );
+
+   Ref(XWindow) PROCEDURE PlaceLeftof( wnd );
+        Ref(XWindow) wnd;
+      PlaceLeftof :- Placeat( wnd.min_x-sw_gap-( max_x-min_x ), wnd.min_y );
+
+%    ref(XWindow) procedure PlaceTopRightof(wnd); ref(XWindow) wnd;
+%      PlaceTopRightof :- Placeat(wnd.max_x + sw_gap,
+%                          parent_depth_border + sw_gap + parent_head_height);
+
+   Ref(GraphPage) PROCEDURE MakeGraphPage( hd );
+        Text hd;
+      MakeGraphPage :- New GraphPage( hd, This MainWindow );
+      
+   Ref(SideWindow) Procedure MakeSideWindow( window_name );
+         Text window_name;
+      MakeSideWindow :- new SideWindow(window_name,this MainWindow).
+                      SetSize(500,300).Show;
+
+
+END  MainWindow;
+
+
+MainWindow CLASS FirstWindow;
+begin
+        SetSize(600,400);
+        Show; 
+end;    
+
+MainWindow CLASS BasicWindow;
+begin
+        SetSize(600,400);
+        Show; 
+end;    
+
+% *****************************************
+% *****************************************
+% *******                           *******
+% *******   S I D E W I N D O W     *******
+% *******                           *******
+% *****************************************
+% *****************************************
+
+MainWindow Class SideWindow( TopMainWindow );
+     Ref(MainWindow) TopMainWindow;
+BEGIN
+
+   PROCEDURE FindRoot;
+      IF TopMainWindow == None THEN
+         error( "Attempted creation of sidewindow without TopMainWindow!" )
+      ELSE BEGIN
+         the_display :- TopMainWindow.the_display;
+         parentID := TopMainWindow.parentID;
+      END;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Side window " & window_name & " of " & TopMainWindow.
+                         window_name;
+
+   Ref(XWindow) PROCEDURE owner;
+      owner :- TopMainWindow;
+
+END  SideWindow;
+
+% ******************************************
+% ******************************************
+% *******                            *******
+% *******  P O P U P W I N D O W     *******
+% *******                            *******
+% ******************************************
+% ******************************************
+
+SideWindow Class PopUpWindow;
+BEGIN
+
+   PROCEDURE CreateWindow;
+   BEGIN
+      External C PROCEDURE xcreatepopup Is
+         Integer PROCEDURE XCreateWindow( parentID, window_name );
+% CIM                                   name              window_name ;
+            Integer parentID;
+            Text window_name;
+            ;
+
+      FindRoot;
+      IF the_display =/= None THEN BEGIN
+         Text wn;
+
+         wn :- window_name & "!0!";
+         windowID := XCreateWindow( parentID, wn );
+         the_display.add_window( This XWindow );
+         Initialize;
+         SetXfont( the_display.find_font( DefaultFont ) );
+         TraceCreation;
+      END;
+   END  CreateWindow;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Pop-up window " & window_name & " of " & TopMainWindow.
+                         window_name;
+
+END  PopUpWindow;
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******   S I M P L E W I N D O W    *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+MainWindow Class SimpleWindow;
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Simple window " & window_name;
+
+%    ref(PromptWindow) the_prompt_window;
+   Ref(ScrollWindow) the_scroll_window;
+
+   PROCEDURE handle_configure;
+   BEGIN
+      Integer mxy;
+
+      PROCEDURE conf( el );
+           Ref(element) el;
+      BEGIN
+         Ref(SubWindow) w;
+
+         w :- el;
+         IF w In ScrollWindow THEN
+            w.SetSize( width-2*sw_gap, height-mxy-2*sw_gap )
+         ELSE
+            mxy := max( mxy, w.max_y );
+      END;
+
+      mxy := 0;
+      children.for_each_element( conf );
+   END;
+
+   Ref(PromptWindow) PROCEDURE MakePromptWindow;
+      IF the_display.the_promptwindow == None THEN 
+      BEGIN
+         ref( PromptWindow ) PW;
+         the_display.the_promptwindow :- PW :-
+              New PromptWindow( This XWindow ).
+                           PlaceLeftBelow( LastSubwindow );
+         PW.MakeOKButton;
+         IF fancy THEN PW.SetFancy;
+         MakePromptWindow :- PW;
+      END;
+
+   Ref(ScrollWindow) PROCEDURE MakeScrollWindow;
+      IF the_scroll_window == None THEN BEGIN
+         MakePromptWindow;
+         the_Scroll_window :- New ScrollWindow( This XWindow!, 1000;
+                              ).PlaceLeftBelow( LastSubWindow ).SetSize( width-2
+                                  *sw_gap, height-2*sw_gap-( IF LastSubWindow ==
+                                      None THEN 0
+                                ELSE LastSubWindow.max_y ) ).Show;
+         MakeScrollWindow :- the_Scroll_window;
+      END;
+
+   Ref(PromptWindow) PROCEDURE MakeFancyPromptWindow;
+      MakeFancyPromptWindow :- MakePromptWindow.SetFancy;
+
+   PROCEDURE MakePromptandScrollWindows;
+   BEGIN
+      MakePromptWindow;
+      MakeScrollWindow
+   END;
+
+   Ref(XWindow) PROCEDURE MakeEmpty;
+   BEGIN
+      MakeScrollWindow;
+      the_Scroll_window.MakeEmpty;
+      MakeEmpty :- This XWindow;
+   END;
+
+   Ref(SimpleWindow) PROCEDURE outimage;
+   BEGIN
+      MakeScrollWindow;
+      the_scroll_window.outimage;
+      outimage :- This SimpleWindow;
+   END;
+
+   Ref(SimpleWindow) PROCEDURE outtext( t );
+        Text t;
+   BEGIN
+      MakeScrollWindow;
+      the_scroll_window.outtext( t );
+      outtext :- This SimpleWindow;
+   END;
+
+   Ref(SimpleWindow) PROCEDURE setpos( pos );
+        Integer pos;
+   BEGIN
+      MakeScrollWindow;
+      the_scroll_window.setpos( pos );
+      setpos :- This SimpleWindow;
+   END;
+
+   Ref(SimpleWindow) PROCEDURE outline( line );
+        Text line;
+      outline :- outtext( line ).outimage;
+
+   Ref(SimpleWindow) PROCEDURE outchar( c );
+        Character c;
+      outchar :- outtext( char_as_text( c ) );
+
+   Ref(SimpleWindow) PROCEDURE outint( i, w );
+        Integer i, w;
+   BEGIN
+      Text t;
+
+      IF w <= 0 THEN
+         t :- int_as_text( i )
+      ELSE BEGIN
+         t :- blanks( w );
+         t.putint( i )
+      END;
+      outint :- outtext( t );
+   END;
+
+   Ref(SimpleWindow) PROCEDURE outfix( r, d, w );
+        Real r;
+        Integer d, w;
+   BEGIN
+      Text t;
+
+      IF w <= 0 THEN
+         t :- real_as_text( r, d )
+      ELSE BEGIN
+         t :- blanks( w );
+         t.putfix( r, d )
+      END;
+      outfix :- outtext( t );
+   END;
+
+   PlaceAt( 10, 50 );
+   SetSize( max( 600, DisplayWidth//2 ), max( 600, DisplayHeight//2 ) );
+   SetBackGround( "gray25" );
+   SetTypeface( "helvetica", default_font_points, True, False );
+%    MakeScrollWindow;
+   Show;
+
+END  SimpleWindow;
+
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******      S U B W I N D O W       *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+Window Class SubWindow( parent );
+     Ref(Window) parent;
+BEGIN
+
+   PROCEDURE CreateWindow;
+      IF parent == None THEN
+         error( "Attempted creation of subwindow without parent!" )
+      ELSE BEGIN
+         External C PROCEDURE xcreatewindow Is
+            Integer PROCEDURE XCreateWindow( parentID, window_name );
+% CIM                                   name              window_name ;
+               Integer parentID;
+               Text window_name;
+               ;
+
+         the_display :- parent.the_display;
+         parentID := parent.windowID;
+
+         windowID := XCreateWindow( parentID, "!0!" );
+         the_display.add_window( This XWindow );
+         parent.add_window( This XWindow );
+         Initialize;
+         SetXfont( parent.currentXFont );
+         TraceCreation;
+         IF parent.Norsktekst THEN
+            SettNorsktekst;
+      END  CreateSubWindow;
+
+   PROCEDURE FindAbsolutePos( posx, posy );
+        Name posx, posy;
+        Integer posx, posy;
+!CDL July 4 1995;
+   BEGIN
+      Integer x,    y;
+
+      parent.FindAbsolutePos( x, y );
+      GetActualGeometry;
+      posx := x + min_x + borderwidth;
+      posy := y + min_y + borderwidth;
+   END;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Sub window";
+
+
+%  -------------------------------------      
+%      Windowtool Events propagation
+%  -------------------------------------      
+
+   
+   PROCEDURE Handle_ButtonClick( B ); Ref(Button) B;
+      parent.Handle_ButtonClick( B );
+           
+   PROCEDURE Handle_DoubleClick( W ); Ref(XWindow) W;
+      parent.Handle_DoubleClick( this SubWindow );
+           
+%   PROCEDURE InputInSubwindow( sw );
+%        Ref(SubWindow) sw;
+%      parent.InputInSubwindow( this SubWindow );
+
+%   PROCEDURE ChangeInSubwindow( sw );
+%        Ref(SubWindow) sw;
+%      parent.ChangeInSubwindow( this SubWindow );
+
+%   PROCEDURE ClickinButton( b );
+%        Ref(Button) b;
+%      parent.ClickinButton( b );
+      
+%  ===============================================      
+     
+
+
+   Ref(XWindow) PROCEDURE owner;
+      owner :- parent;
+
+   Ref(XWindow) PROCEDURE TopWindow;
+      TopWindow :- parent.TopWindow;
+
+   Integer PROCEDURE sw_gap;
+      sw_gap := parent.SubwindowSpacing;
+
+
+   Ref(XWindow) PROCEDURE DefaultPlace;
+   BEGIN
+      DefaultPlace :- PlaceAfter(parent.LastSubWindow);
+      !Placed := PlacedAt;
+% Ca faisait que la prochaine fenetre etait par-dessus
+% On devrait faire une seule proc et non ces deux la!
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceAfter( wnd );
+        Ref(XWindow) wnd;
+   BEGIN
+      PlaceAfter :- IF wnd == None THEN PlaceUpLeft
+                    ELSE IF wnd.max_x + 2*( sw_gap + BorderWidth ) + width +
+                          label_width > parent.width THEN
+                      PlaceLeftBelow( wnd )
+                    ELSE PlaceAt( wnd.max_x + sw_gap + label_width, wnd.min_y );
+      parent.LastSubWindow :- This XWindow;
+      preceding_window :- wnd;
+      Placed := PlacedAfter;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceBefore( wnd );
+        Ref(XWindow) wnd;
+   BEGIN
+      PlaceBefore :- IF wnd == None THEN PlaceUpLeft
+                     ELSE IF wnd.min_x-2*( sw_gap + BorderWidth ) < width THEN
+                       Placeat( parent.width-( max_x-min_x )-sw_gap, wnd.max_y +
+                           sw_gap )
+                     ELSE Placeat( wnd.min_x-sw_gap-2*BorderWidth-width-( IF wnd
+                             In SubWindow THEN
+                         wnd Qua SubWindow.label_width
+                       ELSE 0 ), wnd.min_y );
+      preceding_window :- wnd;
+      Placed := PlacedBefore;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceCentered;
+   BEGIN
+      PlaceCentered :- Placeat(( parent.width-width )//2,( parent.height-height
+                           + parent.head_height )//2 );
+      placed := PlacedCentered;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceUpLeft;
+   BEGIN
+      PlaceUpLeft :- Placeat( parent.DepthBorder + sw_gap + label_width, parent.
+                         DepthBorder + sw_gap + parent.head_height );
+      parent.LastSubWindow :- This XWindow;
+      Placed := PlacedUpLeft;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceUpRight;
+   BEGIN
+      PlaceUpRight :- Placeat( parent.width-( max_x-min_x )-( parent.DepthBorder
+                          + sw_gap ), parent.DepthBorder + sw_gap + parent.
+                          head_height );
+      Placed := PlacedUpRight;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceDownLeft;
+   BEGIN
+      PlaceDownLeft :- Placeat( parent.DepthBorder + sw_gap + label_width,
+                           parent.height-( max_y-min_y )-( parent.DepthBorder +
+                           sw_gap ) );
+      Placed := PlacedDownLeft;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceDownRight;
+   BEGIN
+      PlaceDownRight :- Placeat( parent.width-( max_x-min_x )-( parent.
+                            DepthBorder + sw_gap ), parent.height-( max_y-min_y
+                            )-( parent.DepthBorder + sw_gap ) );
+      Placed := PlacedDownRight;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceLeftBelow( wnd );
+        Ref(XWindow) wnd;
+   BEGIN
+      PlaceLeftBelow :- IF wnd == None THEN PlaceUpleft
+                        ELSE PlaceAt( parent.DepthBorder + sw_gap + label_width,
+                            wnd.max_y + sw_gap );
+      parent.LastSubWindow :- This XWindow;
+      preceding_window :- wnd;
+      Placed := PlacedLeftBelow;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceRightBelow( wnd );
+        Ref(XWindow) wnd;
+   BEGIN
+      PlaceRightBelow :- Placeat( parent.width-( max_x-min_x )-( parent.
+                             DepthBorder + sw_gap ),( IF wnd =/= None THEN
+                             wnd.max_y
+                           ELSE 0 ) + sw_gap );
+      preceding_window :- wnd;
+      Placed := PlacedRightBelow;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceBelow( wnd );
+        Ref(XWindow) wnd;
+   BEGIN
+      PlaceBelow :- IF wnd == None THEN
+                      Placeat( sw_gap, sw_gap )
+                    ELSE Placeat( wnd.min_x, wnd.max_y + sw_gap );
+      preceding_window :- wnd;
+      Placed := PlacedBelow;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceAbove( wnd );
+        Ref(XWindow) wnd;
+   BEGIN
+      PlaceAbove :- IF wnd == None THEN PlaceUpLeft
+                    ELSE Placeat( wnd.min_x, wnd.min_y-sw_gap-height-2*
+                        current_border_width );
+      preceding_window :- wnd;
+      Placed := PlacedAbove;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceRightof( wnd );
+        Ref(XWindow) wnd;
+   BEGIN
+      PlaceRightof :- IF wnd == None THEN PlaceUpRight
+                      ELSE Placeat( wnd.max_x + sw_gap + label_width, wnd.min_y
+                          );
+      preceding_window :- wnd;
+      Placed := PlacedRightof;
+   END;
+
+   Ref(XWindow) PROCEDURE PlaceLeftof( wnd );
+        Ref(XWindow) wnd;
+   BEGIN
+      PlaceLeftof :- IF wnd == None THEN PlaceUpLeft
+                     ELSE Placeat( wnd.min_x-sw_gap-( max_x-min_x )-( IF wnd In
+                             SubWindow THEN
+                         wnd Qua SubWindow.label_width
+                       ELSE 0 ), wnd.min_y );
+      preceding_window :- wnd;
+      Placed := PlacedLeftof;
+   END;
+
+%    ref(XWindow) procedure PlaceTopRightof(wnd); ref(XWindow) wnd;
+%      PlaceTopRightof :- Placeat(wnd.max_x + sw_gap,
+%                          parent.DepthBorder + sw_gap + parent.head_height);
+
+   Text current_label;
+
+   Integer PROCEDURE label_width;
+      label_width := IF current_label == Notext THEN 0
+                     ELSE parent.width_of_text( current_label & "xx" );
+
+   Ref(XWindow) PROCEDURE SetLabel( a_label );
+        Text a_label;
+   BEGIN
+      current_label :- a_label;
+      Replace;
+%        if current_label =/= notext then
+      BEGIN
+         parent.Clear;
+         parent.Refresh;
+         parent.ShowLabels
+      END;
+      SetLabel :- This XWindow;
+   END;
+
+   PROCEDURE ShowCurrentLabel;
+      IF current_label =/= Notext THEN
+         parent.DrawTextPos( min_x-parent.width_of_text( "x" ), min_y + height//
+             2, current_label, RightPos, CenterPos );
+
+% JPH
+   PROCEDURE EraseCurrentLabel;
+      IF current_label =/= notext THEN
+         parent.EraseTextPos( min_x-parent.width_of_text( "x" ), min_y + height//
+             2, current_label, RightPos, CenterPos );
+
+END  SubWindow;
+
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******    H E A D W I N D O W       *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+SubWindow Class HeadWindow;
+BEGIN
+
+   Text current_heading;
+
+   Integer head_gap = 2;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Head window";
+
+   Ref(XWindow) PROCEDURE SetHeading( heading );
+        Text heading;
+   BEGIN
+      current_heading :- heading;
+      Clear;
+      Refresh;
+      SetHeading :- This XWindow;
+   END;
+
+   Integer PROCEDURE head_width;
+      head_width := width_of_text( " " & current_heading & " " );
+
+   PROCEDURE Place;
+   BEGIN
+      PlaceAt( parent.DepthBorder + head_gap, parent.DepthBorder + head_gap );
+      SetWidth( parent.width-2*( parent.DepthBorder + head_gap + BorderWidth ) )
+          ;
+      SetHeight( 4*font_height//3 );
+   END;
+
+   PROCEDURE Refresh;
+   BEGIN
+      DrawCenterText( current_heading );
+      IF fancy And DepthBorder > 0 THEN
+         UpBorder;
+%        if fancy and DepthBorder > 0 then UpBorder(DepthBorder);
+   END;
+
+   Ref(XWindow) PROCEDURE SetFancy;
+   BEGIN
+      SetBackground( "gray25" );
+      SetDepthBorder( 3 );
+      IF Not fancy THEN
+         SetHeight( height + 2*DepthBorder );
+      fancy := True;
+      SetFancy :- This HeadWindow;
+   END;
+
+%   PROCEDURE handle_button_click( button );
+%        Integer button;
+
+   PROCEDURE Handle_Click( X,Y ); Integer X,Y ;
+      parent.Raise;
+
+   SetTypeFace( "helvetica", 14, True, False );
+   IF parent.fancy THEN
+      SetFancy;
+   Place;
+   button_sensitize;
+   Show;
+
+END  HeadWindow;
+
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******         B U T T O N          *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+SubWindow Class Button( heading );
+     Text heading;
+Virtual:
+     PROCEDURE Allow Is
+        Ref(Button) PROCEDURE Allow;
+           ;
+     PROCEDURE Disallow Is
+        Ref(Button) PROCEDURE Disallow;
+           ;
+     PROCEDURE SetActive Is
+        Ref(Button) PROCEDURE SetActive;
+           ;
+     PROCEDURE SetInactive Is
+        Ref(Button) PROCEDURE SetInactive;
+           ;
+     PROCEDURE Resize Is
+        PROCEDURE Resize;
+           ;
+     PROCEDURE WriteLine Is
+        PROCEDURE WriteLine;
+           ;
+BEGIN
+
+   REF(Picture) TheIcon;
+
+   Text PROCEDURE heading_and_key;
+      IF key_set THEN
+         heading_and_key :- heading & " (" & char_as_text( shortcut ) & ")"
+      ELSE
+         heading_and_key :- heading;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Button " & heading;
+
+   Text PROCEDURE current_heading;
+      current_heading :- heading;
+
+   Boolean allowed, active, key_set;
+   Boolean waiting, mapped_at_start_of_waiting;
+
+   Character shortcut;
+
+   Ref(Button) PROCEDURE SetShortcut( k );
+        Character k;
+   BEGIN
+      shortcut := k;
+      key_set := True;
+%          if allowed then parent.key_sensitize;
+      parent.key_sensitize;
+      Resize;
+      Refresh;
+      SetShortcut :- This Button;
+   END;
+
+      Ref(Button) PROCEDURE Allow;
+   BEGIN
+      allowed := True;
+%          if key_set then parent.key_sensitize;
+%          SetDrawStipple("black");
+%          if ScreenDepth > 1 then
+      SetNoStipple;
+      SetForeground( "black" );
+      Refresh;
+      Allow :- This Button;
+   END;
+
+   Ref(Button) PROCEDURE Disallow;
+   BEGIN
+      allowed := False;
+%          if key_set then parent.key_desensitize;
+      IF Not active THEN
+%            begin SetDrawStipple("gray50"); Refresh end;
+      BEGIN
+         SetForeground( "gray50" );
+         Refresh
+      END;
+      Disallow :- This Button;
+   END;
+
+   Boolean PROCEDURE IsAllowed;
+      IsAllowed := allowed;
+
+   Ref(Button) PROCEDURE SetActive;
+   BEGIN
+      IF Not active THEN BEGIN
+         active := True;
+         SetBackGround( "gray75" );
+         Refresh;
+%              Whiteborder; Invert;
+      END;
+      SetActive :- This Button;
+   END;
+
+   Ref(Button) PROCEDURE SetInactive;
+   BEGIN
+      IF active THEN BEGIN
+         active := False;
+         SetBackGround( "white" );
+         Refresh;
+%              Invert;
+      END;
+      SetInactive :- This Button;
+   END;
+
+   Ref(Button) PROCEDURE SetActiveDisallow;
+   BEGIN
+      SetActive;
+      parent.DisallowButtonsInWindow;
+      SetActiveDisAllow :- This Button;
+   END;
+
+   Ref(Button) PROCEDURE SetInactiveAllow;
+   BEGIN
+      parent.AllowButtonsInWindow;
+      SetInactive;
+      SetInactiveAllow :- This Button;
+   END;
+
+   Ref(Button) PROCEDURE Click;
+   BEGIN
+      Handle_Click( 0,0 );
+      Click :- This Button;
+   END;
+
+%   PROCEDURE handle_button_click( a_button );
+%        Integer a_button;
+
+   PROCEDURE Handle_Click( X,Y ); Integer X,Y ;
+      IF allowed THEN BEGIN
+         IF Not active THEN BEGIN
+%            parent.Perform( heading );
+            parent.Handle_ButtonClick( This Button );
+         END;
+         IF waiting THEN BEGIN
+            IF Not mapped_at_start_of_waiting THEN
+               Hide;
+            waiting := False;
+         END;
+      END;
+
+   PROCEDURE handle_enter_window;
+      IF allowed THEN
+         Thickborder;
+%        if allowed then Thickborder(DepthBorder);
+
+   PROCEDURE handle_leave_window;
+      Whiteborder;
+%        Whiteborder(DepthBorder);
+
+   PROCEDURE StartWaiting;
+   BEGIN
+      mapped_at_start_of_waiting := mapped;
+      IF Not mapped_at_start_of_waiting THEN
+         Show;
+      waiting := True;
+      Allow;
+   END;
+
+   PROCEDURE StopWaiting;
+   BEGIN
+      IF Not mapped_at_start_of_waiting THEN
+         Hide;
+      waiting := False;
+      Disallow;
+   END;
+
+   Boolean PROCEDURE IsWaiting;
+   BEGIN
+      handle_pending_events;
+      IsWaiting := waiting;
+   END;
+
+   PROCEDURE Wait;
+   BEGIN
+      StartWaiting;
+      WHILE waiting DO
+         handle_event;
+   END;
+
+   PROCEDURE WriteLine;
+      DrawCenterText( heading_and_key );
+
+   PROCEDURE Refresh;
+   IF TheIcon == NONE THEN
+   BEGIN
+      Clear;
+      WriteLine;
+   END
+   ELSE DrawPicture(TheIcon, -1, -1);
+
+   PROCEDURE Resize;   
+   IF TheIcon == NONE THEN
+      SetSize( 2*width_of_text( " " ) + width_of_text(heading_and_key ), 
+               head_height + 4*font_height//3 )
+   ELSE SetSize(TheIcon.Width, TheIcon.Height);
+
+
+   Ref(XWindow) PROCEDURE SetHeading( h );
+        Text h;
+   BEGIN
+      heading :- h;
+      Refresh;
+      SetHeading :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE SetFont( font_name );
+        Text font_name;
+   BEGIN
+      SetXFont( the_display.find_font( font_name ) );
+      Resize;
+      Refresh;
+      SetFont :- This XWindow;
+   END;
+
+   REF(Button) PROCEDURE SetIcon(Filename); TEXT filename;
+   BEGIN
+      TheIcon :- GetPicture(filename);
+      Resize;
+      SetIcon :- THIS Button;
+   END;
+
+   SetDepthBorder( 3 );
+   Resize;
+   enter_and_leave_sensitize;
+   button_sensitize;
+   SaveUnder;
+   SetBackingStore;
+   Allow;
+   active := False;
+
+END  Button;
+
+Button Class FancyButton;
+BEGIN
+
+   Integer active_border = 3,   inside_border = 5,
+       inside_pos,  inside_mark = 4;
+
+   Boolean inside;
+
+   PROCEDURE Resize;
+      SetSize( max( width, 2*max_char_width + width_of_text( heading_and_key ) )
+          , max( height, head_height + 2*font_height ) );
+
+   Ref(Button) PROCEDURE Allow;
+   BEGIN
+      allowed := True;
+      SetFill( "gray75" );
+      Refresh;
+      rehighlight;
+      Allow :- This FancyButton;
+   END;
+
+   Ref(Button) PROCEDURE Disallow;
+   BEGIN
+      allowed := False;
+      SetFill( "gray50" );
+      Refresh;
+      rehighlight;
+      Disallow :- This FancyButton;
+   END;
+
+   Ref(Button) PROCEDURE SetActive;
+   BEGIN
+      IF Not active THEN BEGIN
+         active := True;
+         ActiveBorder;
+         IF inside THEN
+            mark_inside;
+      END;
+      SetActive :- This FancyButton;
+   END;
+
+   Ref(Button) PROCEDURE SetInactive;
+   BEGIN
+      IF active THEN BEGIN
+         active := False;
+         ActiveBorder;
+         IF inside THEN
+            mark_inside
+         ELSE
+            mark_outside;
+      END;
+      SetInactive :- This FancyButton;
+   END;
+
+   PROCEDURE WriteLine;
+   BEGIN
+      SetBlackonWhite;
+      DrawTextPos( width//2 + 2,( head_height + height )//2 + 1, heading_and_key
+          , CenterPos, CenterPos );
+      SetWhiteonBlack;
+      DrawTextPos( width//2-1,( head_height + height )//2-1, heading_and_key,
+          CenterPos, CenterPos );
+      SetBlackonWhite;
+   END;
+
+   PROCEDURE rehighlight;
+      IF( inside And Not PointerInside ) Or Not allowed THEN
+         mark_outside
+      ELSE IF Not inside And PointerInside And allowed THEN
+         mark_inside;
+
+   PROCEDURE handle_enter_window;
+      IF allowed THEN
+         mark_inside;
+
+   PROCEDURE handle_leave_window;
+      mark_outside;
+
+   PROCEDURE mark_inside;
+   BEGIN
+      Integer top,  h;
+
+      top := inside_pos + head_height;
+      h := height-head_height-2*inside_pos;
+      WhiteRectangle( inside_pos, top, inside_mark, h );
+      WhiteRectangle( width-inside_pos-inside_mark, top, inside_mark, h );
+      inside := True;
+   END;
+
+   PROCEDURE mark_outside;
+   BEGIN
+      Integer top,  h;
+
+      top := inside_pos + head_height;
+      h := height-head_height-2*inside_pos;
+      FillRectangle( inside_pos, top, inside_mark, h );
+      FillRectangle( width-inside_pos-inside_mark, top, inside_mark, h );
+      inside := False;
+   END;
+
+   PROCEDURE ActiveBorder;
+      IF active THEN
+         Downborder
+      ELSE
+         Upborder;
+%      if active then Downborder(active_border)
+%                else Upborder(active_border);
+
+   PROCEDURE Refresh;
+   BEGIN
+      Fill;
+      WriteLine;
+      ActiveBorder;
+      IF inside THEN
+         mark_inside;
+   END;
+
+   SetDepthBorder( active_border );
+   inside_pos := 2*active_border + 2;
+
+END  FancyButton;
+
+
+button CLASS Icon(PictName); TEXT PictName;
+BEGIN
+   REF(Picture) Pict;
+
+   PROCEDURE Refresh;
+   IF Pict =/= NONE THEN DrawPicture(Pict, 0, 0);
+
+   Pict :- GetPicture(PictName);
+   IF Pict =/= NONE THEN BEGIN
+      SetSize(Pict.Width, Pict.Height);
+      DrawPicture(Pict, 0, 0);
+   END;
+END   --- Icon ---;
+
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******   R A D I O   P A N E L      *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+
+SubWindow Class RadioPanel;
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "RadioPanel";
+
+   Ref(sequence) table;
+
+   Integer current;
+
+   Boolean horizontal;
+
+   Ref(RadioPanel) PROCEDURE SetHorizontal;
+   BEGIN
+      horizontal := True;
+      SetHorizontal :- This RadioPanel
+   END;
+
+   Ref(RadioPanel) PROCEDURE SetVertical;
+   BEGIN
+      horizontal := False;
+      SetVertical :- This RadioPanel
+   END;
+
+   Text PROCEDURE CurrentChoice;
+   BEGIN
+      Inspect table.element_number( current ) when RadioButton do
+         CurrentChoice :- heading;
+   END;
+
+   Ref(RadioPanel) PROCEDURE AddButton( t );
+        Text t;
+   BEGIN
+      Ref(RadioButton) rb;
+
+      rb :- New RadioButton( This RadioPanel, t, horizontal );
+      IF table.is_empty THEN
+         rb.PlaceUpLeft
+      ELSE IF horizontal THEN
+         rb.PlaceRightof( table.element_number( table.size ) Qua RadioButton )
+      ELSE
+         rb.PlaceBelow( table.element_number( table.size ) Qua RadioButton );
+      table :- table.append( rb );
+      SetSize( max( width, rb.max_x + SubwindowSpacing + DepthBorder ), max(
+          height, rb.max_y + SubwindowSpacing + DepthBorder ) );
+      AddButton :- This RadioPanel;
+   END;
+
+   Ref(RadioPanel) PROCEDURE ClickInRadiobutton( t );
+        Text t;
+   BEGIN
+      ClickInRadiobutton :- SetButton( t );
+      Parent.Handle_Selection(This RadioPanel, T, current);
+%      parent.ClickInRadioPanel( This RadioPanel );
+   END;
+
+   Ref(RadioPanel) PROCEDURE SetButton( t );
+        Text t;
+   BEGIN
+      Boolean found;
+      Integer i, n;
+
+      n := 1;
+      WHILE n <= table.size And Not found DO
+         IF t = table.element_number( n ) Qua RadioButton.heading THEN
+            found := True
+         ELSE
+            n := n + 1;
+      IF found THEN 
+      BEGIN
+         current := n;
+         For i := 1 Step 1 Until table.size DO
+            table.element_number( i ) Qua RadioButton.Choose( n = i );
+      END;
+      
+      SetButton :- This RadioPanel;
+   END;
+
+   Ref(RadioPanel) PROCEDURE AddSetButton( t );
+        Text t;
+      AddSetButton :- AddButton( t ).SetButton( t );
+
+   table :- New sequence;
+   current := 1;
+   SetSubWindowSpacing( 3 );
+
+END  RadioPanel;
+
+
+% ********************************************
+% *******   R A D I O   B U T T O N    *******
+% ********************************************
+
+SubWindow Class RadioButton( heading, horizontal );
+     Text heading;
+     Boolean horizontal;
+BEGIN
+
+   Boolean chosen;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "RadioButton-element " & heading;
+
+   PROCEDURE Choose( c );
+        Boolean c;
+   BEGIN
+      chosen := c;
+      Refresh
+   END;
+
+   Integer head_bot,    head_left,  center_x,   center_y,   radius;
+
+   PROCEDURE Refresh;
+   BEGIN
+      Clear;
+      IF horizontal THEN BEGIN
+         DrawTextPos( width//2, center_y + radius + 2, heading, CenterPos,
+             TopPos );
+         DrawCircle( width//2, center_y, radius );
+         IF chosen THEN
+            FillCircle( width//2, center_y, radius-2 );
+      END
+      ELSE BEGIN
+         DrawTextPos( head_left, height//2, heading, LeftPos, CenterPos );
+         DrawCircle( center_x, height//2, radius );
+         IF chosen THEN
+            FillCircle( center_x, height//2, radius-2 );
+      END
+   END;
+
+%   PROCEDURE handle_button_click( button );
+
+   PROCEDURE Handle_Click( X,Y ); Integer X,Y ;
+      parent Qua RadioPanel.ClickInRadiobutton( heading );
+
+   button_sensitize;
+   SetFill( "black" );
+   SetBorderWidth( 0 );
+   head_left := 3*font_height//2;
+   radius := font_height//2-1;     
+   IF horizontal THEN
+      SetSize( max( width_of_text( heading & " " ), 3*radius ), 2*font_height +
+          font_descent )
+   ELSE
+      SetSize( head_left + width_of_text( heading ) + SubwindowSpacing,
+          font_height );
+   center_x := font_height//2 + 3;
+   center_y := font_height//2 + 3;
+   head_bot := height-( font_descent );
+   Show;
+
+END  RadioButton;
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******       C H E C K B O X        *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+% MakeCheckBox is with the other Makeblabla...
+
+   Subwindow CLASS Checkbox;
+   BEGIN
+      BOOLEAN   Current_Value;
+      TEXT      Current_Label;  !Will this permit the search?;
+      INTEGER   X_Rect, Y_Rect, !The upper left origin of the box;
+                Size_Of_Box;
+      
+      PROCEDURE Refresh;
+      IF Mapped THEN
+      BEGIN
+         REF(XGraphicalContext)  SavedGC;
+         SavedGC :- CopyGC;
+         ClearRectangle(0, 0, width, height);
+         SetLineWidth(0);
+         RefreshBox;
+         DrawTextPos(SubwindowSpacing + 1.5*Size_Of_Box, Height//2,
+                     Current_Label, LeftPos, CenterPos);
+         RestoreGC(SavedGC);
+      END   --- Refresh ---;
+
+      REF(Checkbox) PROCEDURE  RefreshBox;
+      BEGIN
+         ClearRectangle(X_Rect, Y_Rect, Size_Of_Box, Size_Of_Box);
+         SetLineWidth(2);
+         DrawRectangle(X_Rect, Y_Rect, Size_Of_Box, Size_Of_Box);
+         IF Current_Value THEN BEGIN
+            SetLineWidth(2);
+            DrawLine(X_Rect, Y_Rect, X_Rect+Size_Of_Box, Y_Rect+Size_Of_Box);
+            DrawLine(X_Rect-1, Y_Rect+Size_Of_Box, X_Rect+Size_Of_Box-1, Y_Rect);
+         END;
+         SetLineWidth(1);
+         RefreshBox :- THIS Checkbox;
+      END   --- RefreshBox ---;
+      
+      REF(Checkbox) PROCEDURE SetText(t); TEXT t;
+      BEGIN
+         Current_Label :- t;
+         Size_Of_Box := Font_Height - 5;
+         SetSize(Width_Of_Text(Current_Label) + 1.5*Size_Of_Box
+                 + 2*SubwindowSpacing,
+                 Font_Height+2*SubwindowSpacing);
+         X_Rect := SubWindowSpacing;
+         Y_Rect := (Height - Size_Of_Box)//2;  !Centered;
+         Refresh;
+         SetText :- THIS Checkbox;
+      END   --- SetText ---;
+
+      REF(Checkbox) PROCEDURE SetBox;
+      BEGIN
+         Current_Value := TRUE;
+         Refresh;
+         SetBox :- THIS Checkbox;
+      END;
+      
+      REF(Checkbox) PROCEDURE UnSetBox;
+      BEGIN
+         Current_Value := FALSE;
+         Refresh;
+         UnSetBox :- THIS Checkbox;
+      END;
+
+   PROCEDURE Handle_Click( X,Y ); Integer X,Y ;
+      BEGIN
+         Current_Value := NOT Current_Value;
+         RefreshBox;
+         if Current_Value 
+           then Parent.Handle_Selection(this Xwindow,"true",1)
+           else Parent.Handle_Selection(this Xwindow,"false",0);
+      END;
+
+      BOOLEAN PROCEDURE Checked;
+      Checked := Current_Value;
+
+      Button_Sensitize;
+      SetSubwindowSpacing(3);
+      SetBorderWidth(0);
+      
+   END --- Checkbox Class ---;
+
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******     I N P U T W I N D O W    *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+SubWindow Class InputWindow;
+%
+% Public procedures:
+%
+%      ref(InputWindow) procedure AllowInput;
+%      ref(InputWindow) procedure DisallowInput;
+%      ref(InputWindow) procedure MakeEmpty;
+%
+Virtual:
+     PROCEDURE char_ok Is
+        Boolean PROCEDURE char_ok( key );
+           Character key;
+           ;
+     PROCEDURE text_left Is
+        Integer PROCEDURE text_left;
+           ;
+     PROCEDURE cursor_x Is
+        Integer PROCEDURE cursor_x;
+           ;
+     PROCEDURE cursor_top Is
+        Integer PROCEDURE cursor_top;
+           ;
+     PROCEDURE cursor_height Is
+        Integer PROCEDURE cursor_height;
+           ;
+     PROCEDURE cursor_width Is
+        Integer PROCEDURE cursor_width;
+           ;
+     PROCEDURE show_current_text Is
+        PROCEDURE show_current_text;
+           ;
+     PROCEDURE set_current_text Is
+        PROCEDURE set_current_text( t );
+           Text t;
+           ;
+
+BEGIN
+
+   Text current_text;
+   Boolean Changed;      ! if Changed then Parent notified via ChangeInSubWindow ;
+
+   Boolean input_allowed,
+       cursor_pos_set,
+       block_cursor,
+       no_cursor,
+       incrementable;
+
+   Integer cursor_pos,
+       max_item_length;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Input window";
+
+   Boolean left_justified,  center_justified,   right_justified;
+
+   Ref(InputWindow) PROCEDURE LeftJustify;
+   BEGIN
+      left_justified := True;
+      center_justified := False;
+      right_justified := False;
+      LeftJustify :- This InputWindow;
+   END;
+
+   Ref(InputWindow) PROCEDURE RightJustify;
+   BEGIN
+      left_justified := False;
+      center_justified := False;
+      right_justified := True;
+      RightJustify :- This InputWindow;
+   END;
+
+   Ref(InputWindow) PROCEDURE CenterJustify;
+   BEGIN
+      left_justified := False;
+      center_justified := True;
+      right_justified := False;
+      CenterJustify :- This InputWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE AllowInput;
+   BEGIN
+      input_allowed := True;
+      key_sensitize;
+%          if not this InputWindow in CharItemWindow then LeftJustify;
+      AllowInput :- This InputWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DisallowInput;
+   BEGIN
+      input_allowed := False;
+      key_desensitize;
+%          CenterJustify;
+      DisallowInput :- This InputWindow;
+   END;
+
+   Boolean give_echo;
+
+   Ref(InputWindow) PROCEDURE NoEcho;
+   BEGIN
+      give_echo := False;
+      NoEcho :- This InputWindow;
+   END;
+
+   Ref(InputWindow) PROCEDURE Echo;
+   BEGIN
+      give_echo := True;
+      Echo :- This InputWindow;
+   END;
+
+   PROCEDURE Refresh;
+   BEGIN
+      show_current_text;
+   END;
+
+   PROCEDURE show_current_text;
+   BEGIN
+
+      Text PROCEDURE stars;
+         IF current_text == Notext THEN
+            stars :- Notext
+         ELSE BEGIN
+            Text t;
+            Integer i;
+
+            t :- blanks( current_text.length );
+            For i := 1 Step 1 Until t.length DO
+               t.putchar( '*' );
+            stars :- t;
+         END;
+
+      ClearRectangle( DepthBorder, head_height + DepthBorder + 2, width-2*
+          DepthBorder, height-head_height-2-2*DepthBorder );
+      DrawTextPos( text_left,( height + head_height )//2, IF give_echo THEN
+              current_text
+        ELSE stars, LeftPos, CenterPos );
+   END;
+
+   PROCEDURE handle_enter_window;
+      IF input_allowed THEN BEGIN
+         Changed := false;
+         ThickBorder;
+         PlaceCursor
+      END;
+
+   PROCEDURE handle_leave_window;
+      IF input_allowed THEN BEGIN
+         RemoveCursor;
+         WhiteBorder;
+         if Changed then 
+            Parent.Handle_Typing( This InputWindow );
+      END;
+
+   PROCEDURE handle_button_down( button );
+        Integer button;
+      IF input_allowed THEN BEGIN
+         Integer wot;
+
+         wot := width_of_text( "x" );            !**v4.2**;
+
+         cursor_pos_set := True;
+         RemoveCursor;
+         cursor_pos := min( current_text.length, x_of_event//wot );
+         PlaceCursor;
+      END;
+
+   PROCEDURE handle_down_arrow;
+      ;
+
+   PROCEDURE handle_up_arrow;
+      ;
+
+   PROCEDURE handle_return; !JPH modifs; begin
+      handle_down_arrow;
+      parent.handle_return; end;
+
+   PROCEDURE handle_right_arrow;
+   BEGIN
+      RemoveCursor;
+      IF cursor_pos < current_text.length THEN
+         cursor_pos := cursor_pos + 1;
+      PlaceCursor;
+   END;
+
+   PROCEDURE handle_left_arrow;
+   BEGIN
+      RemoveCursor;
+      IF cursor_pos > 0 THEN
+         cursor_pos := cursor_pos-1;
+      PlaceCursor;
+   END;
+
+   Boolean PROCEDURE char_ok( key );
+        Character key;
+      char_ok := 32 <= rank( key ) And rank( key ) <= maxrank;
+
+    Boolean Procedure handle_shortcut(C); character C;
+    Begin
+        handle_shortcut := true;
+        if Input_allowed then
+        begin
+            Boolean shortCutFound;
+    
+            PROCEDURE Check_button( b ); Ref(element) b;
+            INSPECT b When Button DO 
+            IF shortcut = c THEN BEGIN
+                Handle_Click( 0,0 );
+                shortCutFound := True
+            END;
+    
+            children.for_each_element( Check_button );
+            IF Not shortCutFound THEN
+                 handle_key_down( c );
+        end;
+    end;
+    
+   PROCEDURE handle_key_down( key );
+        Character key;
+      IF input_allowed THEN BEGIN
+         Text head, curr,   tail;
+
+%         parent.InputInSubwindow( This InputWindow );
+         Changed := true;
+         IF isDelete( key ) And cursor_pos > 0 THEN BEGIN
+            RemoveCursor;
+            IF cursor_pos = 1 THEN
+               head :- Notext
+            ELSE
+               head :- current_text.sub( 1, cursor_pos-1 );
+            IF cursor_pos = current_text.length THEN
+               tail :- Notext
+            ELSE
+               tail :- current_text.sub( cursor_pos + 1, current_text.length-
+                           cursor_pos );
+            set_current_text( head & tail );
+            cursor_pos := min( cursor_pos-1, current_text.length );
+            show_current_text;
+            PlaceCursor;
+         END
+         ELSE IF char_ok( key ) And then 
+             ( current_text.length < max_item_length Or
+             incrementable Or cursor_pos < current_text.length ) THEN BEGIN
+            RemoveCursor;
+            IF current_text.length = max_item_length And incrementable And
+                cursor_pos = current_text.length THEN BEGIN
+               SetMaxchars( max_chars + 6 );
+               parent.SizeChange_in_SubWindow( This InputWindow );
+            END;
+            IF cursor_pos = 0 Or current_text == Notext THEN
+               head :- Notext
+            ELSE
+               head :- current_text.sub( 1, cursor_pos );
+            curr :- blanks( 1 );
+            curr.putchar( key );
+            IF current_text == Notext Or else current_text.length = cursor_pos THEN
+               tail :- Notext
+            ELSE
+               tail :- current_text.sub( cursor_pos + 1, current_text.length-
+                           cursor_pos );
+            set_current_text( head & curr & tail );
+            cursor_pos := cursor_pos + 1;
+            show_current_text;
+            PlaceCursor;
+         END
+         ELSE IF key = char( return_code ) And then parent In PromptWindow THEN
+            parent Qua PromptWindow.ReturnKey
+         ELSE IF key = char( return_code ) THEN
+            handle_return;
+      END;
+
+   PROCEDURE set_current_text( t );
+        Text t;
+      IF t == Notext THEN
+         current_text :- Notext
+      ELSE BEGIN
+         Character c;
+
+         current_text :- blanks( min( t.length, max_item_length ) );
+         t.setpos( 1 );
+         WHILE t.more And current_text.more DO BEGIN
+            c := t.getchar;
+            IF char_ok( c ) THEN
+               current_text.putchar( c );
+         END;
+      END;
+
+   Integer PROCEDURE text_border;
+      text_border := DepthBorder + width_of_text( "1" )//2;
+
+   Integer PROCEDURE text_left;
+      text_left := text_border;
+
+   Boolean cursor_placed;
+
+   PROCEDURE PlaceCursor;
+      IF cursor_pos_set And Not cursor_placed And Not no_cursor THEN BEGIN
+         Text c;
+
+         IF 0 <= cursor_pos And cursor_pos < current_text.length
+         THEN
+            c :-( IF give_echo THEN
+                    current_text.sub( cursor_pos + 1, 1 )
+                  ELSE "*" )
+         ELSE
+            c :- " ";
+         HighLightText( True );
+         DrawTextPos( cursor_x,( height + head_height )//2, c, LeftPos,
+             CenterPos );
+         HighLightText( False );
+         cursor_placed := True;
+      END;
+
+   PROCEDURE RemoveCursor;
+   BEGIN
+      cursor_placed := False;
+      show_current_text;
+   END;
+
+   Ref(InputWindow) PROCEDURE SetBlockCursor;
+   BEGIN
+      block_cursor := True;
+      SetBlockCursor :- This InputWindow;
+   END;
+
+   Ref(InputWindow) PROCEDURE SetLineCursor;
+   BEGIN
+      block_cursor := False;
+      SetLineCursor :- This InputWindow;
+   END;
+
+   Integer PROCEDURE cursor_top;
+      cursor_top :=( IF block_cursor THEN
+                       ( height + head_height-font_ascent-font_descent )//2
+                     ELSE head_height + DepthBorder + 2 );
+
+   Integer PROCEDURE cursor_height;
+      cursor_height := IF block_cursor THEN
+                         font_height + 2
+                       ELSE height-head_height-2*DepthBorder-2;
+
+   Integer PROCEDURE cursor_bottom;
+      cursor_bottom := cursor_top + cursor_height;
+
+   Integer PROCEDURE cursor_width;
+      cursor_width := 1 +( IF Not block_cursor Or cursor_pos >= max_item_length
+                                 THEN 0
+                           ELSE width_of_char( IF current_text == Notext Or else
+                                   cursor_pos >= current_text.length THEN ' '
+                             ELSE current_text.sub( cursor_pos + 1, 1 ).getchar
+                               ) );
+
+   Integer PROCEDURE cursor_x;
+      cursor_x := text_left-1 +( IF current_text == Notext Or cursor_pos = 0
+                                       THEN 0
+                                 ELSE width_of_text( current_text.sub( 1, min(
+                                     cursor_pos, current_text.length ) ) ) );
+
+   Ref(XWindow) PROCEDURE MakeEmpty;
+   BEGIN
+      current_text :- Notext;
+      cursor_pos := 0;
+      Refresh;
+      MakeEmpty :- This InputWindow;
+   END;
+
+   SetCursor( "xterm" );    !CDL June 19,1995;
+
+   enter_and_leave_sensitize;
+%      key_sensitize;
+   button_sensitize;
+   DisallowInput;
+   Echo;
+   SetBackingStore;
+   current_text :- Notext;
+   cursor_pos := 0;
+   cursor_pos_set := True;
+   incrementable := False;
+   SetDepthBorder( 2 );
+   max_item_length := 0;
+   SetTypeFace( "courier", default_font_points, True, False );
+   SetBlockCursor;
+   WhiteBorder;
+
+END  InputWindow;
+
+
+
+   Boolean PROCEDURE isDelete( C );
+        Character C;
+      isDelete := Rank( C ) = 8    ! Backspace ;
+               Or Rank( C ) = 127; ! Delete    ;
+
+   Boolean PROCEDURE char_ok( key );
+        Character key;
+      char_ok := 32 <= rank( key ) And rank( key ) <= maxrank;
+
+
+
+% ******************************************
+% ******************************************
+% *******                            *******
+% *******     I T E M W I N D O W    *******
+% *******                            *******
+% ******************************************
+% ******************************************
+
+  InputWindow Class ItemWindow;
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Public procedures:
+%
+%  ref(itemWindow) proc Put( Text ); 
+%  Text            proc Get;
+%
+% Subclasses:
+%
+%   Inherited from ItemWindow:
+%              AllowInput, DisallowInput,
+%              MakeEmpty
+
+% NEW: Each subclass also has specialized GET and PUT procedure 
+% === that do take and return values of the appropriate type 
+%     doing the same thing as the older Get<type> and Put<type> procedures
+%
+%   IntItemWindow
+%      procedure putint(int); integer int;
+%      integer procedure getint;
+%   RealItemWindow
+%      procedure putreal(r); real r;
+%      real procedure getreal;
+%   CharItemWindow
+%      procedure putchar(char); character char;
+%      character procedure getchar;
+%   BoolItemWindow
+%      procedure putBool(bool); Boolean bool;
+%      Boolean procedure getBool;
+%   TextItemWindow
+%      procedure putText(t); text t;
+%      text procedure getText;
+%   TextHeadWindow
+%      procedure puttext(t); text t;
+%
+Virtual:
+     PROCEDURE max_item_height Is
+        Integer PROCEDURE max_item_height;
+           ;
+     PROCEDURE max_item_width Is
+        Integer PROCEDURE max_item_width;
+           ;
+     PROCEDURE place_current_value Is
+        PROCEDURE place_current_value;
+           ;
+
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Item window";
+
+   Ref(XWindow) PROCEDURE PlaceAt( minx, miny );
+        Integer minx, miny;
+        
+        ! Version pour ITEMWINDOW exclusivement;
+        
+   BEGIN
+      External C PROCEDURE xmovewindow Is
+         PROCEDURE XMoveWindow( WindowID, x, y );
+            Integer WindowID, x, y;
+            ;
+       if Mapped then EraseCurrentLabel;  
+       Current_MinX := Max(MinX, 
+                           parent.DepthBorder + sw_gap + label_width);
+      current_miny := miny;
+      XMoveWindow( WindowID, current_minx, current_miny );
+      placed := PlacedAt;
+      placedat_x := minx;
+      placedat_y := miny;
+      PlaceAt :- This XWindow;
+      
+      if Mapped then ShowCurrentLabel;
+   END;
+
+   PROCEDURE Resize;
+      SetSize( max( IF max_chars_set THEN 0
+                    ELSE width, max_item_width + 2*DepthBorder ), max( height,
+          head_height + max_item_height + 2*DepthBorder ) );
+
+   PROCEDURE SetSizeSub;
+   BEGIN
+      Integer MCW;
+
+      MCW := max_char_width;                         ! **v4.2**;
+      max_item_length := max( 1, IF max_chars_set THEN max_chars
+                                 ELSE( width-2*text_border )//MCW );
+   END;
+
+   Integer PROCEDURE max_item_height;
+      max_item_height := 4*font_height//3;
+
+   Integer PROCEDURE text_left;
+      text_left := IF left_justified THEN text_border
+                   ELSE IF center_justified THEN
+                     width//2-width_of_text( current_text )//2
+                   ELSE IF right_justified THEN
+                     width-text_border-width_of_text( current_text )
+                   ELSE text_border;
+
+   Ref(XWindow) PROCEDURE SetFont( font_name );
+        Text font_name;
+   BEGIN
+      SetXFont( the_display.find_font( font_name ) );
+      Resize;
+      Refresh;
+      SetFont :- This XWindow;
+   END;
+
+% Ref(Itemwindow) prev_itemwindow, next_itemwindow;
+% JPH add Begin  
+ 
+   Ref(ItemWindow) PROCEDURE Prev_ItemWindow;
+   BEGIN
+      ref(Iterator)  IT;
+      ref(XWindow)   Temp1, Temp2;
+      IT :- parent.children.elements;
+      WHILE IT.more DO
+      BEGIN
+         IF Temp2 IN ItemWindow THEN Temp1 :- Temp2;
+         Temp2 :- IT.NextElement;
+         IF Temp2 == THIS ItemWindow THEN Prev_ItemWindow :- Temp1;
+      END;
+   END;
+   
+   Ref(ItemWindow) PROCEDURE Next_ItemWindow;
+   BEGIN
+      ref(Iterator)  IT;
+      ref(XWindow)   Temp;
+      IT :- parent.children.elements;
+      WHILE IT.more AND NOT IT.NextElement == THIS ItemWindow DO ;
+      WHILE IT.more AND NOT Temp IN ItemWindow DO Temp :- IT.NextElement;
+      IF Temp IN ItemWindow THEN Next_ItemWindow :- Temp
+      ELSE Next_ItemWindow :- NONE;
+   END;
+% JPH End
+
+   PROCEDURE handle_down_arrow;
+      IF next_itemwindow =/= None THEN
+         next_itemwindow.PlacePointerRight;
+
+%      ELSE  ! **v4.5**;
+%         owner.PlacePointer( max_x + SubWindowSpacing//2, mid_y );
+
+   PROCEDURE handle_up_arrow;
+      IF prev_itemwindow =/= None THEN
+         prev_itemwindow.PlacePointerRight;
+
+   Ref(XWindow) PROCEDURE SetMaxChars( c );
+        Integer c;
+   BEGIN
+      c := max( c, 1 );
+      max_chars := c;
+      max_chars_set := True;
+      max_item_length := c;
+      SetMaxChars :- SetWidth(( c + 1 )*max_char_width + 3*depth_border + 2*
+                         BorderWidth );
+   END;
+
+  Text PROCEDURE GET;        !***v4.5***;
+        Get :- current_text;
+  
+  ref(ItemWindow) PROCEDURE PUT(T); Text T;    !***v4.5***;
+     set_current_text(T);
+
+
+   max_item_length := 0;
+   LeftJustify;
+   
+END  ItemWindow;
+
+
+  ItemWindow Class IntItemWindow;
+% ---------------------------------------------
+BEGIN
+
+   Integer minitem, maxitem;
+
+   Ref(IntItemWindow) PROCEDURE setlimits( mn, mx );
+        Integer mn, mx;
+   BEGIN
+      minitem := mn;
+      maxitem := mx;
+      max_item_length := max( int_as_text( mn ).length, int_as_text( mx ).length
+                             );
+      Resize;
+      setlimits :- This IntItemWindow;
+   END;
+
+   Boolean PROCEDURE char_ok( key );
+        Character key;
+      char_ok := digit( key ) Or else key = '-' Or else key = '+';
+
+   Integer PROCEDURE max_char_width;
+      max_char_width := width_of_char( '0' );
+
+   Integer PROCEDURE max_item_width;
+      max_item_width :=( 2 + max_item_length )*width_of_char( '0' );
+
+   Ref(IntItemWindow) PROCEDURE putint( int );
+        Integer int;
+   BEGIN
+      current_text :- int_as_text( min( maxitem, max( minitem, int ) ) );
+      cursor_pos := current_text.length;
+      Refresh;
+      putint :- This IntItemWindow;
+   END;
+
+   Integer PROCEDURE getint;
+      getint := IF Not ok_int( current_text ) THEN 0
+                ELSE current_text.getint;
+
+
+% ------JPH may 13th  added GET & PUT
+
+   Ref(IntItemWindow) PROCEDURE put( int );
+        Integer int;
+      put :- putint( int );
+
+   Integer PROCEDURE get;
+      get := getint;
+
+   Setlimits( minint//4, maxint );
+
+END  IntItemWindow;
+
+% ----------------------------------------
+ItemWindow Class RealItemWindow;
+
+% Public:
+%   Inherited from ItemWindow:
+%              AllowInput, DisallowInput,
+%              MakeEmpty
+%
+%   Ref(RealItemWindow) PROCEDURE put( Number, Decimals );
+%   Real PROCEDURE get;
+%
+
+BEGIN
+
+   Boolean PROCEDURE char_ok( key );
+        Character key;
+      char_ok := digit( key ) Or key = '-' Or key = '+' Or key = '.';
+
+   Integer PROCEDURE max_char_width;
+      max_char_width := width_of_char( '0' );
+
+   Integer PROCEDURE max_item_width;
+      max_item_width :=( 2 + max_item_length )*width_of_char( '0' );
+
+   Ref(RealItemWindow) PROCEDURE putreal( r, decimals );
+        Real r;
+        Integer decimals;
+   BEGIN
+      current_text :- real_as_text( r, decimals );
+      cursor_pos := current_text.length;
+      Refresh;
+      putreal :- This RealItemWindow;
+   END;
+
+   Real PROCEDURE getreal;
+      getreal := IF Not ok_real( current_text ) THEN 0
+                 ELSE current_text.getreal;
+
+% ------JPH may 13th added GET & PUT
+
+   Ref(RealItemWindow) PROCEDURE put( r, decimals );
+        Real r;
+        Integer decimals;
+      put :- putreal( r, decimals );
+
+   Real PROCEDURE get;
+      get := getreal;
+
+
+   max_item_length := 12;
+   Resize;
+
+END  RealItemWindow;
+
+
+% ---------------------------------------
+ItemWindow Class CharItemWindow;
+
+% Public:
+%   Inherited from ItemWindow:
+%              AllowInput, DisallowInput,
+%              MakeEmpty
+%
+%   Ref(CharItemWindow) PROCEDURE put( C );
+%   character PROCEDURE get;
+%
+
+BEGIN
+
+   Integer PROCEDURE max_item_width;
+      max_item_width := max( 3*max_char_width//2, 3*width_of_char( 'x' ) );
+
+   PROCEDURE SetSizeSub;
+      max_item_length := 1;
+
+   PROCEDURE handle_key_down( key );
+        Character key;     
+      IF input_allowed THEN BEGIN
+         Text curr;
+
+%         parent.InputInSubwindow( This InputWindow );
+         Changed := true;
+
+         IF isDelete( key ) THEN BEGIN
+            RemoveCursor;
+            set_current_text( "" );
+            cursor_pos := 0;
+            show_current_text;
+            PlaceCursor;
+         END
+         ELSE IF char_ok( key ) THEN BEGIN
+            RemoveCursor;
+            curr :- blanks( 1 );
+            curr.putchar( key );
+            set_current_text( curr );
+            cursor_pos := 1;
+            show_current_text;
+            PlaceCursor;
+         END
+         ELSE IF key = char( return_code ) And then
+              parent In PromptWindow THEN
+            parent Qua PromptWindow.ReturnKey
+         ELSE IF key = char( return_code ) THEN
+            handle_return;
+      END;
+
+   Ref(CharItemWindow) PROCEDURE putchar( char );
+        Character char;
+   BEGIN
+      IF 32 <= rank( char ) And rank( char ) <= maxrank And char Ne ' ' THEN
+          BEGIN
+         current_text :- char_as_text( char );
+         cursor_pos := 1;
+         Refresh;
+      END
+      ELSE BEGIN
+         current_text :- Notext;
+         cursor_pos := 0;
+         Refresh;
+      END;
+      putchar :- This CharItemWindow;
+   END;
+
+   Character PROCEDURE getchar;
+      IF current_text == Notext THEN
+         getchar := char( 0 )
+      ELSE BEGIN
+         current_text.setpos( 1 );
+         getchar := current_text.getchar;
+      END;
+
+% ------ JPH may 13th added GET & PUT
+
+      Ref(CharItemWindow) PROCEDURE put( char );
+           Character char;
+         put :- putchar( char );
+
+      Character PROCEDURE get;
+         get := getchar;
+
+   CenterJustify;
+   no_cursor := True;
+   max_item_length := 1;
+   Resize;
+
+END  CharItemWindow;
+
+% ----------------------------------------
+  ItemWindow Class BoolItemWindow;
+% ----------------------------------------
+BEGIN
+
+   Boolean current_value;     
+   Text TRUE_text,  FALSE_text;
+
+   Integer PROCEDURE max_item_width;
+      max_item_width := width_of_text( "      " ) + max( width_of_text(
+                            true_text ), width_of_text( FALSE_text ) );
+
+   PROCEDURE show_current_text;
+   BEGIN
+      Integer hh;
+
+      hh := IF head_height = 0 THEN 0
+            ELSE head_height + 2;
+      ClearRectangle( DepthBorder, hh + DepthBorder, width-2*DepthBorder, height
+          -hh-2*DepthBorder );
+      DrawTextPos( width//2, height//2,  
+                   IF current_value THEN TRUE_text
+                   ELSE FALSE_text, 
+                   CenterPos, CenterPos );
+   END;
+
+   PROCEDURE SetSizeSub;
+      max_item_length := 3;
+
+   Ref(XWindow) PROCEDURE MakeEmpty;
+   BEGIN
+      current_value := False;
+      current_text :- FALSE_text;
+    !   value_set := false;
+                            !CDL June 30 1995;
+      Refresh;
+      MakeEmpty :- This BoolItemWindow
+   END;
+
+%   PROCEDURE handle_button_click( button );
+%        Integer button;
+
+   PROCEDURE Handle_Click( X,Y ); Integer X,Y ;
+   BEGIN
+      placeinput( Not current_value );
+   END;
+
+   PROCEDURE placeinput( b );
+        Boolean b;
+      IF input_allowed THEN BEGIN
+         putBool( b );
+%        Parent.InputInSubwindow( This BoolItemWindow );
+         Changed := true;
+      END;
+
+   PROCEDURE handle_key_down( key );
+        Character key;
+   BEGIN
+      IF indexOf( Key, "yYjJoO") <> 0 THEN
+         placeinput( True )
+      ELSE IF key = 'n' Or key = 'N' THEN
+         placeinput( False )
+      ELSE IF key = char( return_code ) And parent In PromptWindow !***v4.4 ;
+      THEN
+         parent Qua PromptWindow.ReturnKey
+      ELSE                                                         !***v4.4 ;
+      IF key = char( return_code ) THEN
+         handle_return
+      ELSE
+         placeinput( Not current_value );
+   END;
+
+   Ref(BoolItemWindow) PROCEDURE putBool( bool );
+        Boolean bool;
+   BEGIN
+      current_value := bool; 
+      IF current_value THEN
+         current_text :- TRUE_text
+      ELSE
+         current_text :- FALSE_text;  
+      Refresh;
+      putBool :- This BoolItemWindow;
+   END;
+
+   Boolean PROCEDURE getBool;
+      getBool := current_value;
+      
+% ------ JPH may 13th added GET & PUT
+
+   Ref(BoolItemWindow) PROCEDURE put( bool );
+           Boolean bool;
+      put :- putBool( bool );
+
+   Boolean PROCEDURE get;
+         get := current_value;
+      
+
+!   SetTypeFace( "helvetica", 12, True, False );   !***JPH***;
+   IF NorskTekst THEN
+      TRUE_text :- "Ja"
+   ELSE
+      TRUE_text :- "Yes";
+   IF NorskTekst THEN
+      FALSE_text :- "Nei"
+   ELSE
+      FALSE_text :- "No";
+
+   no_cursor := True;
+   CenterJustify;
+   max_item_length := 3;
+   Resize;
+
+END  BoolItemWindow;
+
+
+
+  ItemWindow Class TextItemWindow;
+% ===============================
+BEGIN
+
+   Integer PROCEDURE max_item_width;
+      max_item_width := text_border + max_item_length*max_char_width;
+
+   Ref(TextItemWindow) PROCEDURE puttext( t );
+        Text t;
+   BEGIN
+      current_text :- t;
+      max_item_length := max( max_item_length, t.length );
+      IF current_text == Notext Or Else current_text.strip == Notext THEN
+         cursor_pos := 0
+      ELSE
+         cursor_pos := current_text.strip.length;
+      Refresh;
+      puttext :- This TextItemWindow;
+   END;
+
+   Text PROCEDURE gettext;
+      IF current_text.strip == Notext THEN
+         gettext :- Notext
+      ELSE BEGIN
+         current_text.setpos( 1 );
+         WHILE current_text.getchar = ' ' DO
+            ;
+         gettext :- copy( current_text.sub( current_text.pos-1, current_text.
+                        length-current_text.pos + 2 ).strip );
+      END;
+
+% ------JPH may 13th  added GET & PUT
+
+      Ref(TextItemWindow) PROCEDURE put( t );
+           Text t;
+         put :- puttext( t );
+
+      Text PROCEDURE get;
+         get :- gettext;
+
+
+   max_item_length := 0;
+   Resize;
+
+END  TextItemWindow;
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******       I T E M L I S T        *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+
+   SubWindow Class ItemList;
+   BEGIN
+      Ref(Sequence) para_windows;
+      Ref(ItemWindow) last_para_window;
+
+      Text PROCEDURE window_kind;
+         window_kind :- "ItemList";
+
+      Ref(ItemWindow) PROCEDURE PlaceItemWindow( para, lb );
+           Ref(ItemWindow) para;
+           Text lb;
+      BEGIN
+         Integer cx,    wx;
+
+         PROCEDURE fs( p );
+              Ref(element) p;
+            INSPECT p When ItemWindow DO BEGIN
+               cx := max( cx, min_x );
+               wx := max( wx, width )
+            END;
+
+         PROCEDURE fm( p );
+              Ref(element) p;
+            INSPECT p When ItemWindow DO BEGIN
+               PlaceAt( cx, max( 3, min_y ) );
+               SetWidth( wx )
+            END;
+
+         para.AllowInput;
+         para.SetLabel( lb );
+         para.LeftJustify;
+         !SetSubWindowSpacing( 0 );
+         IF last_para_window == None THEN
+            para.PlaceUpleft
+         ELSE
+            para.PlaceLeftBelow( last_para_window );
+         last_para_window :- para;
+         para_windows.append( para );
+         cx := 0;
+         wx := 0;
+         para_windows.for_each_element( fs );
+         para_windows.for_each_element( fm );
+         SetSubWindowSpacing( 3 );
+         SetSizeToSubwindowSize;
+         PlaceItemWindow :- para;
+      END;
+
+      Ref(IntItemWindow) PROCEDURE MakeIntItem( lb, nc );
+           Text lb;
+           Integer nc;
+         MakeIntItem :- PlaceItemWindow( New IntItemWindow( This XWindow )
+                               .PlaceAfter( LastSubwindow ).Show.SetMaxchars( nc
+                               ), lb );
+
+      Ref(RealItemWindow) PROCEDURE MakeRealItem( lb, nc );
+           Text lb;
+           Integer nc;
+         MakeRealItem :- PlaceItemWindow( New RealItemWindow( This XWindow
+                                ).PlaceAfter( LastSubwindow ).Show.SetMaxchars(
+                                nc ), lb );
+
+      Ref(CharItemWindow) PROCEDURE MakeCharItem( lb );
+           Text lb;
+         MakeCharItem :- PlaceItemWindow( New CharItemWindow( This XWindow
+                                ).PlaceAfter( LastSubwindow ).Show, lb );
+
+      Ref(TextItemWindow) PROCEDURE MakeTextItem( lb, nc );
+           Text lb;
+           Integer nc;
+         MakeTextItem :- PlaceItemWindow( New TextItemWindow( This XWindow
+                                ).PlaceAfter( LastSubwindow ).Show.SetMaxChars(
+                                nc ), lb );
+
+      Ref(BoolItemWindow) PROCEDURE MakeBoolItem( lb );
+           Text lb;
+         MakeBoolItem :- PlaceItemWindow( New BoolItemWindow( This XWindow
+                                ).PlaceAfter( LastSubwindow ).Show, lb );
+
+
+      SetSubWindowSpacing( 3 ); !inutile???;
+      para_windows :- New Sequence;
+      
+   END  ItemList;
+
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******   P R O M P T W I N D O W    *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+SubWindow Class PromptWindow;
+BEGIN
+   Text PROCEDURE window_kind;
+      window_kind :- "PromptWindow";
+
+
+   Text current_prompt;
+   Ref(ItemWindow) answer_window;
+   Ref(Button)  OK_button,     cancel_button,
+                clear_button,  hide_button;
+                
+   Integer initial_text_length = 12,    
+           prevwidth;
+
+   Boolean give_echo;  
+   Boolean accept,  cancel, width_increased;
+   
+
+   PROCEDURE Refresh;
+      IF fancy THEN
+         DownBorder;
+
+   Ref(XWindow) PROCEDURE SetFancy;
+   BEGIN
+      SetDepthBorder( 3 );
+      SetSubWindowSpacing( font_height//2 );
+
+      IF OK_button =/= None THEN   !CDL June 19, 1995;
+      BEGIN
+         OK_button.Destroy;
+         OK_Button :- New FancyButton( This PromptWindow, "OK" );
+      END;
+
+      IF cancel_button =/= None THEN BEGIN
+         cancel_Button.Destroy;
+         cancel_Button :- New FancyButton( This PromptWindow, IF Norsktekst THEN
+                                  "Bryt"
+                            ELSE "Cancel" );
+      END;
+
+      IF clear_button =/= None THEN BEGIN
+         clear_button.Destroy;
+         clear_Button :- New FancyButton( This PromptWindow, IF Norsktekst THEN
+                                 "Tom"
+                           ELSE "Clear" );
+      END;
+
+      IF hide_button =/= None THEN      !CDL July 7 1995;
+      BEGIN
+         hide_button.Destroy;
+         hide_Button :- New FancyButton( This PromptWindow, IF Norsktekst THEN
+                                "Tom"
+                          ELSE "Clear" );
+      END;
+
+      fancy := True;
+      SetBackGround( "gray75" );
+      Resize;
+      SetFancy :- This PromptWindow;
+   END;
+
+   Ref(PromptWindow) PROCEDURE MakeOKButton;
+   BEGIN
+      OK_button :- IF fancy THEN
+                     New FancyButton( This PromptWindow, "OK" )
+                   ELSE New Button( This PromptWindow, "OK" );
+      MakeOKButton :- This PromptWindow;
+   END;
+
+   Ref(PromptWindow) PROCEDURE MakeCancelButton;
+   BEGIN
+      Text bt;
+
+      IF Norsktekst THEN
+         bt :- "Bryt"
+      ELSE
+         bt :- "Cancel";
+      cancel_button :- IF fancy THEN
+                         New FancyButton( This PromptWindow, bt )
+                       ELSE New Button( This PromptWindow, bt );
+      MakeCancelButton :- This PromptWindow;
+   END;
+
+   Ref(PromptWindow) PROCEDURE MakeClearButton;
+   BEGIN
+      Text bt;
+
+      IF Norsktekst THEN
+         bt :- "Tom"
+      ELSE
+         bt :- "Clear";
+      clear_button :- IF fancy THEN
+                        New FancyButton( This PromptWindow, bt )
+                      ELSE New Button( This PromptWindow, bt );
+      MakeClearButton :- This PromptWindow;
+   END;
+
+   Ref(PromptWindow) PROCEDURE MakeHideButton;
+   BEGIN
+      Text bt;
+
+      IF Norsktekst THEN
+         bt :- "Skjul"
+      ELSE
+         bt :- "Hide";
+      hide_button :- IF fancy THEN
+                       New FancyButton( This PromptWindow, bt )
+                     ELSE New Button( This PromptWindow, bt );
+      hide_button.Show;
+      MakeHideButton :- This PromptWindow;
+   END;
+
+
+   Boolean PROCEDURE cancelled;
+      cancelled := cancel;
+
+   Boolean PROCEDURE accepted;
+      accepted := accept;
+
+
+   Text PROCEDURE ASK_FOR( answer_wnd, prompt );
+        Ref(ItemWindow) answer_wnd;
+        Text prompt;
+   BEGIN
+      Boolean is_mapped;  !, inside_top_window;
+                                                !CDL July 4 1995;
+      ! INTEGER  pointer_x, pointer_y;
+                                        !CDL July 4 1995;
+      Text ct;
+
+      Clear;
+      answer_window :- answer_wnd;
+%     answer_window.LeftJustify;   !JPH --> now default ;
+      answer_wnd.SetLabel( prompt ).PlaceUpLeft;
+      IF fancy THEN
+         answer_wnd.SetHeight( 2*font_height );
+      width_increased := False;
+      PlaceSubwindows;
+      is_mapped := mapped;
+      IF Not is_mapped THEN
+         Show;
+      Raise;
+      answer_wnd.AllowInput;
+      answer_wnd.PlacePointerRight;
+      IF Not give_echo THEN
+         answer_wnd.noecho;        
+      accept := False;
+      cancel := False;
+      WHILE Not( accept Or cancel ) DO
+         handle_event;
+      ct :- answer_wnd.current_text;
+      answer_wnd.SetLabel( Notext ).Hide;
+      Clear;
+      answer_wnd.current_text :- ct;
+      answer_wnd.DisallowInput;
+      IF OK_Button =/= None THEN
+         OK_button.Hide;
+      IF Cancel_Button =/= None THEN
+         Cancel_button.Hide;
+      IF Clear_Button =/= None THEN
+         Clear_button.Hide;
+      IF hide_button =/= None THEN
+         hide_button.hide;                       
+      IF Not is_mapped THEN
+         Hide;
+      current_prompt :- Notext;
+      IF width_increased THEN
+         SetWidth( prevwidth );
+   END;
+
+   Boolean PROCEDURE ask_for_Bool( prompt );
+        Text prompt;                       
+   BEGIN
+      Ref(BoolItemWindow) answer_wnd;
+      Boolean is_mapped;
+
+      answer_wnd :- New BoolItemWindow( This PromptWindow ).Show;
+
+      Clear;
+      answer_window :- answer_wnd;
+
+      answer_wnd.SetLabel( prompt ).PlaceUpLeft;
+      IF fancy THEN
+         answer_wnd.SetHeight( 2*font_height );
+
+      PlaceSubwindows;
+      is_mapped := mapped;
+      IF Not is_mapped THEN
+         Show;
+      Raise;
+      answer_wnd.AllowInput;
+
+      answer_wnd.PlacePointerRight;
+      accept := False;
+      cancel := False;
+      IF Not give_echo THEN
+         answer_wnd.noecho;
+
+      WHILE Not( accept Or cancel ) DO
+         handle_event;
+
+      answer_wnd.Hide;
+      Clear;
+
+      answer_wnd.DisallowInput;
+      IF OK_Button =/= None THEN
+         OK_button.Hide;
+      IF Cancel_Button =/= None THEN
+         Cancel_button.Hide;
+      IF Clear_Button =/= None THEN
+         Clear_button.Hide;
+      IF hide_button =/= None THEN
+         hide_button.hide;                    
+      IF Not is_mapped THEN
+         Hide;
+
+      IF accepted THEN
+         ask_for_bool := answer_wnd.getbool
+      ELSE
+         ask_for_bool := False;
+      answer_wnd.Destroy;
+   END;
+
+   Boolean PROCEDURE be_om_Bool( prompt );
+        Text prompt;
+      be_om_Bool := ask_for_Bool( prompt );
+
+   PROCEDURE SizeChange_in_SubWindow( wnd );
+        Ref(SubWindow) wnd;
+      IF wnd == answer_window THEN
+         PlaceSubwindows;
+
+   PROCEDURE PlaceSubwindows;
+   BEGIN
+      Integer newwidth;
+
+      IF clear_Button =/= None THEN
+         clear_button.PlaceRightof( answer_window ).Show;
+      IF OK_Button =/= None THEN
+         OK_button.PlaceRightof( IF clear_Button =/= None THEN clear_Button
+                                 ELSE answer_window ).Show;
+      IF Cancel_Button =/= None THEN
+         Cancel_button.PlaceRightof( IF OK_Button =/= None THEN OK_Button
+                                     ELSE IF clear_Button =/= None THEN
+                                           clear_Button
+                                     ELSE answer_window ).Show;
+      IF Hide_Button =/= None THEN
+         Hide_button.PlaceRightof( IF Cancel_Button =/= None THEN cancel_Button
+                                   ELSE IF OK_Button =/= None THEN OK_Button
+                                   ELSE IF clear_Button =/= None THEN
+                                         clear_Button
+                                   ELSE answer_window ).Show;
+      newwidth :=( IF Hide_Button =/= None THEN Hide_Button
+                   ELSE IF Cancel_Button =/= None THEN Cancel_Button
+                   ELSE IF OK_Button =/= None THEN OK_Button
+                   ELSE IF clear_Button =/= None THEN clear_Button
+                   ELSE answer_window ).max_x + subwindow_spacing + BorderWidth;
+      IF width < newwidth THEN BEGIN
+         IF Not width_increased THEN
+            prevwidth := width;
+         width_increased := True;
+         SetWidth( newwidth );
+         IF max_x + parent.SubWindowSpacing > parent.width THEN
+            parent.SetWidth( max_x + parent.SubWindowSpacing );
+      END;
+   END;
+
+   Text PROCEDURE ask_for_text( prompt );
+        Text prompt;
+   BEGIN
+      Ref(TextItemWindow) answer_wnd;
+
+      answer_wnd :- New TextItemWindow( This PromptWindow ).SetMaxChars(
+                        initial_text_length ).Show;
+      answer_wnd.incrementable := True;
+      ask_for( answer_wnd, prompt );
+      IF accepted THEN
+         ask_for_text :- answer_wnd.gettext
+      ELSE
+         ask_for_text :- Notext;
+%          answer_wnd.Hide;     !CDL June 19 1995;
+      answer_wnd.Destroy;
+   END;
+
+   Text PROCEDURE be_om_text( prompt );
+        Text prompt;
+      be_om_text :- ask_for_text( prompt );
+
+   Text PROCEDURE ask_for_text_def( prompt, default );
+        Text prompt, default;
+   BEGIN
+      Ref(TextItemWindow) answer_wnd;
+
+      answer_wnd :- New TextItemWindow( This PromptWindow ).SetMaxChars( max(
+                        initial_text_length, default.length ) ).Show;
+      answer_wnd.incrementable := True;
+      answer_wnd.puttext( default );
+      ask_for( answer_wnd, prompt );
+      IF accepted THEN
+         ask_for_text_def :- answer_wnd.gettext
+      ELSE
+         ask_for_text_def :- Notext;
+%          answer_wnd.Hide;     !CDL June 19 1995;
+      answer_wnd.Destroy;
+   END;
+
+   Text PROCEDURE ask_for_text_lim( prompt, max_length );
+        Text prompt;
+        Integer max_length;
+   BEGIN
+      Ref(TextItemWindow) answer_wnd;
+
+      answer_wnd :- New TextItemWindow( This PromptWindow ).SetMaxChars( max( 1,
+                        max_length ) )
+%                              .SetMaxChars(6)
+                    .Show;
+      answer_wnd.incrementable := False;
+      ask_for( answer_wnd, prompt );
+      IF accepted THEN
+         ask_for_text_lim :- answer_wnd.gettext
+      ELSE
+         ask_for_text_lim :- Notext;
+%          answer_wnd.Hide;    !CDL June 19 1995;
+      answer_wnd.Destroy;
+   END;
+
+   Text PROCEDURE ask_for_text_def_lim( prompt, default, max_length );
+        Text prompt, default;
+        Integer max_length;
+   BEGIN
+      Ref(TextItemWindow) answer_wnd;
+
+      answer_wnd :- New TextItemWindow( This PromptWindow ).SetMaxChars(
+                        max_length ).Show;
+      answer_wnd.incrementable := False;
+      answer_wnd.puttext( default );
+      ask_for( answer_wnd, prompt );
+      IF accepted THEN
+         ask_for_text_def_lim :- answer_wnd.gettext
+      ELSE
+         ask_for_text_def_lim :- Notext;
+%          answer_wnd.Hide; !CDL June 19 1995;
+      answer_wnd.Destroy;
+   END;
+
+   Integer PROCEDURE ask_for_int( prompt );
+        Text prompt;
+   BEGIN
+      Ref(IntItemWindow) answer_wnd;
+
+      answer_wnd :- New IntItemWindow( This PromptWindow ).SetMaxChars( 10 ).
+                        Show;
+      answer_wnd.incrementable := True;
+      ask_for( answer_wnd, prompt );
+      ask_for_int := IF accepted THEN
+                       answer_wnd.getint
+                     ELSE 0;
+%          answer_wnd.Hide;  !CDL June 19 1995;
+      answer_wnd.Destroy;
+   END;
+
+   Integer PROCEDURE be_om_int( prompt );
+        Text prompt;
+      be_om_int := ask_for_int( prompt );
+
+   Integer PROCEDURE ask_for_int_def( prompt, default );
+        Text prompt;
+        Integer default;
+   BEGIN
+      Ref(IntItemWindow) answer_wnd;
+
+      answer_wnd :- New IntItemWindow( This PromptWindow ).SetMaxChars( 10 ).
+                        Show;
+      answer_wnd.incrementable := True;
+      answer_wnd.putint( default );
+      ask_for( answer_wnd, prompt );
+      ask_for_int_def := IF accepted THEN
+                           answer_wnd.getint
+                         ELSE 0;
+%          answer_wnd.Hide;  !CDL June 19 1995;
+      answer_wnd.Destroy;
+   END;
+
+   Real PROCEDURE ask_for_real( prompt );
+        Text prompt;
+   BEGIN
+      Ref(RealItemWindow) answer_wnd;
+
+      answer_wnd :- New RealItemWindow( This PromptWindow ).SetMaxChars( 11 ).
+                        Show;
+      answer_wnd.incrementable := True;
+      ask_for( answer_wnd, prompt );
+      ask_for_real := IF accepted THEN
+                        answer_wnd.getreal
+                      ELSE 0;
+%          answer_wnd.Hide;  !CDL June 19 1995;
+      answer_wnd.Destroy;
+   END;
+
+   Real PROCEDURE be_om_real( prompt );
+        Text prompt;
+      be_om_real := ask_for_real( prompt );
+
+   Real PROCEDURE ask_for_real_def( prompt, default );
+        Text prompt;
+        Real default;
+   BEGIN
+      Ref(RealItemWindow) answer_wnd;
+
+      answer_wnd :- New RealItemWindow( This PromptWindow ).SetMaxChars( 11 ).
+                        Show;
+      answer_wnd.incrementable := True;
+      answer_wnd.putreal( default, 3 );
+      ask_for( answer_wnd, prompt );
+      ask_for_real_def := IF accepted THEN
+                            answer_wnd.getreal
+                          ELSE 0;
+%          answer_wnd.Hide; !CDL June 19 1995;
+      answer_wnd.Destroy;
+   END;
+
+   Character PROCEDURE ask_for_char( prompt );
+        Text prompt;
+   BEGIN
+      Ref(CharItemWindow) answer_wnd;
+
+      answer_wnd :- New CharItemWindow( This PromptWindow ).Show;
+      ask_for( answer_wnd, prompt );
+      ask_for_char := IF accepted THEN
+                        answer_wnd.getchar
+                      ELSE char( 0 );
+%          answer_wnd.Hide; !CDL June 19 1995;
+      answer_wnd.Destroy;
+   END;
+
+   Character PROCEDURE be_om_char( prompt );
+        Text prompt;
+      be_om_char := ask_for_char( prompt );
+
+   Character PROCEDURE ask_for_char_def( prompt, default );
+        Text prompt;
+        Character default;
+   BEGIN
+      Ref(CharItemWindow) answer_wnd;
+
+      answer_wnd :- New CharItemWindow( This PromptWindow ).Show;
+      answer_wnd.putchar( default );
+      ask_for( answer_wnd, prompt );
+      ask_for_char_def := IF accepted THEN
+                            answer_wnd.getchar
+                          ELSE char( 0 );
+      answer_wnd.Destroy;
+   END;
+
+   PROCEDURE ClickInButton( b );
+        Ref(Button) b;
+      IF b == OK_button THEN
+         accept := True
+      ELSE IF b == cancel_button THEN
+         cancel := True
+      ELSE IF b == hide_button THEN
+                                ! hide ;
+                                         !CDL July 3 1995;
+      BEGIN
+         Hide;
+         Cancel := True;
+      END
+      ELSE
+
+      IF b == clear_button And then answer_window =/= None THEN
+         answer_window.MakeEmpty;
+
+
+   PROCEDURE ReturnKey;
+      accept := True;
+
+   PROCEDURE Resize;
+      SetSize( width_of_text( " (Prompt) " ), max( height, head_height + 2*(
+          DepthBorder + subwindow_spacing + BorderWidth ) +( IF fancy THEN
+          2*font_height
+        ELSE 4*font_height//3 ) ) );
+
+   Ref(XWindow) PROCEDURE SetFont( font_name );
+        Text font_name;
+   BEGIN
+      SetXFont( the_display.find_font( font_name ) );
+      Resize;
+      Refresh;
+      SetFont :- This XWindow;
+   END;
+
+   Ref(PromptWindow) PROCEDURE Echo;     !CDL Nov 19 1995;
+   BEGIN
+      IF answer_window =/= None THEN
+         answer_window.echo;
+      give_echo := True;
+      Echo :- This PromptWindow;
+   END;
+
+   Ref(PromptWindow) PROCEDURE NoEcho;     !CDL Nov 19 1995;
+   BEGIN
+      IF answer_window =/= None THEN
+         answer_window.NoEcho;
+      give_echo := False;
+      NoEcho :- This PromptWindow;
+   END;
+
+   Resize;
+   give_echo := True;    !CDL Nov 19 1995;
+   SaveUnder;
+   PlaceAt( 10*SubWindowSpacing, 10*SubWindowSpacing );
+
+END  PromptWindow;
+
+
+
+SubWindow Class MessageWindow;
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "MessageWindow";
+
+   PROCEDURE Refresh;
+   BEGIN
+      IF message_in_window =/= Notext THEN
+         DrawTextPos( DepthBorder + 2*space_width, head_height + height//2,
+             message_in_window, LeftPos, CenterPos );
+      IF fancy THEN
+         DownBorder;
+   END;
+
+   Text message_in_window;
+
+   Integer space_width;
+
+   Ref(XWindow) PROCEDURE SetFancy;
+   BEGIN
+      fancy := True;
+      SetBackGround( "gray75" );
+      SetDepthBorder( 3 );
+      setfancy :- This MessageWindow;
+   END;
+
+   Ref(Button) OK_button;
+
+   Ref(MessageWindow) PROCEDURE TimedMessage( mess, time );
+        Text mess;
+        Integer time;
+   BEGIN
+      SetAlarm( time );  !***v4.4;
+      Message( mess );
+      TimedMessage :- This MessageWindow;
+   END;
+
+   Ref(MessageWindow) PROCEDURE Message( mess );
+        Text mess;
+   BEGIN
+      SetSize( 2*DepthBorder + 5*space_width + width_of_text( mess ) + OK_button
+          .width, max( height, 2*DepthBorder + head_height + max( 2*font_height,
+          OK_button.max_y + font_height//4 ) ) );
+
+      OK_button.PlaceWithCenterIn( width-OK_button.width//2-2*space_width-
+          DepthBorder, head_height + height//2 );
+      OK_button.Show;
+      Clear;
+      message_in_window :- mess;
+      Raise;
+      Show;
+      OK_button.Wait;
+      Hide;
+      Message :- This MessageWindow;
+   END;
+
+   PROCEDURE handle_alarm;
+      IF OK_button.Waiting THEN
+         OK_button.StopWaiting;                            !***v4.4;
+
+   PROCEDURE Resize;
+      SetHeight( max( height, head_height + 2*( DepthBorder + sw_gap ) +
+          OK_button.height ) );
+
+   Ref(XWindow) PROCEDURE SetFont( font_name );
+        Text font_name;
+   BEGIN
+      SetXFont( the_display.find_font( font_name ) );
+      space_width := width_of_char( ' ' );
+      Resize;
+      Refresh;
+      SetFont :- This XWindow;
+   END;
+
+   IF parent.fancy THEN
+      SetFancy;
+   space_width := width_of_char( ' ' );
+   OK_button :- New Button( This MessageWindow, "OK" ).Show;
+   SaveUnder;
+   Resize;
+   PlaceAt( 10*subwindowspacing, 10*subwindowspacing );
+
+END  MessageWindow;
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******       T E X T A R E A        *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+% -----------------------------------------------------------------
+%   TextArea:
+%  ============
+%   This Widget displays multi-line texts.  It can be used in ONE
+%   of 2 modes: as an 'outfile' to display files (initial state)
+%   or as a Text-edit window (INPUT) where the user can type in or 
+%   delete data.  The MODE defines which events the window is 
+%   sensitive to.
+%
+%   TextArea serves as a superCLASS to LISTWINDOW used for menus.
+%
+%   - We also use a TextArray structure to store the displayed text.
+%     This structure uses a text array object which can be replaced
+%     if the text grows too large for the initial array
+% -----------------------------------------------------------------
+
+% InputWindow Class ListWindow;
+
+SubWindow Class TextArea;
+
+Virtual:
+
+     PROCEDURE InvertSelection Is
+        PROCEDURE InvertSelection;
+           ;
+BEGIN
+   Text PROCEDURE window_kind;
+      window_kind :- "TextArea";
+
+   Ref(TextArray) Lines;
+   Ref(IntSet) grayLines;
+   Boolean     Changed;
+
+   Integer invert_line_nr;
+
+   Text buffer;            ! works as the IMAGE text for a file;
+   
+   Boolean Button_pressed;
+
+   Boolean input_allowed, choice_allowed;
+
+   Integer max_lines_in_window, wnd_bot,    wnd_top;
+
+   Integer PROCEDURE info_top;
+      info_top := Lines.size;
+
+   Integer char_width;
+
+   Integer PROCEDURE chars_in_line;
+      chars_in_line :=( width-2*text_left )//char_width;
+
+   Integer PROCEDURE text_border;
+      text_border := depth_border + 1;
+
+   Integer PROCEDURE text_left;
+      text_left := depth_border + 1;
+
+   Integer PROCEDURE text_width;
+      text_width := width-text_left;
+
+   PROCEDURE WTrace;
+      INSPECT sysout DO BEGIN
+         outtext( "info_top = " );
+         outint( info_top, 5 );
+         outimage;
+         outtext( "wnd_bot  = " );
+         outint( wnd_bot, 5 );
+         outimage;
+         outtext( "max_lines_in_window = " );
+         outint( max_lines_in_window, 5 );
+         outimage;
+      END;
+
+    ! -----------------------------------------------------------
+      The following functions give the Y coordinates for writing
+      text (base_line) and for bounding rectangles (rect_y)
+
+      Note: TL = line number in TEXT (LINES array)
+            WL = line number in WINDOW
+      ----------------------------------------------------------- ;
+
+   Integer PROCEDURE base_line( tL );
+        Integer tL;
+      base_line := head_height +( tL-wnd_bot + 1 )*font_height;
+
+   Integer PROCEDURE rect_y( tL );
+        Integer tL;
+      rect_y := head_height +( tL-wnd_bot + 1 )*font_height-font_ascent;
+
+   Integer PROCEDURE Wbase_line( wL );
+        Integer wL;
+      Wbase_line := head_height + wL*font_height;
+
+   Integer PROCEDURE Wrect_y( wL );
+        Integer wL;
+      Wrect_y := head_height + wL*font_height-font_ascent;
+
+% -----------------------------------------------------------------
+%       T E X T    S E L E C T I O N
+%
+%   Selected text is indicated by reverse video on the screen.
+%   It can extend over several lines.  It is expressed as 4 integers,
+%   Col1-Line1 to Col2-Line2, where:
+%
+%   - LINE numbers start at 1 and refer to lines in the TEXT array;
+%       not the lines as seen in the window
+%   - COLUMN numbers start at 0 and refer to position 'between'
+%     characters (0 means left of first char on a line and 1 means
+%     just after the first character).
+%   - We ensure that <Col1,Line1> comes before <col2,line2> in the
+%     text:  line1<line2  OR line1=line2 AND col1<=col2
+% -----------------------------------------------------------------
+
+   Integer SelCol1, SelCol2,    Col_down,   Col_last,
+       SelLine1,    SelLine2,   Line_down,  Line_last;
+
+
+   Ref(XWindow) PROCEDURE AllowInput;
+      IF Not input_allowed THEN BEGIN
+         input_allowed := True;
+         InvertSelection;
+         key_sensitize;
+         pointer_motion_sensitize;
+         SetCursor( "xterm" );
+         AllowInput :- This TextArea;
+      END;
+
+   Ref(XWindow) PROCEDURE DisallowInput;
+      IF input_allowed THEN BEGIN
+         input_allowed := False;
+         InvertSelection;
+         key_desensitize;
+         pointer_motion_desensitize;
+         SetCursor( "arrow" );
+         DisallowInput :- This TextArea;
+      END;
+
+   Ref(XWindow) PROCEDURE AllowChoice;
+   begin
+      Choice_Allowed := true;
+      AllowChoice :- This XWindow;
+   end;
+   
+   Ref(XWindow) PROCEDURE DisallowChoice;
+   begin
+      Choice_Allowed := false;
+      DisallowChoice :- This XWindow;
+   end;
+   
+% -----------------------------------------------------------------
+%        Event Handling
+% -----------------------------------------------------------------
+
+   PROCEDURE handle_enter_window;
+      IF input_allowed THEN 
+      Begin
+         Changed := false;
+         ThickBorder;
+      End;
+
+   PROCEDURE handle_leave_window;
+      IF input_allowed THEN Begin
+         WhiteBorder;
+         if changed then Parent.Handle_Typing(This XWindow);
+      end;
+
+   PROCEDURE handle_button_down( button );
+        Integer button;
+      IF input_allowed THEN BEGIN
+         Button_Pressed := True;
+         InvertSelection;     ! to remove Cursor ;
+
+         SelLine1 := SelLine2 := 
+         Line_last := max(1, min( info_top, Line_of( y_of_event ) ) );
+
+         SelCol1 := SelCol2 := 
+         Col_last := min( Col_of( x_of_event ), Lines.get(
+                                               SelLine1 ).length );
+      END;
+
+   PROCEDURE handle_pointer_motion( x, y );
+        Integer x, y;
+   BEGIN
+      Integer line_nr,
+          Col,
+          Line;
+
+      Line := min( info_top, Line_of( y ) );
+      line_nr := Line-wnd_bot + 1;
+      Col := bounded( 0, Col_of( x ), Lines.get( Line ).length );
+
+      IF input_allowed And then Button_Pressed And
+         ( Col <> Col_Last Or Line <>
+          Line_last ) THEN BEGIN
+         IF Line > Line_Last Or( Line = Line_Last And Col >= Col_Last ) THEN
+            InvertZone( Col_last, Line_last, Col, Line )
+         ELSE
+            InvertZone( Col, Line, Col_last, Line_last );
+         Col_last := Col;
+         Line_Last := Line;
+      END;
+   END;
+
+   PROCEDURE handle_button_up( button );
+        Integer button;
+      IF input_allowed And Button_Pressed THEN BEGIN
+         Button_Pressed := False;
+
+         IF SelLine1 > Line_Last Or( SelLine1 = Line_Last And SelCol1 >=
+             Col_Last ) THEN BEGIN
+            SelCol2 := SelCol1;
+            SelLine2 := SelLine1;
+            SelCol1 := Col_last;
+            SelLine1 := Line_last;
+         END
+         ELSE BEGIN
+            SelCol2 := Col_last;
+            SelLine2 := Line_last;
+         END;
+
+         IF SelLine1 = SelLine2 And SelCol1 = SelCol2 THEN
+            invertSelection;
+      END;
+
+   PROCEDURE Handle_Click( X,Y ); Integer X,Y ;
+   IF Choice_Allowed then
+   BEGIN 
+      integer LineLast;
+      Line_last := min( info_top, Line_of( y_of_event ) );
+      parent.Handle_Selection(This Xwindow, Lines.get( Line_last ), Line_Last );
+   END;
+   
+   Integer PROCEDURE Col_of( X );
+        Integer X;
+      Col_of :=( x-text_left + 2 )//char_width;
+
+   Integer PROCEDURE Line_of( Y );
+        Integer Y;
+   BEGIN
+      Integer FH;   !**v4.2**;
+
+      FH := font_height;
+      Line_of :=( y-head_height-font_descent )//FH + wnd_bot;
+   END;
+
+   PROCEDURE InvertSelection;
+      IF input_allowed THEN
+         InvertZone( SelCol1, SelLine1, SelCol2, SelLine2);
+
+
+   PROCEDURE InvertZone( C1, L1, C2, L2 );
+        Integer C1, L1, C2, L2;
+      IF wnd_bot <= L2 And L1 <= wnd_top THEN BEGIN
+         ! NOTE: this procedure assumes that Point 1 is before Point2 ;
+
+         Integer i, X0, Xmax,
+             X1,    X2;
+
+         X0 := text_left;
+         X1 := X0 + C1*char_width;
+         X2 := X0 + C2*char_width;
+         Xmax := X0 + text_width;
+
+         IF L1 = L2 THEN
+            InvertRectangle( X1, rect_y( L1 ), max( 1, X2-X1 ), font_height )
+         ELSE BEGIN
+            IF wnd_bot <= L1 THEN
+               InvertRectangle( X1, rect_y( L1 ), Xmax-X1, font_height );
+
+            For i := max( L1 + 1, wnd_bot ) Step 1 Until min( L2-1, wnd_top ) DO
+               InvertRectangle( X0, rect_y( i ), Xmax-X0, font_height );
+
+            IF L2 <= wnd_top THEN
+               InvertRectangle( X0, rect_y( L2 ), X2-X0, font_height );
+
+         END;
+      END  === InvertZone === ;
+
+% -----------------------------------------------------------------
+%    H A N D L I N G    I N P U T
+% -----------------------------------------------------------------
+
+   PROCEDURE handle_key_down( key );
+        Character key;
+      IF input_allowed THEN BEGIN
+         Changed := true;
+%         parent.InputInSubwindow( This TextArea );
+
+         IF isDelete( key ) THEN
+            del_char
+         ELSE IF char_ok( key ) THEN
+            insert_char( Key )
+         ELSE IF key = char( return_code ) And then
+            parent In PromptWindow THEN
+            parent Qua PromptWindow.ReturnKey
+         ELSE IF key = char( return_code ) THEN
+            handle_return;
+      END;
+
+   PROCEDURE DEL_CHAR;
+   BEGIN
+      Integer Code, i;
+      Text T;
+
+      RemoveCursor;
+
+      T :- Lines.get( SelLine2 );
+
+      IF SelLine1 <> SelLine2 THEN    ! ==> Big changes ;
+      BEGIN
+         Lines.set( SelLine1, Lines.get( SelLine1 ).sub( 1, SelCol1 ) & T.sub(
+             SelCol2 + 1, T.length-SelCol2 ) );
+
+         Lines.delete( SelLine1 + 1, SelLine2-SelLine1 );
+         RedrawLines( SelLine1 );
+      END
+      ELSE IF SelCol1 <> SelCol2 THEN     ! ==> Shorten current line ;
+      BEGIN
+         Lines.set( SelLine1, Lines.get( SelLine1 ).sub( 1, SelCol1 ) & T.sub(
+             SelCol2 + 1, T.length-SelCol2 ) );
+         redrawLine( SelLine1 );
+      END
+      ELSE IF SelCol1 > 0 THEN    ! ==> Delete 1 character ;
+      BEGIN
+
+         Lines.set( SelLine1, Lines.get( SelLine1 ).sub( 1, SelCol1-1 ) & T.sub(
+             SelCol2 + 1, T.length-SelCol2 ) );
+         SelCol1 := SelCol1-1;
+         redrawLine( SelLine1 );
+      END
+      ELSE IF SelLine1 > 1 THEN BEGIN    ! ==> Remove line Break ;
+
+         SelCol1 := Lines.get( SelLine1-1 ).length;
+         Lines.set( SelLine1-1, Lines.get( SelLine1-1 ) & Lines.get( SelLine1 )
+             );
+
+         Lines.delete( SelLine1, 1 );
+         SelLine1 := SelLine1-1;
+         IF SelLine1 < wnd_bot THEN BEGIN
+            wnd_top := wnd_top-1;
+            wnd_bot := wnd_bot-1;
+         END;
+         redrawLines( SelLine1 );
+
+      END;
+
+      Selcol2 := SelCol1;
+      SelLine2 := SelLine1;
+!       SetSizeSub;
+                    !CDL Nov 19 1995;
+      MarkScrollbar;
+      ShowCursor;
+
+   END  --- del_Char --- ;
+
+   PROCEDURE INSERT_CHAR( C );
+        Character C;
+   BEGIN
+      Integer Code, i;
+      Text T,   T2, CT;
+
+      RemoveCursor;
+
+      CT :- blanks( 1 );
+      CT.putchar( C );
+      T :- Lines.get( SelLine2 );
+
+      IF SelLine1 <> SelLine2 THEN    ! ==> Big changes ;
+      BEGIN
+         Lines.set( SelLine1, Lines.get( SelLine1 ).sub( 1, SelCol1 ) & CT & T.
+             sub( SelCol2 + 1, T.length-SelCol2 ) );
+
+         Lines.delete( SelLine1 + 1, SelLine2-SelLine1 );
+         RedrawLines( SelLine1 );
+      END
+      ELSE IF SelCol1 <> SelCol2 THEN BEGIN
+            ! ==> delete ChoiceIn then insert C ;
+         Lines.set( SelLine1, Lines.get( SelLine1 ).sub( 1, SelCol1 ) & CT & T.
+             sub( SelCol2 + 1, T.length-SelCol2 ) );
+         RedrawLine( SelLine1 );
+
+      END
+      ELSE BEGIN    ! ==> add 1 character ;
+
+         T2 :- Lines.get( SelLine1 ).sub( 1, SelCol1 ) & CT & T.sub( SelCol1 + 1
+                   , T.length-SelCol1 );
+
+         Lines.set( SelLine1, T2 );
+         RedrawLine( SelLine1 );
+      END;
+
+      SelCol1 := Selcol2 := SelCol1 + 1;
+      SelLine2 := SelLine1;
+!       SetSizeSub;
+                    !CDL Nov 19 1995;
+      MarkScrollbar;
+      ShowCursor;
+
+   END  --- INSERT_CHAR --- ;
+
+   PROCEDURE HANDLE_RETURN;
+   BEGIN
+      Text T,   T1, T2;           !***v4.4 ;
+      Integer I,    Delta;
+
+      RemoveCursor;
+
+      T :- Lines.get( SelLine2 );
+      T2 :- T.sub( SelCol2 + 1, T.length-SelCol2 );
+
+      T1 :- Lines.get( SelLine1 );                   !***v4.4 ;
+      Lines.set( SelLine1, T1.sub( 1, SelCol1 ) );   !***v4.4 ;
+
+      delta := SelLine2-SelLine1-1;
+
+      IF Delta < 0 THEN
+         Lines.insert( SelLine1 + 1, 1 )
+      ELSE IF Delta > 0 THEN
+         Lines.delete( SelLine1 + 1, Delta );
+
+      Lines.set( SelLine1 + 1, T2 );
+      redrawLines( SelLine1 );
+      SelCol2 := SelCol1 := 0;
+      ;
+      SelLine2 := SelLine1 := SelLine1 + 1;
+      ShowCursor;
+!           SetSizeSub;
+                        !CDL Nov 19 1995;
+      MarkScrollbar;
+      IF SelLine1 > wnd_top THEN
+         ScrollLineDown;
+
+   END  --- handle_return --- ;
+
+% =====================================================================
+%                    A R R O W S
+% ---------------------------------------------------------------------
+
+   PROCEDURE handle_down_arrow;
+      IF input_allowed And Cursor_y < info_top THEN BEGIN
+         RemoveCursor;
+         IF Cursor_y = wnd_top THEN
+            ScrollLineDown;
+         PlaceCursor( Cursor_x, Cursor_y + 1 );
+      END;
+
+   PROCEDURE handle_up_arrow;
+      IF input_allowed And current_line_nr > 1 THEN BEGIN
+         RemoveCursor;
+         IF Cursor_y = wnd_bot THEN
+            ScrollLineUp;
+         PlaceCursor( Cursor_x, Cursor_y-1 );
+      END;
+
+   PROCEDURE handle_right_arrow;
+   BEGIN
+      RemoveCursor;
+      PlaceCursor( Cursor_x + 1, Cursor_y );
+   END;
+
+   PROCEDURE handle_left_arrow;
+   BEGIN
+      RemoveCursor;
+      PlaceCursor( Cursor_x-1, Cursor_y );
+   END;
+
+   PROCEDURE PlaceCursor( col, lnr );
+        Integer col, lnr;
+   BEGIN
+      SelLine1 := SelLine2 := Bounded( 1, lnr, info_top );
+      SelCol1 := SelCol2 := Bounded( 0, col, Lines.get( SelLine1 ).length );
+      ShowCursor;
+   END;
+
+   Text PROCEDURE CurrentText;
+      CurrentText :- Lines.get( SelLine1 );
+
+   Integer PROCEDURE Current_Line_nr;
+      Current_Line_nr := SelLine1;
+
+   PROCEDURE RemoveCursor;
+      InvertSelection;
+
+   PROCEDURE ShowCursor;
+      InvertSelection;
+
+   Integer PROCEDURE Cursor_x;
+      Cursor_x := SelCol1;
+
+   Integer PROCEDURE Cursor_y;
+      Cursor_y := SelLine1;
+
+   Integer PROCEDURE Bounded( Minn, X, Maxx );
+        Integer X, Minn, Maxx;
+      Bounded := min( max( Minn, X ), Maxx );
+
+% -----------------------------------------------------------------
+%         D R A W I N G   R O U T I N E S
+% -----------------------------------------------------------------
+
+   PROCEDURE Refresh;
+      IF Lines =/= None THEN BEGIN
+         Integer line_nr;
+
+         SClear;
+         For line_nr := wnd_bot Step 1 Until min( wnd_top, info_top ) DO
+            DrawTextLine( line_nr, base_line( line_nr ) );
+         MarkScrollbar;
+         InvertSelection;
+      END;
+
+   PROCEDURE SClear;
+   BEGIN
+      External C PROCEDURE xclearwindow Is
+         PROCEDURE XClearWindow( WindowID );
+            Integer WindowID;
+            ;
+
+      XClearWindow( windowID );
+   END;
+
+   Boolean PROCEDURE gray( n );
+        Integer n;
+     gray := grayLines.contains(n);
+     
+   Ref(TextArea) PROCEDURE GrayLine( lnr );
+        Integer lnr;
+   BEGIN
+      if lnr > Graylines.N then
+         GrayLines :- GrayLines.grow(lnr);
+      IF 1 <= lnr THEN BEGIN
+         grayLines.add( lnr );
+         RedrawLine( lnr );
+      END;
+      GrayLine :- This TextArea;
+   END;
+
+   Ref(ListWindow) PROCEDURE BlackLine( lnr );
+        Integer lnr;
+   BEGIN
+      if lnr > Graylines.N then
+         GrayLines :- GrayLines.grow(lnr);
+      IF 1 <= lnr THEN BEGIN
+         grayLines.sub( lnr );
+         RedrawLine( lnr );
+      END;
+      BlackLine :- This TextArea;
+   END;
+
+     
+      PROCEDURE DrawTextLine(tLnr, y); INTEGER tLnr, y;
+         BEGIN
+            INTEGER stpsave;
+            Boolean Grey; 
+            
+            Grey := gray( tLnr );
+            IF gray(tLnr) THEN begin
+               stpsave := Stipple;
+               CurrentGC.SetStipple(the_display.rasters(2));
+            end;
+            
+            DrawText(text_left, y, Lines.get(tLnr));
+            
+            IF gray(tLnr) THEN
+               CurrentGC.SetStipple( the_display.rasters(stpsave) );
+         END;
+
+%   PROCEDURE DrawTextLine( tLnr, y );
+%        Integer tLnr, y;
+%   BEGIN
+%      Boolean Grey; 
+%      Grey := gray( tLnr );
+%         
+%      if Grey then SetDrawStipple( "gray50" );
+%      DrawText( text_left, y, Lines.get( tLnr ) );
+%      IF grey THEN SetDrawStipple( "black" );
+%   END;
+
+   PROCEDURE RedrawLines( Tn );
+        Integer Tn;                              ! Text line number;
+   BEGIN
+      Integer L;
+
+      For L := Tn Step 1 Until min( wnd_top, info_top ) DO
+         RedrawLine( L );
+
+      IF info_top < wnd_top THEN             !Erase text after info_top;
+         ClearRectangle( text_Left,  rect_y( info_top ) + font_height, 
+                         text_Width, font_height*( wnd_top-info_top ) );
+   END;
+
+   PROCEDURE RedrawLine( Tn );
+        Integer Tn;                             ! Text line number;
+   BEGIN
+      ClearRectangle( text_Left, rect_y( Tn ), text_Width, font_height );
+      DrawTextLine( Tn, base_line( Tn ) );
+   END;
+
+   Ref(TextArea) PROCEDURE ClearLine( wLn );
+        Integer wLn;
+   BEGIN
+      IF 1 <= wLn And wLn <= max_lines_in_window THEN
+         ClearRectangle( text_Left, Wrect_y( wLn ), text_Width, font_height );
+      ClearLine :- This TextArea;
+   END;
+
+%   =========================================================================
+%          S C R O L L I N G
+%   =========================================================================
+
+   Boolean scrolling;
+   Ref(ScrollBar) MyScrollBar;
+
+   PROCEDURE StartScroll( speed, up );
+        Integer speed;
+        Boolean up;
+   BEGIN
+      Real microsecs;
+
+      microsecs := IF speed = 1 THEN 0.001
+                   ELSE IF speed = 2 THEN 0.03
+                   ELSE 0.1;
+      scrolling := True;
+      WHILE scrolling DO BEGIN
+         IF up THEN
+            ScrollLineUp
+         ELSE
+            ScrollLineDown;
+         Sleep( microsecs );
+         handle_pending_events;
+      END;
+   END;
+
+   PROCEDURE MarkScrollbar;
+      IF MyScrollBar =/= none THEN
+         MyScrollBar.Mark( wnd_bot, wnd_top, info_top );
+
+   PROCEDURE StopScroll( up );
+        Boolean up;
+      scrolling := False;
+
+   Ref(TextArea) PROCEDURE ScrollLineUp;
+   BEGIN
+      IF wnd_bot > 1 THEN BEGIN
+         InvertSelection;
+         CopyRectangle( text_left, Wrect_y( 1 ), text_width,(
+             max_lines_in_window-1 )*font_height, text_left, Wrect_y( 2 ) );
+         ClearLine( 1 );
+         wnd_top := wnd_top-1;
+         wnd_bot := wnd_bot-1;
+         MarkScrollbar;
+         DrawTextLine( wnd_bot, Wbase_line( 1 ) );
+         InvertSelection;
+      END;
+      ScrollLineUp :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE ScrollLineDown;
+   BEGIN
+      IF wnd_top <= info_top THEN BEGIN
+         InvertSelection;
+         CopyRectangle( text_left, Wrect_y( 2 ), text_width,(
+             max_lines_in_window-1 )*font_height, text_left, Wrect_y( 1 ) );
+
+         ClearLine( max_lines_in_window );
+         wnd_top := wnd_top + 1;
+         wnd_bot := wnd_bot + 1;
+         IF wnd_top <= info_top THEN
+            DrawTextLine( wnd_top, base_line( wnd_top ) );
+         MarkScrollbar;
+         InvertSelection;
+      END;
+      ScrollLineDown :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE Scroll( n );
+        Integer n;
+   BEGIN
+      Integer i;
+
+      For i := 1 Step 1 Until abs( n ) DO
+         IF n >= 0 THEN
+            ScrollLineDown
+         ELSE
+            ScrollLineUp;
+      Scroll :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE ScrollPage( forward );
+        Boolean forward;
+   BEGIN
+      wnd_bot := Bounded( 1, wnd_bot+( IF forward THEN 1
+                                        ELSE -1)*( max_lines_in_window-1 ),
+                     info_top );
+      wnd_top := wnd_bot + max_lines_in_window-1;
+      Refresh;
+      ScrollPage :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE ScrollToBottom;
+   BEGIN
+      wnd_bot := 1;
+      wnd_top := wnd_bot + max_lines_in_window-1;
+      Refresh;
+      ScrollToBottom :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE ScrollToTop;
+      ScrollToTop :- ScrollTo( 1 );
+
+   Ref(TextArea) PROCEDURE ScrollToLine( line_number );
+        Integer line_number;
+   BEGIN
+      wnd_bot := Bounded( 1, line_number-max_lines_in_window//2,
+                 max( 1, info_top-max_lines_in_window + 2 ) );
+
+      wnd_top := wnd_bot + max_lines_in_window-1;
+      Refresh;
+      ScrollToLine :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE ScrollLineTop( line_number );
+        Integer line_number;
+   BEGIN
+      wnd_bot := Bounded( 1, line_number, max( 1, info_top-max_lines_in_window +
+                     2 ) );
+      wnd_top := wnd_bot + max_lines_in_window-1;
+      Refresh;
+      ScrollLineTop :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE ScrollTo( fraction );
+        Real fraction;
+   BEGIN
+      wnd_bot := bounded( 1, fraction*info_top, max( 1, info_top-
+                     max_lines_in_window + 2 ) );
+      wnd_top := wnd_bot + max_lines_in_window-1;
+      Refresh;
+      ScrollTo :- This TextArea;
+   END;
+
+%   =========================================================================
+%       O U T F I L E  behaviour
+%   =========================================================================
+
+   Ref(TextArea) PROCEDURE outtext( t );
+        Text t;
+      outtext :- PutText( t );
+
+   Ref(TextArea) PROCEDURE outint( i, w );
+        Integer i, w;
+      outint :- PutText( int_as_text_fix( i, w ) );
+
+   Ref(TextArea) PROCEDURE outchar( C );
+        Character C;
+   BEGIN
+      Text t;
+
+      t :- blanks( 1 );
+      t.putchar( C );
+      outchar :- PutText( t );
+   END;
+
+   Ref(TextArea) PROCEDURE outfix( r, dig, w );
+        Real R;
+        Integer dig, w;
+      outfix :- PutText( real_as_text_fix( r, dig, w ) );
+
+   Ref(TextArea) PROCEDURE PutText( t );
+        Text t;
+   BEGIN
+      Text Buf;
+
+      Buf :- buffer & t;
+      IF buffer =/= Notext And then 
+         Buf.length > chars_in_line THEN
+         PutImage;
+      buffer :- buffer & t;
+      PutText :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE setpos( pos );
+        Integer pos;
+   BEGIN
+      buffer :- IF pos <= 1 THEN Notext
+                ELSE IF buffer == Notext THEN
+                  blanks( pos-1 )
+                ELSE IF buffer.length + 1 < pos THEN
+                  buffer & blanks( pos-buffer.length-1 )
+                ELSE IF buffer.length >= pos THEN
+                  buffer.sub( 1, pos-1 )
+                ELSE buffer;
+      setpos :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE outimage;
+      outimage :- PutImage;
+
+   Ref(TextArea) PROCEDURE PutImage;
+   BEGIN
+      PutLine( buffer );
+      buffer :- Notext;
+      PutImage :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE PutLine( line );
+        Value line;
+        Text line;
+   BEGIN
+      IF info_top > wnd_top THEN
+         Scroll( info_top-wnd_top + 1 )
+      ELSE IF info_top = wnd_top THEN
+         ScrollLineDown;
+      Lines.put( Line );
+!         SetSizeSub;
+                      !CDL Nov 19 1995;
+      RedrawLine( info_top );
+      PutLine :- This TextArea;
+   END;
+
+   Ref(TextArea) PROCEDURE InitPutLine( line );
+        Value line;
+        Text line;
+   BEGIN
+      lines.put( line );
+      InitPutLine :- This TextArea;
+   END;
+
+   PROCEDURE SysPutLine( line );
+        Text line;
+      lines.put( line );
+
+   Ref(TextArea) PROCEDURE PutLineNr( lnr, line );
+        Value line;
+        Integer lnr;
+        Text line;
+      IF 1 <= lnr And lnr <= info_top + 1 THEN BEGIN
+         IF lnr > wnd_top THEN
+            Scroll( lnr-wnd_top );
+         IF lnr <= info_top THEN
+            Lines.set( lnr, line )
+         ELSE
+            Lines.put( line );
+!         SetSizeSub;
+                      !CDL Nov 19 1995;
+         RedrawLine( lnr );
+         PutLineNr :- This TextArea;
+      END;
+
+   Text PROCEDURE GetLine( lnr );
+        Integer lnr;
+      GetLIne :- Lines.get( lnr );
+
+   Ref(TextArea) PROCEDURE PutVisibleLineNr( lnr, line );
+        Integer lnr;
+        Text line;
+      PutVisibleLineNr :- PutLineNr( lnr + wnd_bot-1, line );
+
+   Text PROCEDURE GetVisibleLine( lnr );
+        Integer lnr;
+      GetVisibleLine :- GetLine( lnr + wnd_bot-1 );
+
+
+%   =========================================================================
+%       I N I T I A L I S A T I O N
+%   =========================================================================
+
+   Ref(XWindow) PROCEDURE MakeEmpty;
+   BEGIN
+      Integer lnr;
+
+      wnd_bot := 1;
+      wnd_top := wnd_bot + max_lines_in_window-1;
+      Lines.Clear;
+      GrayLines.Clear;
+      buffer :- Notext;
+      invert_line_nr := 0;
+      SelLine1 := SelLine2 := 1;      !***v4.4 ;
+      SelCol1  := SelCol2 := 0;       !***v4.4 ;
+      SClear;
+      MarkScrollBar;
+      MakeEmpty :- This TextArea;
+   END;
+
+   Boolean PROCEDURE IsEmpty;
+      IsEmpty := info_top = 0;
+
+   Ref(TextArea) PROCEDURE SetTextSize( ncolumns, nrows );
+        Integer ncolumns, nrows;
+      SetTextSize :- SetColumns( ncolumns ).SetLines( nrows );
+
+   Ref(XWindow) PROCEDURE SetColumns( ncolumns );
+        Integer ncolumns;
+      SetColumns :- SetWidth( ncolumns*max_char_width + 2*text_border );
+
+   PROCEDURE SetSizeSub;
+   BEGIN
+      Integer H1,   HH1,    TL1,    FH1,    MCW;
+
+      H1 := height;
+      HH1 := head_height;
+      TL1 := text_left;
+      FH1 := font_height;
+      MCW := max_char_width;             !**v4.2**;
+
+      max_lines_in_window := ( H1-HH1-2*TL1 )//FH1 ;
+      wnd_top := wnd_bot + max_lines_in_window-1;
+      IF lines =/= None THEN
+         MarkScrollBar;
+   END;
+
+   Ref(XWindow) PROCEDURE SetFont( font_name );
+        Text font_name;
+   BEGIN
+      SetXFont( New XFont( font_name ) );
+      char_width := width_of_text( "x" );
+      SetSizeSub;
+      Refresh;
+      SetFont :- This XWindow;
+   END;
+
+   Lines :- New TextArray;
+   GrayLines :- new IntSet(30);
+   button_sensitize;
+   pointer_motion_sensitize;
+%      SetBackingStore;
+   SetTypeFace( "courier", default_font_points, False, False );
+   char_width := width_of_text( "x" );
+   MakeEmpty;
+
+END  TextArea;
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******     L I S T W I N D O W      *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+
+TextArea Class ListWindow;
+BEGIN
+   Text PROCEDURE window_kind;
+      window_kind :- "ListWindow";
+
+%   Boolean choice_allowed;   ===   >>>  moved to TextArea 
+
+
+   Ref(XWindow) PROCEDURE AllowChoice;
+      IF Not choice_allowed THEN BEGIN
+         choice_allowed := True;
+         pointer_motion_sensitize;
+         AllowChoice :- This ListWindow;
+      END;
+
+   Ref(XWindow) PROCEDURE DisallowChoice;
+      IF choice_allowed THEN BEGIN
+         choice_allowed := False;
+         pointer_motion_desensitize;
+         DisallowChoice :- This ListWindow;
+      END;
+
+% -----------------------------------------------------------------
+%        Event Handling
+% -----------------------------------------------------------------
+
+   PROCEDURE handle_down_arrow;;
+   PROCEDURE handle_up_arrow;;
+   PROCEDURE handle_right_arrow;;
+   PROCEDURE handle_left_arrow;;
+
+   PROCEDURE handle_key_down( key );
+        Character key; ;
+
+   PROCEDURE handle_enter_window;;
+   PROCEDURE handle_leave_window;;
+
+!ChoiceIn is made on button_click. No more on button_up or down;
+
+   PROCEDURE handle_button_down( b ); Integer b;;
+   PROCEDURE handle_button_up( b );   Integer b;;
+   PROCEDURE handle_pointer_motion( x, y ); Integer x, y;;
+
+%   PROCEDURE handle_button_click( b );
+%        Integer b;
+
+   PROCEDURE Handle_Click( X,Y ); Integer X,Y ;
+   BEGIN
+      Line_last := min( info_top, Line_of( y_of_event ) );
+      InvertSelection;
+      invert_line_nr := Line_last;
+      InvertSelection;
+      parent.Handle_Selection(This Xwindow, Lines.get( Line_last ), Line_Last );
+%      parent.LineChoiceIn( Lines.get( Line_last ), Line_Last );
+   END;
+
+
+   PROCEDURE InvertSelection;
+      IF choice_allowed THEN
+         InvertLine( invert_line_nr-wnd_bot + 1 );
+
+   Ref(ListWindow) PROCEDURE InvertLine( wLn );
+        Integer wLn;
+   BEGIN
+      IF choice_allowed And 1 <= wLn And wLn <= max_lines_in_window 
+      And then Not gray( wLn + wnd_bot-1 ) THEN
+         InvertRectangle( text_Left, Wrect_y( wLn ), text_Width, font_height );
+      InvertLine :- This ListWindow;
+   END;
+
+
+   input_allowed := false;
+   setcursor( "arrow" );
+
+END -------- ListWindow ------;
+
+
+% **************************************
+% **************************************
+% *******                        *******
+% *******  SelectionListWindow   *******
+% *******                        *******
+% **************************************
+% **************************************
+
+   !ListWindow is made to intercept double-clicks as a way of ChoiceIn.
+    inverting lines are made only on button click. Not on any
+    movement of the pointer;
+
+ListWindow Class SelectionListWindow;
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "SelectionListWindow";
+
+
+!Simulate a click to choose default ChoiceIn;
+
+   PROCEDURE DefaultSel( ind );
+        Integer ind;
+   BEGIN
+      invert_line_nr := ind;
+      IF ind < wnd_bot Or ind > wnd_top THEN
+         ScrollToLine( ind );
+      InvertSelection;
+   END;
+
+   
+END   --- SelectionListWindow ---;
+
+
+% ************************************************
+% ************************************************
+% *******                                  *******
+% *******  P O P U P L I S T W I N D O W   *******
+% *******                                  *******
+% ************************************************
+% ************************************************
+
+listWindow Class PopupListWindow;
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "PopupListWindow";
+
+   Integer PROCEDURE text_left;
+      text_left := 0;
+
+   Integer PROCEDURE text_border;
+      text_border := 0;
+
+   PROCEDURE handle_leave_window;
+      parent.handle_leave_window;
+
+!ChoiceIn is made on button_up;
+
+   PROCEDURE handle_button_down( button );
+        Integer button;
+      IF choice_allowed THEN BEGIN
+         Integer ind;
+
+         ind := invert_line_nr + wnd_bot-1;
+         IF 1 <= ind And ind <= info_top And then Not gray( ind ) THEN BEGIN
+%            parent.LineChoice( Lines.get( ind ) );
+%            parent.LineChoiceIn( Lines.get( ind ), ind );
+%            parent.ChoiceIn( this XWindow, Lines.get( ind ), ind );
+         END;
+      END;
+
+   PROCEDURE handle_pointer_motion( x, y );
+        Integer x, y;
+   BEGIN
+      Integer line_nr,
+          Col,
+          Line;
+
+      Line := min( info_top, Line_of( y ) );
+      line_nr := Line-wnd_bot + 1;
+      Col := bounded( 0, Col_of( x ), Lines.get( Line ).length );
+
+      IF choice_allowed THEN BEGIN
+         IF invert_line_nr <> line_nr THEN BEGIN
+            InvertLine( invert_line_nr );
+            invert_line_nr := line_nr;
+            InvertLine( invert_line_nr );
+         END;
+      END;
+   END;
+
+   PROCEDURE handle_button_up( b );
+        Integer b;
+   BEGIN
+      Line_last := min( info_top, Line_of( y_of_event ) );
+      parent.Handle_Selection( this XWindow, Lines.get( Line_last ), Line_last );
+%     parent.LineChoiceIn( Lines.get( Line_last ), Line_last );
+   END;
+
+        
+   AllowChoice;
+END;
+
+
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******      S C R O L L B A R       *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+SubWindow Class ScrollBar(CtlWnd);
+   ref(TextArea) CtlWnd;
+BEGIN
+
+   Integer box_bot, box_height, prev_box_bot,   prev_box_height;
+   REF(SubWindow) TheBox;
+   BOOLEAN ActiveScrolling;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "ScrollBar";
+
+   PROCEDURE Mark( wnd_bot, wnd_top, info_top );
+        Integer wnd_bot, wnd_top, info_top;
+   BEGIN
+      Integer top,  h;
+
+      prev_box_bot := box_bot;
+      prev_box_height := box_height;
+      h := height-1;
+      top := max( 1, max( wnd_top, info_top ) );
+      box_bot := max( 1,( wnd_bot-1 )*h//top );
+      box_height := max( 1, wnd_top*h//top-box_bot );
+%      IF box_bot > prev_box_bot THEN
+%         ClearRectangle( 1, prev_box_bot, width-2, box_bot-prev_box_bot );
+%      IF box_bot + box_height < prev_box_bot + prev_box_height THEN
+%         ClearRectangle( 1, box_bot + box_height + 1, width-2, prev_box_bot +
+%             prev_box_height-( box_bot + box_height ) );
+      Refresh;
+   END;
+
+   PROCEDURE Refresh;
+   BEGIN
+      TheBox.SetSize(width-2, Max(3, box_height) );
+      TheBox.PlaceAt(1, box_bot);
+   END;
+
+   PROCEDURE NewHeight( h );
+        Integer h;
+   BEGIN
+      SetHeight( h );
+      box_height := height;
+   END;
+
+%   PROCEDURE handle_button_click( button );
+%        Integer button;
+%      IF button = CenterButton THEN
+%         CtlWnd.ScrollTo( y_of_event/height )
+%      ELSE
+%         CtlWnd.ScrollPage( y_of_event > box_bot );
+
+
+   PROCEDURE Handle_Click( X,Y ); Integer X,Y ;
+
+         CtlWnd.ScrollTo( Y / height ) ;
+
+   PROCEDURE Handle_Button_Down(ButtonNumber);
+      INTEGER ButtonNumber;
+   IF TheBox.PointerInside THEN ActiveScrolling := TRUE;
+
+   PROCEDURE Handle_Button_Up(ButtonNumber);
+      INTEGER ButtonNumber;
+   ActiveScrolling := FALSE;
+
+!JPH July 29th 1997
+ Optimized so that no refresh when ScrollTo(Percent) gives exact same position
+ The weird code is taken directly from ScrollTo in TextArea;
+ 
+   PROCEDURE Handle_Pointer_Motion(X, Y); Integer X,Y ;
+   IF ActiveScrolling THEN BEGIN
+      REAL Percent;
+      Percent := Y / height;
+      INSPECT CtlWnd DO BEGIN
+         IF bounded( 1, percent*info_top, max( 1, info_top-
+                     max_lines_in_window + 2 ) ) <> Wnd_Bot THEN
+         ScrollTo( Percent ) ;
+      END;
+   END;
+
+   CtlWnd.MyScrollBar :- this ScrollBar;
+   button_sensitize;
+   pointer_motion_sensitize;
+   SetFill( "gray35" );
+   box_bot := 1;
+   box_height := height-4;
+   TheBox :- NEW SubWindow(THIS XWindow).SetSize(width-2, box_height)
+      .SetBorderWidth(0)
+      .SetBackground("black")
+      .Show;
+END  ScrollBar;
+
+
+SubWindow Class ScrollBox( up, CtlWnd);
+     Boolean up;
+     ref(TextArea) CtlWnd;
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "ScrollBox";
+
+   PROCEDURE refresh;
+   BEGIN
+      Integer w;
+      Integer Array x,  y( 1: 3 );
+
+      w := width//3;
+      IF up THEN BEGIN
+         x( 1 ) := width//2;
+         y( 1 ) := 2;
+         x( 2 ) := x( 1 )-w;
+         y( 2 ) := height-3;
+         x( 3 ) := x( 1 ) + w;
+         y( 3 ) := height-3;
+      END
+      ELSE BEGIN
+         x( 1 ) := width//2;
+         y( 1 ) := height-2;
+         x( 2 ) := x( 1 )-w;
+         y( 2 ) := 3;
+         x( 3 ) := x( 1 ) + w;
+         y( 3 ) := 3;
+      END;
+      FillPolygon( x, y, 3 );
+      DrawLine( x( 1 ), y( 1 ), x( 2 ), y( 2 ) );
+      DrawLine( x( 2 ), y( 2 ), x( 3 ), y( 3 ) );
+      DrawLine( x( 3 ), y( 3 ), x( 1 ), y( 1 ) );
+   END;
+
+   PROCEDURE handle_button_down( button );
+        Integer button;
+      CtlWnd.StartScroll( button, up );
+
+   PROCEDURE handle_button_up( button );
+        Integer button;
+      CtlWnd.StopScroll( up );
+
+   button_sensitize;
+
+END  ScrollBox;
+
+
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******   S C R O L L W I N D O W    *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+SubWindow Class ScrollWindow;
+Virtual:
+
+   PROCEDURE CreateTextWnd is PROCEDURE CreateTextWnd ;;
+%
+%      ref(ScrollWindow) procedure MakeEmpty;
+%      ref(ScrollWindow) procedure MakeWaitButton(heading); text heading;
+%      Boolean procedure IsEmpty;
+%      procedure Wait;
+%      ref(ScrollWindow) procedure AllowChoice;
+%      ref(ScrollWindow) procedure DisallowChoice;
+%      procedure LineChoice(line); text line;
+%      procedure PutLine(line); text line;
+%      procedure PutText(t); text t;
+%
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "Scrollwindow";
+
+   Ref(TextArea) Text_wnd;
+   Ref(HeadWindow) head_wnd;
+   
+   Boolean line_chosen;
+
+   Ref(ScrollBar) scroll_bar;
+   Ref(ScrollBox) up_box,   down_box;
+
+   Integer scroll_box_width = 15,   scroll_box_height = 15;
+
+
+   Ref(XWindow) PROCEDURE MakeEmpty;
+   BEGIN
+      Text_wnd.MakeEmpty;
+      unchoose;
+      MakeEmpty :- This ScrollWindow;
+   END;
+
+   PROCEDURE CreateTextWnd;
+     Text_wnd :- New TextArea( This ScrollWindow );
+  
+
+   Ref(XWindow) PROCEDURE MakeHeadWindow( heading );
+        Text heading;
+   BEGIN
+      head_wnd :- New HeadWindow( This XWindow );
+      head_wnd.SetHeading( heading );
+%          Resize;
+      MakeHeadWindow :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE SetHeading( heading );
+        Text heading;
+   BEGIN
+      IF head_wnd == None THEN
+         MakeHeadWindow( heading )
+      ELSE
+         head_wnd.SetHeading( heading );
+%          Resize;
+      SetHeading :- This XWindow;
+   END;
+
+   Boolean PROCEDURE IsEmpty;
+      IsEmpty := Text_wnd.IsEmpty;
+
+
+   PROCEDURE unchoose;
+      line_chosen := False;
+
+   Ref(XWindow) PROCEDURE AllowInput;
+   BEGIN
+      Text_wnd.AllowInput;
+      AllowInput :- This ScrollWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DisallowInput;
+   BEGIN
+      Text_wnd.DisallowInput;
+      DisallowInput :- This ScrollWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE AllowChoice;
+   BEGIN
+      Text_wnd.AllowChoice;
+      AllowChoice :- This ScrollWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DisallowChoice;
+   BEGIN
+      Text_wnd.DisallowChoice;
+      DisallowChoice :- This ScrollWindow;
+   END;
+
+   PROCEDURE Handle_Selection( W, line, line_number );
+        Ref(XWindow) W;
+        Text line;
+        Integer line_number;
+   BEGIN
+      line_chosen := True;
+      parent.Handle_Selection(W, line, line_number );
+   END;
+
+
+   Integer PROCEDURE GetNumberOfLines;  
+      GetNumberOfLines := Text_wnd.info_top;
+
+   Ref(ScrollWindow) PROCEDURE PutLine( line );
+        Text line;
+   BEGIN
+      Text_wnd.putline( line );
+      PutLine :- This ScrollWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE InitPutLine( line );
+        Text line;
+   BEGIN
+      Text_wnd.InitPutLine( Line );
+      InitPutLine :- This ScrollWindow;
+   END;
+
+   PROCEDURE SysPutLine( line );
+        Text line;
+   BEGIN
+      Text_wnd.lines.put( Line );
+   END;
+
+   Ref(ScrollWindow) PROCEDURE RefreshLines;   
+      Text_wnd.Refresh;
+
+   Ref(ScrollWindow) PROCEDURE PutLineNr( lnr, line );
+        Integer lnr;
+        Text line;
+   BEGIN
+      Text_wnd.putlineNr( lnr, line );
+      PutLineNr :- This ScrollWindow;
+   END;
+
+%   Ref(ScrollWindow) PROCEDURE PutVisibleLineNr( lnr, line );
+%        Integer lnr;
+%        Text line;
+%   BEGIN
+%      Text_wnd.putVisiblelineNr( lnr, line );
+%      PutVisibleLineNr :- This ScrollWindow;
+%   END;
+
+
+   Ref(ScrollWindow) PROCEDURE outtext( t );
+        Text t;
+   BEGIN
+      Text_wnd.puttext( t );
+      outtext :- This ScrollWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE outchar( c );
+        Character c;
+   BEGIN
+      Text_wnd.outchar( c );
+      outchar :- This ScrollWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE outint( i, w );
+        Integer i, w;
+   BEGIN
+      Text_wnd.outint( i, w );
+      outint :- This ScrollWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE outfix( r, d, w );
+        Real r;
+        Integer d, w;
+   BEGIN
+      Text_wnd.outfix( r, d, w );
+      outfix :- This ScrollWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE outline( line );
+        Text line;
+      outline :- PutLine( line );
+
+
+   Ref(ScrollWindow) PROCEDURE setpos( pos );
+        Integer pos;
+   BEGIN
+      Text_wnd.setpos( pos );
+      setpos :- This ScrollWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE outimage;
+   BEGIN
+      Text_wnd.PutImage;
+      outimage :- This ScrollWindow;
+   END;
+
+   Text PROCEDURE GetLine( lnr );
+        Integer lnr;
+      GetLine :- Text_wnd.GetLine( lnr );
+
+
+   Ref(ScrollWindow) PROCEDURE ScrollToTop;
+   BEGIN
+      Text_wnd.ScrollToTop;
+      ScrollToTop :- This ScrollWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE ScrollToBottom;
+   BEGIN
+      Text_wnd.ScrollToBottom;
+      ScrollToBottom :- This ScrollWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE ScrollToLine( line_number );
+        Integer line_number;
+   BEGIN
+      Text_wnd.ScrollToLine( line_number );
+      ScrollToLine :- This ScrollWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE ScrollLineTop( line_number ); 
+        Integer line_number;
+   BEGIN
+      Text_wnd.ScrollLineTop( line_number );
+      ScrollLineTop :- This ScrollWindow;
+   END;
+
+
+   Ref(XWindow) PROCEDURE SetLines( lines );
+        Integer lines;
+   BEGIN
+      max_lines := lines;
+      max_lines_set := True;
+      Text_wnd.SetLines( lines );
+      SetLines :- SetHeight( Text_wnd.max_y +
+                    subwindow_spacing + 1 );
+   END;
+
+   Ref(XWindow) PROCEDURE SetColumns( columns );
+        Integer columns;
+   BEGIN
+      Text_wnd.SetColumns( columns );
+      SetColumns :- SetWidth( Text_wnd.max_x 
+                      + subwindow_spacing );
+   END;
+
+% JPH added functionality previously forgotten
+
+   Boolean PROCEDURE Gray( n );
+        Integer n;
+      Gray := Text_wnd.Gray( n );
+
+   Ref(XWindow) PROCEDURE GrayLine( lnr );
+        Integer lnr;
+   BEGIN
+      Text_wnd.GrayLine( lnr );
+      GrayLine :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE BlackLine( lnr );
+        Integer lnr;
+   BEGIN
+      Text_wnd.BlackLine( lnr );
+      BlackLine :- This XWindow;
+   END;
+
+   PROCEDURE SetSizeSub;
+      Resize;
+
+   Integer PROCEDURE chars_in_line;
+      chars_in_line := Text_wnd.chars_in_line;
+
+   Integer PROCEDURE top_height;
+      top_height := 2*Text_wnd.BorderWidth +( IF head_wnd == None THEN
+                        2*subwindow_spacing
+                      ELSE head_wnd.height + 3*subwindow_spacing + 2*head_wnd.
+                          BorderWidth );
+
+   PROCEDURE Resize;
+   BEGIN
+      Text_wnd.SetSize( width-scroll_box_width-3*subwindow_spacing-2*scroll_bar.
+          BorderWidth-2*Text_wnd.BorderWidth, height-top_height );
+      IF head_wnd =/= None THEN BEGIN
+         head_wnd.PlaceUpLeft;
+         up_box.PlaceLeftBelow( head_wnd ).SetSize( scroll_box_width,
+             scroll_box_height );
+         scroll_bar.PlaceLeftBelow( up_box ).SetWidth( scroll_box_width );
+         Text_wnd.PlaceRightof( up_box );
+         head_wnd.SetWidth( Text_wnd.max_x-head_wnd.min_x-2*head_wnd.BorderWidth
+            );
+                   
+      END
+      ELSE BEGIN
+         up_box.PlaceUpLeft.SetSize( scroll_box_width, scroll_box_height );
+         scroll_bar.PlaceLeftBelow( up_box ).SetWidth( scroll_box_width );
+         Text_wnd.PlaceRightof( up_box );
+      END;
+      scroll_bar.NewHeight( Text_wnd.height-2*scroll_box_height-2*
+          subwindow_spacing-4*BorderWidth );
+      down_box.PlaceLeftBelow( scroll_bar ).SetSize( scroll_box_width,
+          scroll_box_height );
+   END;
+
+   Ref(XWindow) PROCEDURE SetFont( font_name );
+        Text font_name;
+   BEGIN
+      IF Text_wnd =/= None THEN
+         Text_wnd.SetFont( font_name );
+      SetXFont( the_display.find_font( font_name ) );
+      Refresh;
+      SetFont :- This XWindow;
+   END;
+
+   Ref(ScrollWindow) PROCEDURE SetTypeFace( typeface, size, bold, slanted );
+        Text typeface;
+        Integer size;
+        Boolean bold, slanted;
+   BEGIN
+      SetHeadFont( FontName( "helvetica", size, bold, slanted ) );
+      SetTypeFace :- SetFont( FontName( typeface, size, bold, slanted ) );
+   END;
+
+   Ref(ScrollWindow) PROCEDURE SetHeadTypeface( typeface, size, bold, slanted );
+        Text typeface;
+        Integer size;
+        Boolean bold, slanted;
+      SetHeadTypeface :- SetHeadFont( FontName( typeface, size, bold, slanted )
+                             );
+
+   Ref(XWindow) PROCEDURE SetHeadFont( font_name );
+        Text font_name;
+   BEGIN
+      IF head_wnd =/= None THEN
+         head_wnd.SetFont( font_name );
+      Refresh;
+      SetHeadFont :- This XWindow;
+   END;
+
+   SetSubwindowSpacing( 5 );
+
+   CreateTextWnd;
+   scroll_bar :- New ScrollBar( This ScrollWindow, Text_wnd );
+   Text_wnd.MyScrollBar :- scroll_bar;
+   down_box   :- New ScrollBox( This ScrollWindow, False, Text_wnd );
+   up_box     :- New ScrollBox( This ScrollWindow, True,  Text_wnd );
+   
+   scroll_bar.Show;          !CDL July 5 1995;
+   down_box.Show;
+   up_box.Show;
+   Text_wnd.Show;
+
+%     Resize;
+   SetBackground( "gray50" );
+   SetBackingStore;
+
+END  ScrollWindow;
+
+element Class text_element( stored_text );
+     Text stored_text;
+   ;
+
+
+
+% ******************************************************
+% ******************************************************
+% *******                                        *******
+% *******   M E N U  S C R O L L  W I N D O W    *******
+% *******                                        *******
+% ******************************************************
+% ******************************************************
+
+   !This window remembers the last ChoiceIn made and reports it
+    when double_click is done or when the ok button is pressed;
+
+ScrollWindow Class MenuScrollWindow;
+Virtual:
+     PROCEDURE SelectionMade Is
+        PROCEDURE SelectionMade;
+           ;
+     PROCEDURE CreateSelectionWindow Is
+        PROCEDURE CreateSelectionWindow;
+           ;
+     PROCEDURE CreateButtons Is
+        PROCEDURE CreateButtons;
+           ;
+BEGIN
+
+   Text choice;         ! selected text;
+   Integer Line;        ! line number of selected text;
+   ref(Button) OK_button, 
+               Cancel_button;
+   
+   Text PROCEDURE window_kind;
+      window_kind :- "MenuScrollWindow";
+
+   PROCEDURE Handle_ButtonClick( B ); Ref(Button) B;
+   BEGIN
+      IF B == ok_button And line_chosen THEN
+         SelectionMade;
+      IF B == Cancel_button THEN BEGIN
+%         Hide;
+         Line := 0;
+         WakeUp ;
+      END;
+   END;
+        
+   PROCEDURE Handle_DoubleClick( W ); Ref(XWindow) W;
+      SelectionMade;
+
+   PROCEDURE Handle_Selection( W, T, line_number );
+        Ref(XWindow) W;
+        Text T;
+        Integer Line_number;
+   BEGIN
+      choice :- T ;
+      Line   := Line_number;
+      Line_chosen := True;
+   END;
+
+
+!Report ChoiceIn to parent window and stop any waiting loop from buttonchoice;
+
+   PROCEDURE FinalSelection;
+   BEGIN
+      parent.Handle_Selection(This XWindow, choice, line );
+      WakeUp;
+%      hide;
+   END;
+
+   PROCEDURE SelectionMade;
+      FinalSelection;
+
+   PROCEDURE Resize;
+      IF ok_button =/= None THEN BEGIN
+
+         text_wnd.SetSize( width-scroll_box_width-ok_button.width-4*
+             subwindow_spacing-2*( scroll_bar.BorderWidth + ok_button.
+             BorderWidth + text_wnd.BorderWidth ), height-top_height );
+
+         head_wnd.PlaceUpLeft;
+         up_box.PlaceLeftBelow( head_wnd ).SetSize( scroll_box_width,
+             scroll_box_height );
+         scroll_bar.PlaceLeftBelow( up_box ).SetWidth( scroll_box_width );
+         text_wnd.PlaceRightof( up_box );
+         head_wnd.SetWidth( width-2*subwindow_spacing );
+
+         ok_button.PlaceRightBelow( head_wnd );
+         Cancel_button.PlaceBelow( ok_button );
+
+         scroll_bar.NewHeight( text_wnd.height-2*scroll_box_height-2*
+             subwindow_spacing-4*BorderWidth );
+         down_box.PlaceLeftBelow( scroll_bar ).SetSize( scroll_box_width,
+             scroll_box_height );
+      END;
+
+   PROCEDURE SetSizeSub;
+      resize;
+
+!Initialization of selectwindow;
+
+   PROCEDURE SetMenu( question, choix, default );
+        Text question, choix, default;
+   BEGIN
+      Character C;
+      Integer i,  iDefault;
+      Text TT;
+
+
+      SetHeading( question );
+      IF head_wnd.head_width > head_wnd.width THEN
+         setwidth( head_wnd.head_width + 2*( subwindow_spacing + head_wnd.
+             BorderWidth ) );
+      SetSizeSub;
+
+      MakeEmpty;
+      Choix.setpos(1);
+      C := Choix.getchar;
+      
+      iDefault := 1;
+      for i := i+1 while Choix.more do 
+      begin
+          TT :- scanto(Choix,C);
+          SysPutLine( TT );
+          IF  TT  = Default THEN
+            iDefault := i;
+      end;
+      
+      refreshlines;
+      text_wnd Qua SelectionListWindow .DefaultSel( iDefault );
+      Handle_Selection( This Xwindow, text_wnd.GetLine( iDefault ), iDefault );
+%      LineChoiceIn( text_wnd.GetLine( iDefault ), iDefault );
+      show;
+      refresh;
+   END;
+
+!Waiting loop after a choice from user;
+      
+   Text PROCEDURE WaitMenu;
+   BEGIN
+      Wait;
+      IF Line > 0 THEN
+         WaitMenu :- choice
+   END;
+
+   Text PROCEDURE menu( question, choix, default );
+        Text question, choix, default;
+   BEGIN
+      SetMenu( question, choix, default );
+      menu :- WaitMenu;
+   END;
+
+   PROCEDURE CreateTextWnd;
+   BEGIN
+      text_wnd :- New SelectionListWindow( This ScrollWindow ).Show;
+   END;
+
+   PROCEDURE CreateButtons;
+   BEGIN
+      ok_button :- New Button( This XWindow, "Ok" ).placerightbelow( Text_wnd ).
+                       show;
+      Cancel_button :- New Button( This XWindow, "Cancel" ).placebelow( ok_button
+                         ).show;
+      ok_button.SetWidth( Cancel_button.width );
+   END;
+
+   allowchoice;
+   SetHeading( " " );
+   SetHeadFont( FontName( "courier", default_font_points, False, False ) );
+   CreateButtons;
+   SetSizeSub;
+
+END  -- MenuScrollWindow --;
+
+
+
+% ************************************************
+% ************************************************
+% *******                                  *******
+% *******     FILE SELECTION DIALOGS       *******
+% *******                                  *******
+% ************************************************
+% ************************************************
+
+element Class DirEntry( filename, isdir );
+     Text filename;
+     Boolean isdir;
+BEGIN
+
+   Text PROCEDURE key;
+      key :- filename;
+
+END;
+
+
+% ************************************************
+% ************************************************
+% *******                                  *******
+% *******  D I R E C T O R Y    M E N U    *******
+% *******                                  *******
+% ************************************************
+% ************************************************
+
+!This window is a file select widget. DirName is the directory to start
+    with.  If notext is given, current directory is used;
+
+MenuScrollWindow Class DirectoryMenu( DirName );
+     Text DirName;
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "DirectoryMenu";
+
+   Ref(Directory) Dir;
+   Text t;
+   Integer i;
+
+   PROCEDURE SelectionMade;
+   BEGIN
+      Text t;
+
+      choice.Setpos( choice.Length );
+      IF choice.GetChar = '/' THEN BEGIN
+         IF DirName <> "/" THEN
+            t :- DirName;
+         t :- t & "/" & choice.Sub( 1, choice.Length-1 );
+
+%          readdir((IF DirName<>"/" THEN DirName ELSE NOTEXT)&"/"
+%              &choice.Sub(1,choice.Length-1))
+         readdir( t );
+      END
+      ELSE BEGIN
+         choice :-( IF DirName <> "/" THEN DirName
+                    ELSE Notext ) & "/" & choice;
+         FinalSelection;
+      END;
+   END;
+
+   Boolean PROCEDURE readdir( path );
+        Text path;
+   BEGIN
+      Ref(table) entries;
+      Integer nbentries,    i;
+
+      Dir :- New Directory( path );
+      entries :- New table( 50 );
+
+      IF Dir.Open THEN BEGIN
+
+         text_wnd.MakeEmpty;
+         WHILE Dir.Nextentry DO BEGIN
+            nbentries := nbentries + 1;
+            entries.insert( New DirEntry( Dir.EntryName, Dir.EntryIsDir ) );
+         END;
+
+         entries.sort;
+
+         i := 0;
+         For i := i + 1 WHILE i <= nbentries DO BEGIN
+            t :- entries.get( i ) Qua direntry.filename;
+            IF entries.get( i ) Qua direntry.isdir THEN
+               t :- t & "/";
+            InitPutLine( t );
+         END;
+
+              !InitPutLine does not refresh the window;
+         RefreshLines;
+
+         Dir.Close;
+         DirName :- Dir.Directory_name;
+         SetHeading( DirName );
+
+         readdir := True;
+      END
+      ELSE
+         readdir := False;
+
+   END;
+
+   readdir( DirName );
+END;
+
+
+
+% *****************************************************
+% *****************************************************
+% *******                                       *******
+% *******    D I R E C T O R Y   W I N D O W    *******
+% *******                                       *******
+% *****************************************************
+% *****************************************************
+
+   SideWindow CLASS DirectoryWindow(Message, Path, Mode, DefFileName);
+      TEXT Message, Path, DefFileName;  INTEGER Mode;
+   BEGIN
+      Ref(PopupMenu) PathPopup;     !The popup that shows the path;
+      REF(SelectionListWindow)  DirList;  !The current directory content;
+      REF(ScrollBar) TheScrollBar;  !To scroll DirList;
+      Ref(ScrollBox) UpBox, DownBox;
+      INTEGER ScrollBoxWidth = 15,
+              ScrollBoxHeight = 15;
+      REF(Button) Ok_Button, Cancel_Button, Folder_Button;
+      REF(TextItemWindow) FileNameTI;  !To specify a file name (newfile only);
+
+      TEXT Choice,  !The text of the line currently selected;
+           DirName;  !The current directory;
+      INTEGER Selection,  !A flag used to check if the final selection is made;
+         Cancelled = 0,
+         Valid = 1,
+
+         Line,  !The selection's line number;
+         Def_Width=400, Def_Height=300;
+
+     !+++++++++++++
+      Mode Handling
+      +++++++++++++;
+
+      BOOLEAN PROCEDURE FileSelect;
+         FileSelect := (Mode = 0);
+      BOOLEAN PROCEDURE NewFile;
+         NewFile := (Mode = 1);
+      BOOLEAN PROCEDURE FolderSelect;
+         FolderSelect := (Mode = 2);
+      
+      
+         
+     !++++++++++++++
+      Event handling
+      ++++++++++++++;
+
+     PROCEDURE Handle_ButtonClick(b); REF(button) b;
+     IF b == Ok_Button THEN BEGIN
+        IF NewFile AND THEN FileNameTI.get =/= NOTEXT THEN BEGIN
+           Selection := Valid;
+           WakeUp;
+        END
+        ELSE SelectionMade;
+     END
+     ELSE IF b == Cancel_Button THEN BEGIN
+        Selection := Cancelled;
+        WakeUp;
+     END
+     ELSE IF b == Folder_Button THEN BEGIN
+        Selection := Valid;
+        WakeUp;
+     END;
+
+     PROCEDURE Handle_Selection(W, T, Line_Number);
+          REF(XWindow) W;
+          TEXT T;
+          INTEGER Line_Number;
+      IF W == PathPopup THEN
+      BEGIN
+         IF PathPopup.DefSel = PathPopup.NumElems THEN
+            ReadDir("/")
+         ELSE
+            ReadDir(GetPathFromPopup);
+      END
+      ELSE IF W == DirList THEN
+      BEGIN
+         Choice :- T ;
+         Line   := Line_number;
+         IF FolderSelect THEN
+         BEGIN
+            IF IsDir(T) THEN
+               Folder_Button.SetHeading( T.Sub(1, T.Length-1) )
+            ELSE
+               Folder_Button.SetHeading( PathPopup.CurrentChoice );
+            Folder_Button.Resize;
+         END;
+      END;
+
+      PROCEDURE Handle_DoubleClick(W); REF(XWindow) W;
+         IF W == DirList THEN SelectionMade;
+
+      PROCEDURE Handle_Return;
+      IF NewFile AND THEN FileNameTI.get =/= NOTEXT THEN BEGIN
+         Selection := Valid;
+         WakeUp;
+      END;
+
+      PROCEDURE SelectionMade;  !Validates a line "final" selection;
+         IF Line > 2 THEN BEGIN
+            IF NOT DirList.Gray(Line) THEN BEGIN
+               IF IsDir(Choice) THEN
+                  ReadDir( DirName & (IF DirName <> "/" THEN "/" ELSE NOTEXT)
+                           & Choice.Sub(1, Choice.Length-1) )
+               ELSE BEGIN  !FileSelect mode and it's a file;
+                  Selection := Valid;
+                  WakeUp;
+               END;
+            END;
+         END
+         ELSE IF Line = 2 THEN
+            ReadDir( PreviousDir(DirName) )
+         ELSE ReadDir(DirName);  !A refresh;
+
+         
+      TEXT PROCEDURE WaitForFile;
+      BEGIN 
+         Show;
+         ReadDir(Path);
+         Wait;
+         IF Selection = Valid THEN BEGIN
+            WaitForFile :- GetPathFromPopup & "/" &
+              (IF Mode <> 2 THEN (IF NewFile THEN FileNameTI.Get ELSE Choice)
+                            ELSE (IF Folder_Button.heading = PathPopup.CurrentChoice 
+                                 THEN NOTEXT
+                                 ELSE Folder_Button.heading & "/")
+                           )
+         END;
+      END   --- WaitForFile ---;
+
+         
+
+     !+++++++++
+      Utilities
+      +++++++++;
+
+      TEXT PROCEDURE PreviousDir(t);  !Returns the text corresponding to ../ in UNIX;
+         TEXT t;
+      BEGIN
+         TEXT Temp;
+         Temp :- Scanto(t, '/');
+         WHILE NOT Rest(t) = scanto(Rest(t), '/') DO
+            Temp :- Temp & "/" & Scanto(t, '/');
+         IF Temp == NOTEXT THEN PreviousDir :- "/"
+         ELSE PreviousDir :- Temp;
+      END   --- PreviousDir ---;
+
+      BOOLEAN PROCEDURE IsDir(t);  !Returns true if the last char is '/';
+         TEXT t;
+      BEGIN
+         T.SetPos(T.Length);
+         IsDir := T.GetChar = '/';
+      END   --- IsDir ---;
+
+      TEXT PROCEDURE InvertPath(TextToInvert);  !Ex: "/a/b/c" -> "/c/b/a";
+         TEXT  TextToInvert;
+      BEGIN
+         IF TextToInvert == NOTEXT THEN InvertPath :- NOTEXT
+         ELSE BEGIN
+            TEXT   Temp;
+            Temp :- ScanTo(TextToInvert, '/');
+            InvertPath :- InvertPath( Rest(TextToInvert) ) & "/" & Temp;
+         END;
+      END   --- InvertPath ---;
+      
+      TEXT PROCEDURE GetPathFromPopup;  !Gets the current working directory;
+      INSPECT PathPopup DO
+      BEGIN 
+         INTEGER i;
+         TEXT    NewPath;
+         FOR i := DefSel STEP 1 UNTIL NumElems-1 DO
+            NewPath :- "/" & Etiq(i) & NewPath;
+         GetPathFromPopup :- NewPath;
+      END   --- GetPathFromPopup ---;
+
+     !+++++++++++++++
+      Screen printing
+      +++++++++++++++;
+      
+      Boolean PROCEDURE ReadDir( path );  !Reads Path content and update DirList;
+         Text path;
+      BEGIN
+         REF(Table) Entries;
+         REF(Directory) Dir;
+         INTEGER NbEntries,    i;
+         TEXT T, TempPathForPopup;
+         Dir :- New Directory( path );
+         entries :- New table( 50 );
+
+         IF Dir.Open THEN
+         BEGIN
+            DirList.MakeEmpty;
+            WHILE Dir.Nextentry DO BEGIN
+               nbentries := nbentries + 1;
+               entries.insert( New DirEntry( Dir.EntryName, Dir.EntryIsDir ) );
+            END;
+            entries.sort;
+            i := 0;
+            For i := i + 1 WHILE i <= nbentries DO BEGIN
+               t :- entries.get( i ) Qua direntry.filename;
+               IF entries.get( i ) Qua direntry.isdir THEN
+                  t :- t & "/"
+               ELSE IF NOT FileSelect THEN DirList.GrayLine(i);
+               DirList.SysPutLine( t );
+            END;
+
+            !SysPutLine does not refresh the window;
+            DirList.Refresh;
+            Dir.Close;
+            DirName :- Dir.Directory_name;
+            PathPopup.SetMenu(InvertPath(DirName)&"** ROOT **", "");
+            IF FolderSelect THEN BEGIN
+               Folder_Button.SetHeading(PathPopup.CurrentChoice);
+               Folder_Button.resize;
+            END;
+
+            ReadDir := True;
+         END
+         ELSE
+            ReadDir := False;
+      END   --- ReadDir ---;
+      
+      PROCEDURE Refresh;
+      BEGIN 
+         Head_Window.SetWidth(Width-SubWindowSpacing);
+         DirList.SetSize(Width-OK_Button.Width-ScrollBoxWidth-5*SubWindowSpacing ,
+                         Height-PathPopup.Height -
+                         (IF FileNameTI =/= NONE THEN FileNameTI.Height
+                          ELSE IF Folder_Button =/= NONE THEN Folder_Button.height
+                          ELSE 0)
+                         - Head_Window.Height - 6*SubWindowSpacing)
+            .PlaceLeftBelow(PathPopup);
+         PathPopup.PlaceAt( (DirList.Width-PathPopup.width)//2+sw_gap,
+                           Head_Window.Height + 2*SubWindowSpacing);
+         UpBox.PlaceRightOf(DirList).SetSize(ScrollBoxWidth, ScrollBoxHeight);
+         TheScrollBar.PlaceBelow(UpBox)
+            .SetSize(ScrollBoxWidth,
+                     DirList.Height - 2*(ScrollBoxHeight)-3*SubWindowSpacing + 1);
+         DownBox.SetSize(ScrollBoxWidth, ScrollBoxHeight)
+            .PlaceBelow(TheScrollBar);
+         Ok_Button.PlaceRightOf(UpBox);
+         Cancel_Button.PlaceBelow(Ok_Button);
+         IF FileNameTI =/= NONE THEN
+            FileNameTI.PlaceWithCenterIn
+               ( SubWindowSpacing + DirList.Width//2,
+                 DirList.Max_Y+SubWindowSpacing+FileNameTI.Height//2 );
+         IF Folder_Button =/= NONE THEN
+            Folder_Button.PlaceWithCenterIn
+               ( SubWindowSpacing + DirList.Width//2,
+                 DirList.Max_Y+SubWindowSpacing+Folder_Button.Height//2 );
+      END   --- Refresh ---;
+
+     !++++++++++++++
+      Initialization
+      ++++++++++++++;
+      
+      !Button_Sensitize;
+      !Key_Sensitize;
+      SetSize(Def_Width, Def_Height);
+      
+      
+      SetBackGround("gray55");
+      SetHeading(Message);
+      
+      Ok_Button :- MakeButton("Ok");
+      Cancel_Button :- MakeButton("Cancel");
+      MakeButtonsSameWidth;
+      IF FolderSelect THEN Folder_Button :- MakeButton("");
+      
+      PathPopup :- MakePopupMenu("/Invalid path", "").Show;
+      DirList :- NEW SelectionListWindow(THIS XWindow).Show;
+      DirList.AllowChoice;
+      TheScrollBar :- NEW ScrollBar(THIS XWindow, DirList)
+         .PlaceRightOf(DirList)
+         .Show;
+      UpBox :- NEW ScrollBox(THIS XWindow, TRUE, DirList).Show;
+      DownBox :- NEW ScrollBox(THIS XWindow, FALSE, DirList).Show;
+      IF NewFile THEN FileNameTI :- MakeTextItem("", 30).Put(DefFileName);
+      PlaceWithCenterIn( DisplayWidth//2, DisplayHeight//2 );      
+
+   END   --- DirectoryWindow ---;
+
+
+% JPH try-out --> removed PopupMenu & MenuButton
+% also changed JPHPopupMenu for plain PopupMenu
+
+% *******************************************
+% *******************************************
+% *******                             *******
+% *******     P o p u p   M e n u     *******
+% *******                             *******
+% *******************************************
+% *******************************************
+
+% MakePopupMenu is with the other MakeBlablabl
+% august 26th 1997... removed JPH...
+
+subwindow Class PopupMenu;
+BEGIN
+
+   Integer CurSel,          !The current ChoiceIn;
+       DefSel,              !The default value;
+       NumElems,            !The number of elements in the menu;
+       TheWidth,            !Width of the largest text;
+       TheHeight;           !Height of a line;
+
+   Ref(PopupWindow) ThePopup;        !The actual window that pops-up;
+
+   Text PROCEDURE Window_Kind;
+      Window_Kind :- "PopupMenu";
+         
+      REF( TextArray ) TA;
+
+      TEXT PROCEDURE Etiq(i); integer i;
+            Etiq :- TA.Get(i);
+         
+
+      PROCEDURE SetMenu(choices, default);
+         TEXT choices, default;
+      if Choices =/= notext then
+      BEGIN
+        ! ----------------------------------------------------------- ;
+           Integer PROCEDURE FieldCount( t, c );
+        ! ----------------------------------------------------------- ;
+             Text t;
+             Character c;
+        !
+            Counts the number of fields (separated by C) in T
+           ----------------------------------------------------------- ;
+        BEGIN
+           Integer N;
+        
+           WHILE t.more DO BEGIN
+              N := N + 1;
+              WHILE T.more And then t.getchar <> c DO
+                 ;
+           END;
+           FieldCount := n;
+        END  FieldCount;
+
+         CHARACTER C;
+         INTEGER i, W ;
+         TEXT    TT;
+         
+         choices.setpos(1);
+         C := Choices.GetChar;   !This defines the separator;
+         NumElems := FieldCount(choices,C);
+         if TA == none then TA :- new TextArray
+                       else TA.Clear;
+         TA.Resize(NumElems);
+         
+         DefSel := 1;
+         FOR i := 1 STEP 1 UNTIL NumElems DO
+         BEGIN
+            TT :- trim(scanto(choices,C));
+            TA.put(TT);
+            IF TT = Default THEN
+               DefSel := i;
+            W := Max( W, Width_of_Text(TT));
+         END;
+         CurSel := DefSel;
+         TheWidth := W + 30;
+         Refresh;
+      END   --- SetMenu ---;
+
+      PROCEDURE Refresh;
+      BEGIN
+         SetSize(TheWidth, TheHeight);
+         Clear;
+%        ClearRectangle(0, 0, width, height);
+         DrawTextPos(8, height//2, Etiq(CurSel), LeftPos, CenterPos);
+         DrawBorder;
+         DrawTriangle;
+         
+      END   --- Refresh ---;
+
+      PROCEDURE DrawBorder;
+      BEGIN
+         REF(XGraphicalContext) SavedGC;   !to save line width;
+         SavedGC :- CopyGC;
+         SetLineWidth(2);
+         DrawLine( width, 0, width, height );
+         DrawLine( 0, height, width, height );
+         RestoreGC(SavedGC);
+      END   --- DrawBorder ---;
+         
+      
+      PROCEDURE DrawTriangle;
+      BEGIN
+         Integer Array x_coord( 1: 3 ),  y_coord( 1: 3 );
+         
+         x_coord( 1 ) := width-4;
+         x_coord( 2 ) := width-15;
+         x_coord( 3 ) := width-10;
+         y_coord( 1 ) := height/2-3;
+         y_coord( 2 ) := y_coord( 1 );
+         y_coord( 3 ) := height/2+3;
+
+         FillPolygon( x_coord, y_coord, 3 );
+      END   --- DrawTriangle ---;
+
+      PROCEDURE Handle_Button_Down(b);
+         INTEGER b;
+      BEGIN
+         INTEGER i,
+                 X_abs, Y_abs;   !Absolute coordinates for the PopupWnd;
+         FindAbsolutePos(X_abs, Y_abs);
+         ThePopup :- NEW PopupWindow("Popup", TopWindow);
+         ThePopup.SetSize(TheWidth, NumElems*TheHeight)
+            .PlaceAt(X_abs-1, Y_abs-(CurSel-1)*TheHeight-1)
+            .Show;
+         FOR i := 1 STEP 1 UNTIL NumElems DO
+            ThePopup.DrawTextPos(8, (i-0.5)*TheHeight, Etiq(i),
+                                 LeftPos, CenterPos);
+         InvertSelection(DefSel);
+      END;
+
+      PROCEDURE Handle_Button_Up(b);
+         INTEGER b;
+      BEGIN
+         ThePopup.Destroy;
+         ThePopup :- NONE;
+         IF 0 < CurSel AND CurSel <= NumElems THEN DefSel := CurSel;
+         CurSel := DefSel;
+         Refresh;
+         Parent.Handle_Typing(THIS XWindow);
+         Parent.Handle_Selection(THIS XWindow, Etiq(DefSel), DefSel);
+      END;
+
+      PROCEDURE Handle_Pointer_Motion(x, y);
+         INTEGER x, y;
+      IF ThePopup =/= NONE THEN
+      BEGIN
+         IF 0 < X AND X < TheWidth THEN
+         BEGIN
+            INTEGER   ChoiceOn;   !the choice onto which the cursor is;
+            ChoiceOn := Y//TheHeight + (IF Y < 0 THEN -1 ELSE 0)+DefSel;
+            IF ChoiceOn <> CurSel THEN
+               BEGIN
+                  InvertSelection(CurSel);
+                  CurSel := ChoiceOn;
+                  InvertSelection(CurSel);
+               END;
+         END
+         ELSE IF 0 < CurSel AND CurSel < NumElems THEN
+            BEGIN
+               InvertSelection(CurSel);
+               CurSel := 0;
+            END;
+      END;
+
+      PROCEDURE InvertSelection(Sel);
+         INTEGER Sel;   !The ChoiceIn to invert;
+      ThePopup.InvertRectangle(0, TheHeight*(Sel-1), TheWidth, TheHeight);
+
+      Text PROCEDURE CurrentChoice;
+         CurrentChoice :- Etiq(DefSel);
+
+      Integer PROCEDURE ChoiceNumber;
+         ChoiceNumber := DefSel;
+      
+      SetDepthBorder(3);
+      TheHeight := Max(height, head_height + font_height + 2*DepthBorder);
+      Show;
+      Button_Sensitize;
+      Pointer_Motion_Sensitize;
+   END  --- PopupMenu ---;
+   
+ 
+% ********************************************
+% ********************************************
+% *******                              *******
+% *******    D R A W    W I N D O W    *******
+% *******                              *******
+% ********************************************
+% ********************************************
+
+
+SubWindow Class DrawWindow;
+BEGIN
+
+   Text PROCEDURE window_kind;
+      window_kind :- "DrawWindow";
+
+   Ref(XWindow) PROCEDURE SetScales( xmn, ymn, xmx, ymx, imn, jmn, imx, jmx );
+        Real xmn, ymn, xmx, ymx;
+        Integer imn, jmn, imx, jmx;
+   BEGIN
+      scxi :=( imx-imn )/( xmx-xmn );
+      ioff := imn-scxi*xmn;
+      scyj :=( jmx-jmn )/( ymx-ymn );
+      joff := jmn-scyj*ymn;
+      scix := 1/scxi;
+      xoff := xmn-scix*imn;
+      scjy := 1/scyj;
+      yoff := ymn-scjy*jmn;
+      SetScales :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DrawLineScaled( x1, y1, x2, y2 );
+        Real x1, y1, x2, y2;
+      DrawLineScaled :- DrawLine( hor_scale( x1 ), ver_scale( y1 ), hor_scale(
+                            x2 ), ver_scale( y2 ) );
+
+   Ref(XWindow) PROCEDURE DrawPointScaled( x, y );
+        Real x, y;
+      DrawPointScaled :- DrawPoint( hor_scale( x ), ver_scale( y ) );
+
+   Ref(XWindow) PROCEDURE DrawCircleScaled( cx, cy, r );
+        Real cx, cy, r;
+      DrawCircleScaled :- DrawCircle( hor_scale( cx ), ver_scale( cy ),
+                              hor_relscale( r ) );
+
+   Ref(XWindow) PROCEDURE DrawArcScaled( x1, y1, x2, y2, ang1, ang2 );
+        Real x1, y1, x2, y2, ang1, ang2;
+   BEGIN
+      Integer sx1,  sy1,    sx2,    sy2;
+
+      sx1 := hor_scale( x1 );
+      sy1 := ver_scale( y1 );
+      sx2 := hor_scale( x2 );
+      sy2 := ver_scale( y2 );
+      DrawArcScaled :- DrawArc( min( sx1, sx2 ), min( sy1, sy2 ), max( sx1, sx2
+                           ), max( sy1, sy2 ), ang1, ang2 );
+   END;
+
+   Ref(XWindow) PROCEDURE DrawTextScaled( x, y, t, hpos, vpos );
+        Real x, y;
+        Text t;
+        Integer hpos, vpos;
+      DrawTextScaled :- DrawTextPos( hor_scale( x ), ver_scale( y ), t, hpos,
+                            vpos );
+
+   Real scxi,   scyj,   ioff,   joff,   scix,   scjy,   xoff,
+       yoff;
+
+   Integer PROCEDURE hor_scale( x );
+        Real x;
+      hor_scale := scxi*x + ioff;
+
+   Integer PROCEDURE ver_scale( y );
+        Real y;
+      ver_scale := scyj*y + joff;
+
+   Integer PROCEDURE hor_relscale( x );
+        Real x;
+      hor_relscale := scxi*x;
+
+   Integer PROCEDURE ver_relscale( y );
+        Real y;
+      ver_relscale := scyj*y;
+
+   Real PROCEDURE hor_invscale( i );
+        Integer i;
+      hor_invscale := scix*i + xoff;
+
+   Real PROCEDURE ver_invscale( j );
+        Integer j;
+      ver_invscale := scjy*j + yoff;
+
+END  DrawWindow;
+
+
+
+DrawWindow Class GraphWindow;
+BEGIN
+
+   Real minx,   maxx,   miny,   maxy;
+   Boolean cornersdefined,  coordinatesdefined;
+   Integer ndiv = 10;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "GraphWindow";
+
+   PROCEDURE handle_configure;
+      IF cornersdefined THEN
+         DefineCorners( minx, miny, maxx, maxy )
+      ELSE IF coordinatesdefined THEN
+         DefineCoordinates( minx, miny, maxx, maxy );
+
+   PROCEDURE DefineCorners( mnx, mny, mxx, mxy );
+        Real mnx, mny, mxx, mxy;
+   BEGIN
+      Clear;
+      SetScales( mnx, mny, mxx, mxy, 0, height, width, 0 );
+      minx := mnx;
+      maxx := mxx;
+      miny := mny;
+      maxy := mxy;
+      cornersdefined := True;
+      coordinatesdefined := False;
+   END;
+
+   PROCEDURE DefineCoordinates( mnx, mny, mxx, mxy );
+        Real mnx, mny, mxx, mxy;
+   BEGIN
+      Integer left, right_gap,  bottom_gap, top,    sifw,   pointw,
+          nmarksv,  nmarksh,    mk, dd = 5, xw, yw, xdig,   ydig;
+      Real x,   y,  xdd,    ydd,    xx, yy;
+
+      Integer PROCEDURE right;
+         right := width-right_gap;
+
+      Integer PROCEDURE bottom;
+         bottom := height-bottom_gap;
+
+      Integer PROCEDURE qdig( a );
+           Real a;
+         IF a >= 10 THEN
+            qdig := 0
+         ELSE IF a >= 1 THEN
+            qdig := 1
+         ELSE IF a >= 0.1 THEN
+            qdig := 2
+         ELSE IF a >= 0.01 THEN
+            qdig := 3
+         ELSE IF a >= 0.001 THEN
+            qdig := 4
+         ELSE IF a >= 0.0001 THEN
+            qdig := 5
+         ELSE
+            qdig := 6;
+
+      Integer PROCEDURE dig( i );
+           Integer i;
+         dig := int_as_text( i ).length;
+
+      PROCEDURE BottomMark( x );
+           Real x;
+      BEGIN
+         DrawLineScaled( x, mny, x, mny-ydd );
+         DrawTextScaled( x, mny-ydd, real_as_text( x, xdig ), CenterPos, TopPos
+             );
+      END;
+
+      PROCEDURE LeftMark( y );
+           Real y;
+      BEGIN
+         DrawLineScaled( mnx, y, mnx-xdd, y );
+         DrawTextScaled( mnx-xdd, y, real_as_text( y, ydig ), RightPos,
+             CenterPos );
+      END;
+
+      Clear;
+      minx := mnx;
+      maxx := mxx;
+      miny := mny;
+      maxy := mxy;
+      cornersdefined := False;
+      coordinatesdefined := True;
+      sifw := width_of_text( "1" );
+      pointw := width_of_text( ". " );
+      xx := max( abs( mxx ), abs( mnx ) );
+      yy := max( abs( mxy ), abs( mny ) );
+      xdig := qdig( xx ) + 1;
+      ydig := qdig( yy ) + 1;
+      right_gap :=( dd +( xdig + max( dig( mxx ), dig( mnx ) ) )*sifw + pointw )
+                       /2;
+      left := max( dd +( ydig + max( dig( mxy ), dig( mny ) ) )*sifw + pointw,
+                  right_gap );
+      top := font_height/2 + 2;
+      bottom_gap := dd + font_height + 2;
+      SetScales( mnx, mny, mxx, mxy, left, bottom, right, top );
+      ydd := scjy*(-dd );
+      xdd := scix*dd;
+      nmarksv := 10;
+      nmarksh := 10;
+      For mk := 0 Step 1 Until nmarksh DO
+         BottomMark( mnx + mk*(( mxx-mnx )/nmarksh ) );
+      For mk := 0 Step 1 Until nmarksv DO
+         LeftMark( mny + mk*(( mxy-mny )/nmarksv ) );
+      DrawRectangle( left, top, right-left, bottom-top );
+   END;
+
+   SetBackingStore;
+
+END  GraphWindow;
+
+SideWindow Class GraphPage;
+BEGIN
+
+   Ref(GraphWindow) graph_wnd;
+
+   Text PROCEDURE window_kind;
+      window_kind :- "GraphPage";
+
+   PROCEDURE DefineCorners( mnx, mny, mxx, mxy );
+        Real mnx, mny, mxx, mxy;
+      graph_wnd.DefineCorners( mnx, mny, mxx, mxy );
+
+   PROCEDURE DefineCoordinates( mnx, mny, mxx, mxy );
+        Real mnx, mny, mxx, mxy;
+      graph_wnd.DefineCoordinates( mnx, mny, mxx, mxy );
+
+   Ref(XWindow) PROCEDURE DrawLineScaled( x1, y1, x2, y2 );
+        Real x1, y1, x2, y2;
+   BEGIN
+      graph_wnd.DrawLineScaled( x1, y1, x2, y2 );
+      DrawLineScaled :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE DrawPointScaled( x, y );
+        Real x, y;
+   BEGIN
+      graph_wnd.DrawPointScaled( x, y );
+      DrawPointScaled :- This XWindow;
+   END;
+
+   Ref(XWindow) PROCEDURE MakeEmpty;
+   BEGIN
+      graph_wnd.Clear;
+      MakeEmpty :- This XWindow;
+   END;
+
+   PROCEDURE Handle_configure;
+      IF graph_wnd =/= None THEN
+         graph_wnd.SetSize( width, height );
+
+   graph_wnd :- New GraphWindow( This GraphPage ).Show;
+
+END;
+

@@ -1,0 +1,391 @@
+% =======================================   Main   program =============
+%  PROGRAM NAME:   SIMULA A/S - SIMULA TEST NO 16
+%
+%  PURPOSE:     To test the standard text procedures sub and strip.
+%
+%  WRITTEN BY:  BEH   11/07-86
+% ======================================================================
+BEGIN
+   Boolean found_error;
+
+   text t1, t2;
+
+   Outtext ("--- START Simula a.s. TEST 16");
+   Outimage;
+   Outtext ("--- Test the standard text procedures sub and strip");
+   Outimage; Outimage;
+
+   t2 :- t1.sub (1,0) ;             !******************************;
+                                    ! Test of sub                  ;
+   if t2 == notext then             !******************************;
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Sub (1).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+
+   t1 :- "abcd";
+   t1 :- t1.sub (2,3);
+   t2 :- t1.sub (3,0);
+
+   if     t1.constant
+      and t2.constant
+      and t1.pos = 1
+      and t2.pos = 1
+      and t1 = "bcd"
+      and t1.main = "abcd"
+      and t2 == notext
+      and t1.length = 3
+      and t1.start = t1.main.start+1 then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Sub (2).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t1.start, 3);
+      Outint (t1.length, 3);
+      Outint (t1.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t1);
+      Outtext ("            ");
+      Outtext (t1.main);
+      Outimage; Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+   t1 :- copy ("abcdef");
+   t2 :- t1.sub (3,4);
+
+   if     t1.sub (2,4).sub(2,3) == t1.sub (3,3)
+      and t1.main == t1.sub (3,3).main
+      and t2.main.sub (t2.start,t2.length) == t2
+      and not t2.constant
+      and t2.pos = 1
+      and t2.start = 3
+      and t2.sub (3,0) == notext
+      and t2.sub (2,0).constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Sub (3).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t1.start, 3);
+      Outint (t1.length, 3);
+      Outint (t1.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t1);
+      Outtext ("            ");
+      Outtext (t1.main);
+      Outimage; Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+                                    !******************************;
+   t1 :- t1.sub (2,0);              ! Test of strip                ;
+   t2 :- t1.strip;                  !******************************;
+
+   if     t1 == notext
+      and t2 == notext
+      and t1.constant
+      and t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Strip (1).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t1.start, 3);
+      Outint (t1.length, 3);
+      Outint (t1.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t1);
+      Outtext ("            ");
+      Outtext (t1.main);
+      Outimage; Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+   t1 :- copy ("abcd");
+   t2 :- t1.strip;
+
+   if     t1 == t2
+      and t2.length = 4
+      and not t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Strip (2).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+   t1 :- copy ("abc  ");
+   t2 :- t1.strip;
+
+   if     t1 == t2.main
+      and t2 = t1.sub (1,3)
+      and not t2.constant
+      and t2.length = 3 then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Strip (3).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t1.start, 3);
+      Outint (t1.length, 3);
+      Outint (t1.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t1);
+      Outtext ("            ");
+      Outtext (t1.main);
+      Outimage; Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+   t1 :- copy ("   ");
+   t2 :- t1.strip;
+
+   if     t2 == notext
+      and t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Strip (4).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+
+   t1 :- "abcd";
+   t2 :- t1.strip;
+
+   if     t1 == t2
+      and t2 = "abcd"
+      and t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Strip (5).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+   t1 :- "abcd  ";
+   t2 :- t1.strip;
+
+   if     t2.main == t1
+      and t2 = "abcd"
+      and t2 == t1.sub (1,4)
+      and t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Strip (6).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+   t1 :- "abcd  ";
+   t1.setpos(2);
+   t2 :- t1.strip;
+
+   if     t2.main == t1
+      and t2 = "abcd"
+      and t2.pos = 1
+      and t2 == t1.sub (1,4)
+      and t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Strip (7).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+
+   t1 :- "   ";
+   t2 :- t1.strip;
+
+   if     t2 == notext
+      and t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Strip (8).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+   t1 :- copy ("abcde");
+   t2 :- t1.sub (3,3);
+   t2 := "aba";
+
+   if     t1 == t2.main
+      and t1 = "ababa"
+      and not t1.constant
+      and not t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text procedure Sub (4).");
+      Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t1.start, 3);
+      Outint (t1.length, 3);
+      Outint (t1.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t1);
+      Outtext ("            ");
+      Outtext (t1.main);
+      Outimage; Outimage;
+      Outtext ("            Erroneous values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outimage;
+      Outtext ("            ");
+      Outtext (t2);
+      Outtext ("            ");
+      Outtext (t2.main);
+      Outimage; Outimage;
+      found_error := true
+   end;
+
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END;
+
+   Outtext ("--- END Simula a.s. TEST 16");
+   Outimage
+ END

@@ -1,0 +1,71 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 44
+%
+%  PURPOSE:     Test text procedure.
+%
+%  REWRITTEN BY:  BEH   24/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   TEXT               t1, t2 ;
+
+   TEXT PROCEDURE Mysub (t, i1, i2) ;
+                         VALUE    t ;
+                         TEXT     t ;
+                         INTEGER  i1, i2 ;
+   IF  i2 < i1 OR t.length < i2
+   THEN
+   ELSE
+   BEGIN
+      TEXT         th ;
+      INTEGER      j ;
+      th :- BLANKS (i2 - i1 + 1) ;
+      t.SETPOS (i1) ;
+      FOR  j := i1  STEP 1 UNTIL i2 DO  th.PUTCHAR (t.GETCHAR) ;
+      Mysub :- th
+   END of procedure Mysub ;
+
+   Outtext ("--- START Simula a.s. TEST 44") ;
+   Outimage ;
+   Outtext ("--- Simple test of text procedures.") ;
+   Outimage ; Outimage ;
+
+   t1 :- COPY ("test one") ;
+   t2 :- Mysub (t1, 6, 8) ;
+   t1 :- t1.sub (6, 3) ;
+   IF  t1 = t2  THEN
+   ELSE
+   begin
+      Outtext ("*** ERROR : Text values.") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outimage ;
+      Outtext ("              t1 == t2  -  ") ;
+      Outtext (if t1 == t2 then "true" else "false") ;
+      Outimage ;
+      Outtext ("              t1 == ") ;
+      Outtext (if t1 == notext then "notext" else t1) ;
+      Outimage ;
+      Outtext ("              t2 == ") ;
+      Outtext (if t2 == notext then "notext" else t2) ;
+      Outimage ;
+      Outtext ("              t1.main == ") ;
+      Outtext (if t1.main == notext then "notext" else t1.main) ;
+      Outimage ;
+      Outtext ("              t2.main == ") ;
+      Outtext (if t2.main == notext then "notext" else t2.main) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 44") ;
+   Outimage
+END of program

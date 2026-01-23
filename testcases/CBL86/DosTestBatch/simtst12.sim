@@ -1,0 +1,149 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   SIMULA A/S - SIMULA TEST NO 12
+%
+%  PURPOSE:     To test text value and reference relations.
+%
+%  METHOD:      Take a look at some examples to see if we get the results
+%               which we expect.
+%
+%  WRITTEN BY:  BEH   10/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+   text t1, t2 ;
+
+   Outtext ("--- START Simula a.s. TEST 12") ;
+   Outimage ;
+   Outtext ("--- Test the text value and reference relations.") ;
+   Outimage; Outimage;
+
+                                                !******************************;
+                                                ! Test of text value relations ;
+                                                !******************************;
+
+
+   if     t1 = notext
+      and t2 = ""
+      and not t1 < t2
+      and t2 <= "abc"
+      and t1 >= t2
+      and "123" > ""
+      and not t1 <> t2 then
+   else
+   begin
+      Outtext ("*** ERROR : Text value relation (1).") ;
+      Outimage ;
+      found_error := true ;
+   end ;
+
+   t1 :- "abc" ;
+
+   if     t1 = "abc"
+      and t2 < t1
+      and "" <= t1
+      and t1 >= notext
+      and t1 > ""         then
+   else
+   begin
+      Outtext ("*** ERROR : Text value relation (2).") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   t2 :- "abc" ;
+
+   if     t1 = t2
+      and "" < t2
+      and t2 <= t1
+      and t2 >= t1
+      and not t2 > "abc" then
+   else
+   begin
+      Outtext ("*** ERROR : Text value relation (3).") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   t2 :- "abc " ;
+
+   if not t1 = t2
+      and t1 < t2
+      and "aaa" <= t2
+      and t2 >= "abbcd"
+      and t2 > notext then
+   else
+   begin
+      Outtext ("*** ERROR : Text value relation (4).") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+                                                !******************************;
+                                                ! Test of text reference       ;
+                                                !******************************;
+
+   t1 :- notext ;
+   t2 :- notext ;
+
+   if     t1 == notext
+      and t2 == t1
+      and t2.pos = 1
+      and t1.length = t2.length
+      and t1.start = t2.start
+      and t1.main == t2.main
+      and t2.main.length = t1.main.length
+      and t1.start = 1 then
+   else
+   begin
+      Outtext ("*** ERROR : Text reference relation (5).") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   t1 :- "abc" ;
+
+   if     t1 =/= t2
+      and t1 == t1.main then
+   else
+   begin
+      Outtext ("*** ERROR : Text reference relation (6).") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   t2 :- "abc" ;
+
+   if     t1 =/= t2
+      and not t1 == t2
+      and t1 = t2 then
+   else
+   begin
+      Outtext ("*** ERROR : Text reference relation (7).") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   t2 :- t1 ;
+
+   if     t1 == t2
+      and t1 = t2 then
+   else
+   begin
+      Outtext ("*** ERROR : Text reference relation (8).") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 12") ;
+   Outimage
+ END

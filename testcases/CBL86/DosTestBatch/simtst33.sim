@@ -1,0 +1,452 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 33
+%
+%  PURPOSE:     Test call by reference for object reference type, text, value
+%               type array and reference type array.
+%
+%  NOTE:    1 - In Boolean expression containing 'and then' then is set to a
+%               comment (!then;) to test the program on ND-500. The !then;
+%               should be replaced by 'then' if you have implemented 'and
+%               then'.
+%
+%  WRITTEN BY:  BEH   22/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Boolean array        Ba1 (0:0), Ba3 (0:0,1:2,2:2) ;
+   character array      ca1 (0:0), ca3 (0:0,1:2,2:2) ;
+   integer array        ia1 (0:0), ia3 (0:0,1:2,2:2) ;
+   real array           ra1 (0:0), ra3 (0:0,1:2,2:2) ;
+   text array           ta1 (0:0), ta3 (0:0,1:2,2:2) ;
+   ref (D) array        Da1 (0:0), Da3 (0:0,1:2,2:2) ;
+   ref (E) array        Ea1 (0:0), Ea3 (0:0,1:2,2:2) ;
+
+   text t ;
+   ref (D) rD ;
+   ref (E) rE ;
+
+   Class D (t) ; value t ; text t ;;
+
+   D Class E ;;
+
+   Procedure InitVariables ;
+   begin
+      t :- copy ("abcde") ;
+      t.setpos (3) ;
+
+      rD :- new D ("1") ;
+      rE :- new E ("2") ;
+
+      Ba1 (0) := true ;
+      Ba3 (0,2,2) := true ;
+
+      ca1 (0) := 'a' ;
+      ca3 (0,1,2) := 'b' ;
+
+      ia3 (0,1,2) := 12 ;
+      ia3 (0,2,2) := 123 ;
+
+      ra1 (0) := 1 ;
+      ra3 (0,2,2) := 2 ;
+
+      ta1 (0) :- t ;
+      ta3 (0,1,2) :- copy ("edcba") ;
+
+      Da1 (0) :- new E ("3") ;
+      Da3 (0,2,2) :- rD ;
+
+      Ea3 (0,1,2) :- rE ;
+      Ea3 (0,2,2) :- new E ("4") ;
+   end pros. InitVariables ;
+
+
+   procedure P1 (tf, Df, Ef) ;
+      text tf ;
+      ref (D) Df ;
+      ref (E) Ef ;
+   begin
+                                      ! Test references ;
+      if     tf == t and tf.pos = 3
+         and Df == rD
+         and Ef == rE then
+      else
+      begin
+         Outtext ("*** ERROR : Wrong references (1).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outimage ;
+         Outtext ("                tf = ") ;
+         Outtext (if tf == notext then "notext" else tf) ;
+         Outint (tf.pos, 4) ;
+         Outimage ;
+         Outtext ("               Df == ") ;
+         Outtext (if Df == none then "none" else Df.t) ;
+         Outimage ;
+         Outtext ("               Ef == ") ;
+         Outtext (if Ef == none then "none" else Ef.t) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+                                                ! Alter the values ;
+      tf := "abc" ;
+      Df.t := "5" ;
+      Ef.t :- copy ("6") ;
+
+                                                ! Test the values of the ;
+      if     t = "abc  "                        ! global variables       ;
+         and rD =/= none and !then; rD.t = "5"
+         and rE =/= none and !then; rE.t = "6" then
+      else
+      begin
+         Outtext ("*** ERROR : Values of global variables (2).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outimage ;
+         Outtext ("                t = ") ;
+         Outtext (if t == notext then "notext" else t) ;
+         Outimage ;
+         Outtext ("               rD.t = ");
+         Outtext (if rD == none then "object none" else
+                  if rD.t == notext then "notext" else rD.t) ;
+         Outimage ;
+         Outtext ("               rE.t = ");
+         Outtext (if rE == none then "object none" else
+                  if rE.t == notext then "notext" else rE.t) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+                                                ! Alter the references ;
+      tf :- copy ("bcd") ;
+      Df :- new E ("7") ;
+      Ef :- Df ;
+   end pros. P1 ;
+
+
+   procedure P2 (tf, Df, Ef) ;
+      text tf ;
+      ref (D) Df ;
+      ref (E) Ef ;
+   begin
+                                      ! Test references ;
+      if     tf == ta1 (0) and tf.pos = 3
+         and Df == Da3 (0,2,2)
+         and Ef == Ea3 (0,1,2) then
+      else
+      begin
+         Outtext ("*** ERROR : Wrong references (3).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outimage ;
+         Outtext ("                tf = ") ;
+         Outtext (if tf == notext then "notext" else tf) ;
+         Outint (tf.pos, 4) ;
+         Outimage ;
+         Outtext ("               Df == ") ;
+         Outtext (if Df == none then "none" else Df.t) ;
+         Outimage ;
+         Outtext ("               Ef == ") ;
+         Outtext (if Ef == none then "none" else Ef.t) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+                                                ! Alter the values ;
+      tf := "def" ;
+      Df.t := "8" ;
+      Ef.t :- Df.t ;
+
+                                                ! Test the values of the ;
+      if     ta1 (0) = "def  "                  ! global variables       ;
+         and Da3 (0,2,2) =/= none and !then; Da3 (0,2,2).t = "8"
+         and Ea3 (0,1,2) =/= none and !then; Ea3 (0,1,2).t = "8" then
+      else
+      begin
+         Outtext ("*** ERROR : Values of global variables (4).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outimage ;
+         Outtext ("                ta1 (0) = ") ;
+         Outtext (if ta1 (0) == notext then "notext" else ta1 (0)) ;
+         Outimage ;
+         Outtext ("               Da3 (0,2,2).t = ");
+         Outtext (if Da3 (0,2,2) == none then "object none" else
+               if Da3 (0,2,2).t == notext then "notext" else Da3 (0,2,2).t) ;
+         Outimage ;
+         Outtext ("               Ea3 (0,1,2).t = ");
+         Outtext (if Ea3 (0,1,2) == none then "object none" else
+               if Ea3 (0,1,2).t == notext then "notext" else Ea3 (0,1,2).t) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+                                                ! Alter the references ;
+      tf :- copy ("bcd") ;
+      Df :- new E ("7") ;
+      Ef :- Df ;
+   end pros. P2 ;
+
+
+   Procedure P3 (tf, Df, Ef) ;
+      text tf ;
+      ref (D) Df ;
+      ref (E) Ef ;
+   begin
+                                      ! Test parameters ;
+      if     tf = "efg"
+         and Df == Ea3 (0,2,2)
+         and Ef =/= none and !then; Ef.t = "9" then
+      else
+      begin
+         Outtext ("*** ERROR : Wrong references (5).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outimage ;
+         Outtext ("                tf = ") ;
+         Outtext (if tf == notext then "notext" else tf) ;
+         Outint (tf.pos, 4) ;
+         Outimage ;
+         Outtext ("               Df == ") ;
+         Outtext (if Df == none then "none" else Df.t) ;
+         Outimage ;
+         Outtext ("               Ef == ") ;
+         Outtext (if Ef == none then "none" else Ef.t) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+                                                ! Alter the values ;
+      tf := "def" ;
+      Df.t :- copy ("10") ;
+      Ef.t :- Df.t ;
+
+                                                ! Alter the references ;
+      tf :- copy ("fgh") ;
+      Df :- new E ("11") ;
+      Ef :- Df ;
+   end pros. P3 ;
+
+
+   Procedure P4 (Bf, cf, jf, rf, tf, Df, Ef) ;
+      Boolean array       Bf ;
+      character array     cf ;
+      integer array       jf ;
+      real array          rf ;
+      text array          tf ;
+      ref (D) array       Df ;
+      ref (E) array       Ef ;
+   begin
+                                                ! Test parameters ;
+      if     Bf (0,1,2) imp Bf (0,2,2)
+         and cf (0) = 'a'
+         and jf (0) = 0
+         and rf (0,1,2) = 1 and rf (0,2,2) = 1
+         and tf (0,1,2) = "edcba" and tf (0,2,2) == notext
+         and Df (0) =/= none and !then; Df (0).t = "3"
+         and Ef (0,1,2) =/= none and !then; Ef (0,1,2).t = "2"
+         and Ef (0,2,2) =/= none and !then; Ef (0,2,2).t = "12" then
+      else
+      begin
+         Outtext ("*** ERROR : Values of parameters (6).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outimage ;
+         Outtext ("              Bf (0,1,2) = ") ;
+         Outtext (if Bf (0,1,2) then "true , Bf (0,2,2) = " else
+                                     "false , Bf (0,2,2) = ") ;
+         Outtext (if Bf (0,2,2) then "true" else "false") ;
+         Outimage ;
+         Outtext ("              cf (0)     = ") ;
+         Outchar (cf (0)) ;
+         Outimage ;
+         Outtext ("              jf (0)     = ") ;
+         Outint (jf (0), 5) ;
+         Outimage ;
+         Outtext ("              rf (0,1,2) = ") ;
+         Outreal (rf (0,1,2), 4, 11) ;
+         Outtext (" ,  rf (0,2,2) = ") ;
+         Outreal (rf (0,2,2), 4, 11) ;
+         Outimage ;
+         Outtext ("              tf (0,1,2) = ") ;
+         Outtext (if tf (0,1,2) == notext then "notext" else tf (0,1,2)) ;
+         Outtext (" , tf (0,2,2) = ") ;
+         Outtext (if tf (0,2,2) == notext then "notext" else tf (0,2,2)) ;
+         Outimage ;
+         Outtext ("              Df (0).t   = ") ;
+         Outtext (if Df (0) == none then "object none" else
+                  if Df (0).t == notext then "notext" else
+                                         Df (0).t ) ;
+         Outimage ;
+         Outtext ("            Ef (0,1,2).t = ") ;
+         Outtext (if Ef (0,1,2) == none then "object none" else
+                  if Ef (0,1,2).t == notext then "notext" else
+                                   Ef (0,1,2).t ) ;
+         Outimage ;
+         Outtext ("            Ef (0,2,2).t = ") ;
+         Outtext (if Ef (0,2,2) == none then "object none" else
+                  if Ef (0,2,2).t == notext then "notext" else
+                                   Ef (0,2,2).t ) ;
+         Outimage ;
+         found_error := true
+      end ;
+                                                ! Alter the values ;
+      Bf (0,1,2) := true ;
+      cf (0) := 'c' ;
+      jf (0) := 1234 ;
+      rf (0,2,2) := 3 ;
+      tf (0,1,2) :- copy ("ghi") ;
+      Df (0) :- new E ("12") ;
+      Ef (0,1,2) :- Df (0) ;
+
+   end pros. P4 ;
+
+
+   Outtext ("--- START Simula a.s. TEST 33") ;
+   Outimage ;
+   Outtext ("--- Test call by reference for object reference type, text,") ;
+   Outimage ;
+   Outtext ("--- value type array and reference type array.") ;
+   Outimage ; Outimage ;
+
+   InitVariables ;
+
+   P1 (t, rD, rE) ;
+
+                                                ! Test the references of the ;
+                                                ! global variables           ;
+   if     t = "abc  " and t.pos = 3
+      and rD =/= none and !then; rD.t = "5"
+      and rE =/= none and !then; rE.t = "6" then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong references (7).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outimage ;
+      Outtext ("                t = ") ;
+      Outtext (if t == notext then "notext" else t) ;
+      Outint (t.pos, 4) ;
+      Outimage ;
+      Outtext ("               rD == ") ;
+      Outtext (if rD == none then "none" else rD.t) ;
+      Outimage ;
+      Outtext ("               rE == ") ;
+      Outtext (if rE == none then "none" else rE.t) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   P2 (ta1 (0), Da3 (0,2,2), Ea3 (0,1,2)) ;
+
+                                                ! Test the references of the ;
+                                                ! global variables           ;
+   if     ta1 (0) = "def  " and ta1 (0).pos = 3
+      and Da3 (0,2,2) =/= none and !then; Da3 (0,2,2).t = "8"
+      and Ea3 (0,1,2) =/= none and !then; Ea3 (0,1,2).t = "8" then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong references of globals (8).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outimage ;
+      Outtext ("                ta1 (0) = ") ;
+      Outtext (if ta1 (0) == notext then "notext" else ta1 (0)) ;
+      Outint (ta1 (0).pos, 4) ;
+      Outimage ;
+      Outtext ("               Da3 (0,2,2) == ") ;
+      Outtext (if Da3 (0,2,2) == none then "none" else Da3 (0,2,2).t) ;
+      Outimage ;
+      Outtext ("               Ea3 (0,1,2) == ") ;
+      Outtext (if Ea3 (0,1,2) == none then "none" else Ea3 (0,1,2).t) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   P3 (copy ("efg") , Ea3 (0,2,2), new E ("9") );
+
+                                                ! Test the values of the ;
+                                                ! significant global variables;
+   if Ea3 (0,2,2) =/= none and !then; Ea3 (0,2,2).t = "10" then
+   else
+   begin
+      Outtext ("*** ERROR : Values of global variables (9).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outimage ;
+      Outtext ("               Ea3 (0,2,2).t = ");
+      Outtext (if Ea3 (0,2,2) == none then "object none" else
+            if Ea3 (0,2,2).t == notext then "notext" else Ea3 (0,2,2).t) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   P4 (Ba3, ca1, ia1, ra3, ta3, Da1, Ea3) ;
+
+                                                ! Test the values of the ;
+                                                ! globals                ;
+   if     Ba3 (0,1,2) and Ba3 (0,2,2)
+      and ca1 (0) = 'c'
+      and ia1 (0) = 1234
+      and ra3 (0,1,2) = 0 and ra3 (0,2,2) = 3
+      and ta3 (0,1,2) = "ghi" and ta3 (0,2,2) == notext
+      and Da1 (0) =/= none and !then; Da1 (0).t = "12"
+      and Ea3 (0,1,2) =/= none and !then; Ea3 (0,1,2).t = "12"
+      and Ea3 (0,2,2) =/= none and !then; Ea3 (0,2,2).t = "10" then
+   else
+   begin
+      Outtext ("*** ERROR : Values of parameters (10).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outimage ;
+      Outtext ("              Ba3 (0,1,2) = ") ;
+      Outtext (if Ba3 (0,1,2) then "true , Ba3 (0,2,2) = " else
+                                  "false , Ba3 (0,2,2) = ") ;
+      Outtext (if Ba3 (0,2,2) then "true" else "false") ;
+      Outimage ;
+      Outtext ("              ca1 (0)     = ") ;
+      Outchar (ca1 (0)) ;
+      Outimage ;
+      Outtext ("              ia1 (0)     = ") ;
+      Outint (ia1 (0), 5) ;
+      Outimage ;
+      Outtext ("              ra3 (0,1,2) = ") ;
+      Outreal (ra3 (0,1,2), 4, 11) ;
+      Outtext (" ,  ra3 (0,2,2) = ") ;
+      Outreal (ra3 (0,2,2), 4, 11) ;
+      Outimage ;
+      Outtext ("              ta3 (0,1,2) = ") ;
+      Outtext (if ta3 (0,1,2) == notext then "notext" else ta3 (0,1,2)) ;
+      Outtext (" , ta3 (0,2,2) = ") ;
+      Outtext (if ta3 (0,2,2) == notext then "notext" else ta3 (0,2,2)) ;
+      Outimage ;
+      Outtext ("              Da1 (0).t   = ") ;
+      Outtext (if Da1 (0) == none then "object none" else
+               if Da1 (0).t == notext then "notext" else
+                                      Da1 (0).t ) ;
+      Outimage ;
+      Outtext ("            Ea3 (0,1,2).t = ") ;
+      Outtext (if Ea3 (0,1,2) == none then "object none" else
+               if Ea3 (0,1,2).t == notext then "notext" else
+                                Ea3 (0,1,2).t ) ;
+      Outimage ;
+      Outtext ("            Ea3 (0,2,2).t = ") ;
+      Outtext (if Ea3 (0,2,2) == none then "object none" else
+               if Ea3 (0,2,2).t == notext then "notext" else
+                                Ea3 (0,2,2).t ) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 33") ;
+   Outimage
+ END

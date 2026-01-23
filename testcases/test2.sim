@@ -1,0 +1,74 @@
+
+
+procedure insert;
+begin
+		            
+	ref(entity)w, x;
+
+	newroot: 
+	if evtime >= root.evtime then
+		begin
+			ll   :- root;
+			root :- root.bl :- this entity;
+		end 
+	else
+		inserbelow: 
+		begin
+			w :- root;
+			descend: 
+			x :- w.ll;
+			if x == none then
+				begin
+					inseralow: 
+					w.ll :- this entity;
+					bl   :- w;
+					if w == current then
+						begin
+							error(15, this entity, none, 0,
+									  "e.insert; ref(entity)e;");
+							current :- this entity;
+							resume(current);
+						end;
+				end 
+			else 
+				if evtime < x.evtime then
+					insertbelox: 
+					begin
+						w :- x;
+						goto descend;
+					end 
+				else
+					if evtime = x.evtime then
+						inserbetweeanw: 
+						begin
+							w.ll :- x.bl :- this entity;
+							bl   :- w;
+							ll   :- x;
+						end
+					else
+						inseririghsubtreow: 
+						begin
+							x :- w.rl;
+							if x == none then
+								inseranerow: 
+								begin
+									w.rl :- this entity;
+									bl   :- w;
+								end 
+							else
+								insert2belox: 
+								if evtime < x.evtime then
+									begin
+										w :- x;
+										goto descend;
+									end 
+								else
+									insertbetweeanx: 
+									begin
+										w.rl :- x.bl :- this entity;
+										bl   :- w;
+										ll   :- x;
+									end;
+						end;
+		end;
+end***insert***;

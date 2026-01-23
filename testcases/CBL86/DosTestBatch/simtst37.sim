@@ -1,0 +1,93 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 37
+%
+%  PURPOSE:     Test transmission by name, when the actual parameter is of a
+%               different type than the formal parameter.
+%
+%  WRITTEN BY:  BEH   23/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   integer i, j ;
+   real x, y, z, eps ;
+
+   procedure P (r, s) ;
+      name r, s ;
+      real r, s ;
+      x := r := s := 3.14 ;
+
+
+   Outtext ("--- START Simula a.s. TEST 37") ;
+   Outimage ;
+   Outtext ("--- Test transmission by name, when the actual parameters") ;
+   Outimage ;
+   Outtext ("--- and formal parameters are of different type.") ;
+   Outimage ; Outimage ;
+
+   eps := 0.001 ;
+
+   P (i, j) ;
+
+   if     i = 3
+      and j = 3
+      and x+eps > 3.14 and x-eps < 3.14 then
+   else
+   begin
+      Outtext ("*** ERROR : Value of actual parameters (1).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outimage ;
+      Outint (i,16) ;
+      Outint (j, 4) ;
+      Outreal (x, 4, 10) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   P (i, y) ;
+
+   if     i = 3
+      and y-eps < 3.14 and y+eps > 3.14
+      and x-eps < 3.14 and x+eps > 3.14 then
+   else
+   begin
+      Outtext ("*** ERROR : Value of actual parameters (2).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outimage ;
+      Outint (i,16) ;
+      Outreal (y, 4, 10) ;
+      Outreal (x, 4, 10) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   P (z, j) ;
+
+   if     j = 3
+      and z-eps < 3.14 and z+eps > 3.14
+      and x-eps < 3.14 and x+eps > 3.14 then
+   else
+   begin
+      Outtext ("*** ERROR : Value of actual parameters (3).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outimage ;
+      Outint (j,16) ;
+      Outreal (z, 4, 10) ;
+      Outreal (x, 4, 10) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 37") ;
+   Outimage
+ END

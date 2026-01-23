@@ -1,0 +1,98 @@
+! Discrete Simulation using the Simula's class SIMULATION  ;
+!  Example:                                                ;
+!  (Pooley: An Introduction to Programming in Simula)      ;
+!  The example is a model of an office. Two writers write  ;
+!  documents an pass them to the typing pool. Then the     ;
+!  documents are typed by typers. The simulation should    ;
+!  find the best number of typers - neither idle typers,   ;
+!  nor waiting writers.                                    ;
+!  Writing takes a random time from 5 to 10.               ;
+!  Typing takes a random time from 10 to 50.               ;
+!  (Both uniformly distributed)                            ;
+!  The model uses 2 processes:      - Writer               ;
+!                                   - Typer                ;
+
+Simulation Begin
+
+ Class Document;;           ! Empty class;
+
+ Procedure Report;          ! Experiment evaluation;
+ Begin
+   OutText("  *** Report ***   "); OutImage;
+   Outint(Count,6); OutText(" documents ready at time ");
+   OutFix(Time,2,10); OutImage;
+   OutText("Total waiting time of writers: "); OutFix(Waiting,2,10);
+   OutImage;
+   OutText("Number of waiting typists    : ");
+   OutInt(TypingPool.Cardinal,4); OutImage;
+ End of Report;
+
+ Process Class Writer;
+ Begin
+   Ref(Typer) Typist;    ! Typist = typer typing the document;
+   Ref(Document) Doc;    ! Doc = document completed;
+   Real WTime;
+   While True Do         ! Life = writing document and starting ;
+   Begin                 !        its typing for ever.          ;
+     Hold(Uniform(5.0,10.0,R1));         ! Writing the document ;
+     Doc :- New Document;
+     Typist :- TypingPool.First;  ! Taking the 1st free typist;
+     WTime := 0;
+     While Typist==None Do Begin
+        Hold(0.5);
+        WTime := WTime + 0.5;
+        Typist :- TypingPool.First;
+     End Wait;
+     Waiting := Waiting + WTime;  ! Total waiting time;
+     Typist.Out;
+     Activate Typist              ! Starting his/her work;
+   End While
+ End of Writer;
+
+
+ Process Class Typer;
+ Begin
+   Wait(TypingPool);           ! Life starts by entering the queue;
+   While True Do     ! This is performed after removing the typist;
+                     ! from the queue and after his/her activating;
+                     ! by one of the two writers.                 ;
+   Begin
+     Hold(Uniform(10.0,50.0,R2));      ! This is the typing;
+     OutText("Document ready at ");
+     OutFix(Time,2,10); outimage;
+     Count := Count + 1;
+     Wait(TypingPool)    ! Waiting in the queue until removed by;
+   End While             ! one of the two writers.              ;
+ End of Typer;
+
+ ! Global variables: ;
+
+ Ref(Head) TypingPool;      ! Typingpool is a list (queue);
+ Integer I,Count,R1,R2;
+ Integer TypNum;
+ Real Waiting;
+ Character C;
+
+ !MAIN program body;
+
+ R1 := 13;                     ! Seeds of random variables;
+ R2 := 17;
+ TypingPool :- New Head;          !Creating an empty queue;
+ OutText("Enter the number of typists:"); OutImage;
+ TypNum := InInt;
+ For I := 1 Step 1 Until TypNum Do Activate New Typer;
+        ! All of them will enter the queue - see the life.;
+ Activate New Writer;
+        !The life of the 1st writer starts at 0 time units;
+ Activate New Writer At 25;
+       !The life of the 2nd writer starts at 25 time units;
+
+ C := 'Y';
+ While C='Y' Or C='y' Do Begin
+    Hold(50);
+    Report;        ! Report after each 50 time units;
+    OutText("Continue ? (Y/N)"); OutImage;
+    InImage; C := InChar;
+ End While;
+
+End of program;

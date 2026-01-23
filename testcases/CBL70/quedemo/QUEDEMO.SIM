@@ -1,0 +1,62 @@
+%+3 %SELECT 23
+begin ! Simulation of a Queueing System for Loading and unloading of Trucks;
+      ! The above selecttion is a compiler directive, giving an example
+        of one source text holding three different program cases;
+
+Simulation class QueueingSystem(nDocks, nForks);
+short integer nDocks, nForks;
+begin short integer cnt, totnr; long real wt;
+      short integer array acm(6:22);
+
+   Process class Generator; begin short integer nrph,si;
+      while true do begin
+%-2      nrph:= Poisson(3.9,U1);
+%+2      nrph:= Poisson(distr(time),U1);
+         Hold(1.0);
+         if time<22.0 then begin
+            acm(time):= acm(time)+nrph; totnr:= totnr+nrph;
+            for si:= 1 step 1 until nrph do
+               activate new Truck delay 1.0-si/nrph; end;
+      end;
+   end class Generator;
+
+   Process class Truck; begin long real wtime;
+      if FreeDocks.First == none then begin
+         wtime:= time; Wait(Waiting); wt:= wt+time-wtime; out; end;
+      inspect FreeDocks.first do begin out;
+         wtime:= Normal(24.0*nDocks/nForks+8,5*nDocks/nForks,U2)/60;
+       ! Modification for two kinds of trucks follows;
+%+3      wtime:= if Draw(0.6,U3) then wtime else wtime/2;
+         Hold(wtime); This Truck.into(FreeDocks); end;
+      if Waiting.first =/= none then
+         activate Waiting.first after This Truck;
+   end class Truck;
+
+   ref (Head) FreeDocks, Waiting;
+   Link class Dock; ;
+
+%+2 Real array distr(6:22); ! Additional for distribution;
+%+2 distr(6):= 2.5; distr(7):= 2.0; distr(8):= 3.2; distr(9):= 6.1;
+%+2 distr(10):= 5.7; distr(11):= 5.3; distr(12):= 3.8; distr(13):= 5.2;
+%+2 distr(14):= 5.1; distr(15):= 6.7; distr(16):= 5.8; distr(17):= 3.7;
+%+2 distr(18):= 1.7; distr(19):= 1.2; distr(20):= 0.6; distr(21):= 0.2;
+
+   FreeDocks:- new Head; Waiting:- new Head;
+   for cnt:= 1 step 1 until nDocks do new Dock.into(FreeDocks);
+
+   Hold(6.0); activate new Generator;
+end class QueueingSystem;
+
+    short integer nD, nF, i; integer U1, U2;
+%+3 integer U3; U3:= 4023;
+    U1:= 4001; U2:= 4013;
+
+    for nD:= 1 step 1 until 6 do
+    for nF:= 1 step 1 until 2*nD do QueueingSystem(nD,nF) begin
+       Hold(16.0); outtext("Trucks waitingtime: ");
+       outfix(wt,3,9); outtext(" Nr Docks: "); outint(nD,3);
+       outtext(" Nr Forks: "); outint(nF,3);
+       outtext(" Nr trucks: "); outint(totnr,4); outimage;
+    end;
+end Program;
+

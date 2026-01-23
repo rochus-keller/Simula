@@ -1,0 +1,57 @@
+% ================================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 91
+%
+%  PURPOSE: Test virtual procedures, simple case.
+%
+%  METHOD:
+%
+%  WRITTEN BY:
+% ==============================================================================
+begin ref(A) x; text timage;
+      text array ta(0:3); integer ti;
+      boolean found_error;
+
+      Procedure Test;
+      if timage <> ta(ti) then
+      begin outtext("--- ERROR Virtual test no ");
+            outint(ti,4); outimage; outimage;
+            found_error:= true;
+      end;
+
+      class A;
+      virtual: procedure P1,P2;
+      begin
+            procedure P1(t); text t;
+            begin timage:= "Ref.  text: ";
+                  timage.sub(13,t.length):= t;
+                  Test; ti:= ti + 1;
+            end;
+
+            procedure P2(t); value t; text t;
+            begin timage:= "Value text: ";
+                  timage.sub(13,t.length):= t;
+                  Test; ti:= ti + 1;
+            end;
+      end;
+
+      timage:- blanks(43);
+      ta(0):- "Ref.  text: dette var bra !!!!             ";
+      ta(1):- "Value text: dette var ogs} bra !!!!        ";
+      ta(2):- "Ref.  text: og dette var bra !!!!          ";
+      ta(3):- "Value text: og til slutt var dette bra !!!!";
+
+      outtext("--- START Simula a.s. TEST 91"); outimage;
+      outtext("--- Test simple virtual procedures");
+      outimage; outimage;
+      x:-new A;
+      x.P1("dette var bra !!!!");
+      x.P2("dette var ogs} bra !!!!");
+      x.P1(copy("og dette var bra !!!!"));
+      x.P2(copy("og til slutt var dette bra !!!!"));
+
+      if not found_error then
+      begin outtext("--- NO ERRORS FOUND IN THIS TEST");
+            outimage;
+      end;
+      outtext("--- END Simula a.s. TEST 91"); outimage;
+END of program

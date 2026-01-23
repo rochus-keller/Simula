@@ -1,0 +1,40 @@
+! Chess control - Two Masters approach;
+Begin
+   Boolean Mate;
+   Ref(Player) White,Black,Winner;
+   Integer Seed;
+
+   Class Player(PName); Text PName;
+   Begin
+     Ref(Player) Opponent;
+     Integer Move;
+          ! The life follows;
+      Detach;
+      OutText(PName); OutText("'s First Move"); OutImage;
+      Resume(Opponent);
+      OutText(PName); OutText("'s Second Move"); OutImage;
+      Resume(Opponent);
+      Move := 2;
+      While not Mate do begin
+         Move := Move+1;
+         OutText(PName); OutText("'s Move # ");
+         OutInt(Move,3); OutImage;
+         If Draw(0.3,Seed) then begin
+            Mate := true; Winner :- This Player;
+         End If;
+         Resume(Opponent);
+      End While;
+   End of Player;
+
+   Begin   ! QPS head;
+      OutText("Creating Players, Starting the white one"); OutImage; ! RK removed second semi ;
+      White :- New Player("White");
+      Black :- New Player("Black");
+      White.Opponent :- Black;
+      Black.Opponent :- White;
+      Seed := 17;
+      Resume(White);
+      OutText("Finish: "); OutText(Winner.PName);
+      OutText(" won in move"); OutInt(Winner.Move,3); OutImage; ! RK removed second semi ;
+   End of QPS
+End of program;

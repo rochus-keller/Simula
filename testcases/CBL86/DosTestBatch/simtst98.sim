@@ -1,0 +1,419 @@
+% =======================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 98
+%
+%  PURPOSE:  Test attribute protection. Test visibility of labels.
+%
+%  METHOD:   Define a class structure, with combinations of 'protected'
+%            and 'hidden' at same or different prefix levels. Test 
+%            values of integer variable or constant at different levels.
+%            In addition, try to 'goto' an invisible (inspected) label.
+%
+%  NOTE:     If constants are not implemented, change declarations
+%            marked !C; to normal integer declarations.
+%
+%  WRITTEN BY:  Peter Jensen March 1987
+% =====================================================================
+%
+begin integer i,j,k,globali,globalj,globalk;
+      boolean trace; !*** set TRUE if output is wanted ***;
+      boolean errorFound;
+      text programpoint;
+      boolean ablock,bblock,cblock,dblock,eblock,fblock;
+
+      procedure outattr(line,t,i,expected);
+      text t; integer line,i,expected;
+      if i<>expected or trace then begin
+            if i<>expected
+            then begin outtext(programpoint); outimage end;
+            outtext("- l."); outint(line,4); outtext(": ");
+            outtext(t); outint(i,3);
+            if i<>expected then begin errorFound:=true;
+               setpos(57); outtext(" WRONG! - should be:");
+               outint(expected,3) end;
+            outimage;
+      end;
+
+      procedure outim; if trace then outimage;
+
+      procedure outline(head); text head;
+      begin programpoint:-head;
+            if trace then begin outimage; outtext(head); outimage; end;
+      end;
+
+      procedure virtproc(line,t,where); integer line; text t,where;
+      if t<>"global" or trace then begin
+            if t<>"global" then begin errorFound:=true;
+               outtext(programpoint);
+               outtext("- ERROR in implementation of visibility (scope)"
+                       " rules: "); outimage; 
+            end;
+            outtext("- l."); outint(line,4);
+            outtext(" - global procedure seen from within class");
+            if t<>"global"
+            then outtext(" should have been invis.");
+            outimage;
+            outtext("   Called from within "); outtext(where);
+            outimage;
+            outtext("   with parameter "); outtext(t); outimage;
+      end;
+
+      class a;
+      protected i,j;
+      protected virtproc;
+      virtual: procedure virtproc;
+      begin integer i=12;    !C;
+            integer j,ai,aj;
+            boolean goto_OK;
+            character ident;
+
+            procedure avirt(line,t,where); integer line; text t,where;
+               virtproc(line,t,where);
+
+            procedure virtproc(line,t,wher); integer line; text t,wher;
+            if t<>"a.virtproc" or trace then begin
+               if t<>"a.virtproc" then begin errorFound:=true;
+                  outtext(programpoint); outimage end;
+               outtext("- l."); outint(line,4); outtext(": ");
+               outtext(wher); outimage;
+               if t<>"a.virtproc" then
+                  outtext(" - WRONG match to A'virtproc, should be: ");
+               outtext(t); outimage;
+            end;
+
+            procedure outa(l); integer l;
+            begin outattr(l,"in a:  i=",i,ai);
+                  outattr(l,"       j=",j,aj);
+                  outattr(l,"       k=",k,globalk); outim;
+            end;
+
+            ai:=i; aj:=j:=13; ident:='a';     outa(sourceline);
+            inner;
+            if ident='a'
+            then avirt(sourceline,"a.virtproc","***AVIRT FROM a***")
+       else if ident='b' then avirt(sourceline,"b.virtproc",
+                                    "***BVIRT FROM this a is b***")
+       else if ident='c' then avirt(sourceline,"b.virtproc",
+                                    "***BVIRT FROM this a in c***");
+            detach;
+            goto_OK:=true; ! *** only here for prefixed blocks ***;
+       L:   if trace or not goto_OK then begin
+               outtext(if goto_OK
+                       then "OK: detach is dummy for pref.block"
+                       else " !!! at L in xa (goto remote label)");
+               outimage;
+               if not goto_OK then errorFound:=true;
+            end;
+      end;
+
+    a class b;
+      hidden i;                 ! hide a'i;
+      hidden protected k;       ! hide local k;
+      hidden virtproc;          ! no more matching;
+      begin integer k,bi,bj,bk;
+
+            procedure bvirt(line,t,where); integer line; text t,where;
+               virtproc(line,t,where);
+
+            procedure virtproc(line,t,wher); integer line; text t,wher;
+            if t<>"b.virtproc" or trace then begin
+               if t<>"b.virtproc" then begin errorFound:=true;
+                  outtext(programpoint); outimage end;
+               outtext("- l."); outint(line,4); outtext(": ");
+               outtext(wher); outimage;
+               if t<>"b.virtproc" then
+                  outtext(" - WRONG match to B'virtproc, should be: ");
+               outtext(t); outimage;
+            end;
+
+            procedure outb(l); integer l;
+            begin outattr(l,"in b:  i=",i,bi);
+                  outattr(l,"       j=",j,bj);
+                  outattr(l,"       k=",k,bk); outim;
+            end;
+ 
+            bi:=ai; bj:=aj; bk:=k:=14; ident:='b'; outb(sourceline);
+            inner;
+            if this b is b
+            then virtproc(sourceline,"b.virtproc","***THIS B IS B*** ");
+            inspect this a do begin
+               virtproc(sourceline,"b.virtproc","***INSP THIS A*a*");
+               outattr(sourceline,"in b: (insp. this a).k=",k,bk);
+            end;
+            avirt(sourceline,"b.virtproc","***AVIRT FROM a***");
+            bvirt(sourceline,"b.virtproc","***BVIRT FROM b***");
+      end;
+ 
+    b class c;
+      begin integer ci,cj,ck;
+
+            procedure cvirt(line,t,where); integer line; text t,where;
+               virtproc(line,t,where);
+
+            procedure virtproc(line,t,wher); integer line; text t,wher;
+            if t<>"c.virtproc" or trace then begin
+               if t<>"c.virtproc" then begin errorFound:=true;
+                  outtext(programpoint); outimage end;
+               outtext("- l."); outint(line,4); outtext(": ");
+               outtext(wher); outimage;
+               if t<>"c.virtproc" then
+                  outtext(" - WRONG match to C'virtproc, should be: ");
+               outtext(t); outimage;
+            end;
+
+            procedure outc(l); integer l;
+            begin outattr(l,"in c:  i=",i,ci);
+                  outattr(l,"       j=",j,cj);
+                  outattr(l,"       k=",k,ck); outim;
+            end;
+ 
+            ci:=globali; cj:=bj; ck:=globalk; ident:='c';
+            outc(sourceline);
+            inner;
+            virtproc(sourceline,"c.virtproc","***VIRTPROC***");
+            inspect this a
+            do virtproc(sourceline,"c.virtproc","***INSP THIS A*c*");
+            avirt(sourceline,"b.virtproc","***AVIRT FROM c***");
+            bvirt(sourceline,"b.virtproc","***BVIRT FROM c***");
+      end;
+
+    a class d;
+      protected i;
+      begin integer i,di;
+            procedure outd(l); integer l;
+            begin outattr(l,"in d:  i=",i,di); outim end;
+ 
+            i:=di:=24; outd(sourceline);
+      end;
+ 
+    d class e;
+      hidden i;              ! hide d'i - making a'i visible;
+      begin
+            procedure oute(l); integer l;
+            begin outattr(l,"in e:  i=",i,di); outim end;
+ 
+            oute(sourceline);
+      end;
+ 
+    e class f;
+      hidden i;              ! hide a'i - making the global i visible;
+      hidden virtproc;       ! hide a'virtproc => global;
+      begin
+            procedure outf(l); integer l;
+            begin outattr(l,"in f:  i=",i,ai); outim end;
+ 
+            outf(sourceline);
+      end;
+ 
+    f class g;
+      begin
+            procedure outg(l); integer l;
+            begin outattr(l,"in g:  i=",i,globali); outim end;
+ 
+            outg(sourceline);
+      end;
+ 
+    c class x;
+      protected virtproc;
+      virtual: procedure virtproc;
+
+      begin procedure xvirt(line,t,where); integer line; text t,where;
+               virtproc(line,t,where);
+
+            procedure virtproc(line,t,wher); integer line; text t,wher;
+            if t<>"x.virtproc" or trace then begin
+               if t<>"x.virtproc" then begin errorFound:=true;
+                  outtext(programpoint); outimage end;
+               outtext("- l."); outint(line,4); outtext(": ");
+               outtext(wher); outimage;
+               if t<>"x.virtproc" then
+                  outtext(" - WRONG match to X'virtproc, should be: ");
+               outtext(t); outimage;
+            end;
+
+            if this x is x then xvirt(sourceline,"x.virtproc",
+                                      "***XVIRT FROM this x is x***")
+       else if this x is y then xvirt(sourceline,"y.virtproc",
+                                      "***XVIRT FROM this x is y***")
+       else if this x in z then xvirt(sourceline,"y.virtproc",
+                                      "***XVIRT FROM this x in z***");
+            inner;
+            detach;
+            goto_OK:=true; ! *** only here for prefixed blocks ***;
+       L:   if trace or not goto_OK then begin
+               outtext(if goto_OK
+                       then "OK: detach is dummy for X-pref.block"
+                       else " !!! at L in X (goto remote label)");
+               outimage;
+               if not goto_OK then errorFound:=true;
+            end;
+      end;
+
+    x class y;
+      hidden virtproc;          ! no more matching;
+
+      begin procedure yvirt(line,t,where); integer line; text t,where;
+               virtproc(line,t,where);
+
+            procedure virtproc(line,t,wher); integer line; text t,wher;
+            if t<>"y.virtproc" or trace then begin
+               if t<>"y.virtproc" then begin errorFound:=true;
+                  outtext(programpoint); outimage end;
+               outtext("- l."); outint(line,4); outtext(": ");
+               outtext(wher); outimage;
+               if t<>"y.virtproc" then
+                  outtext(" - WRONG match to Y'virtproc, should be: ");
+               outtext(t); outimage;
+            end;
+
+            if this y is y
+            then virtproc(sourceline,"y.virtproc","***THIS Y IS Y*** ");
+            inspect this a
+            do virtproc(sourceline,"y.virtproc","***INSP THIS A*y*");
+            avirt(sourceline,"b.virtproc","***AVIRT FROM y***");
+            bvirt(sourceline,"b.virtproc","***BVIRT FROM y***");
+      end;
+ 
+    y class z;
+
+      begin procedure zvirt(line,t,where); integer line; text t,where;
+               virtproc(line,t,where);
+
+            procedure virtproc(line,t,wher); integer line; text t,wher;
+            if t<>"z.virtproc" or trace then begin
+               if t<>"z.virtproc" then begin errorFound:=true;
+                  outtext(programpoint); outimage end;
+               outtext("- l."); outint(line,4); outtext(": ");
+               outtext(wher); outimage;
+               if t<>"z.virtproc" then
+                 outtext(" - WRONG match to Z'virtproc, should be: ");
+               outtext(t); outimage;
+            end;
+
+            virtproc(sourceline,"z.virtproc","***VIRTPROC***");
+            inspect this a
+            do virtproc(sourceline,"z.virtproc","***INSP THIS A*z*");
+            avirt(sourceline,"b.virtproc","***AVIRT FROM z***");
+            bvirt(sourceline,"b.virtproc","***BVIRT FROM z***");
+            cvirt(sourceline,"c.virtproc","***CVIRT FROM z***");
+            xvirt(sourceline,"y.virtproc","***XVIRT FROM z***");
+            yvirt(sourceline,"y.virtproc","***YVIRT FROM z***");
+      end;
+
+      ref(a)xa;  ref(b) xb;  ref(c)xc;  ref(d)xd;  ref(e)xe;  ref(f)xf;
+
+      procedure outerout;
+            begin outattr(sourceline,"outer: i=",i,globali);
+                  outattr(sourceline,"       j=",j,globalj);
+                  outattr(sourceline,"       k=",k,globalk); outim;
+      end;
+
+%     ************   Initialisations   **************
+
+      outtext(
+         "--- START Simula a.s test 98 (attribute protection test)");
+      outimage;
+      !*** for test purpose, insert this: ***     trace:=true;
+      globali:=i:=2; globalj:=j:=3; globalk:=k:=4; outerout;
+
+%     ************     Main program    **************
+
+      outline("***   xa:-new z   ***");   xa:-new z;
+      outline("***   xa:-new y   ***");   xa:-new y;
+      outline("***   xa:-new x   ***");   xa:-new x;
+      outline("***   xa:-new f   ***");   xa:-new f;
+      outline("***   xa:-new e   ***");   xa:-new e;
+      outline("***   xa:-new d   ***");   xa:-new d;
+      outline("***   xa:-new a   ***");   xa:-new a;
+      outline("***   xb:-new b   ***");   xb:-new b;
+      outline("***   xc:-new c   ***");   xc:-new c;
+
+      outline("***   inspect xa  ***");
+      inspect xa do begin
+              virtproc(sourceline,"global","***INSP XA DO VP*** ");
+              outattr(sourceline,"inspect xa: prot. const 'i'=",
+                                 i,globali);
+              outattr(sourceline,"            prot. const 'j'=",
+                                 j,globalj);
+              outim;  goto L; !NOT to L in 'xa', but to L below;
+      end;
+
+L:
+      outline("***   inspect xb  ***");
+      inspect xb do begin
+              outattr(sourceline,"inspect xb: hid.prot. const 'i'=",
+                                 i,globali);
+              outattr(sourceline,"            hid.prot. attr. 'k'=",
+                                 k,globalk);
+              outim;
+      end;
+
+      outline("***   block pref. with a   ***");
+    a begin ablock:=true;
+            outattr(sourceline,"a BEGIN: i (protected const):",i,ai);
+            outattr(sourceline,"         j (protected attr): ",j,aj);
+            outim;
+            ablock:=false;
+      end;
+
+      outline("***   block pref. with d   ***");
+    d begin ablock:=dblock:=true;
+            virtproc(sourceline,"a.virtproc","***D begin VP*** ");
+            outattr(sourceline,"d BEGIN - i:",i,di);
+            outim;
+            ablock:=dblock:=false;
+      end;
+
+      outline("***   block pref. with e   ***");
+    e begin ablock:=dblock:=eblock:=true;
+            outattr(sourceline,"e BEGIN - i:",i,ai);
+            outim;
+            ablock:=dblock:=eblock:=false;
+      end;
+
+      outline("***   block pref. with f   ***");
+    f begin ablock:=dblock:=eblock:=fblock:=true;
+            virtproc(sourceline,"global","***F begin VP*** ");
+            outattr(sourceline,"f BEGIN - i:",i,globali);
+            outim;
+            ablock:=dblock:=eblock:=fblock:=false;
+      end;
+
+      outline("***   inspect new b   ***");
+      inspect new b do begin
+              virtproc(sourceline,    "global",
+                                  "***INSP NEW b ... virtproc***");
+                 bvirt(sourceline,"b.virtproc",
+                                  "***INSP NEW b ... bvirt***");
+      end;
+
+      outline("***   inspect new y   ***");
+      inspect new y do begin
+              virtproc(sourceline,"c.virtproc",
+                                  "***INSP NEW y ... virtproc***");
+                 yvirt(sourceline,"y.virtproc",
+                                  "***INSP NEW y ... yvirt***");
+      end;
+
+      outline("***   inspect new z   ***");
+      inspect new z do begin
+              virtproc(sourceline,"z.virtproc",
+                                  "***INSP NEW z ... virtproc***");
+                 xvirt(sourceline,"y.virtproc",
+                                  "***INSP NEW y ... xvirt***");
+                 yvirt(sourceline,"y.virtproc",
+                                  "***INSP NEW y ... yvirt***");
+                 zvirt(sourceline,"z.virtproc",
+                                  "***INSP NEW z ... zvirt***");
+      end;
+
+%   outattr(sourceline,"xa.i (protected const):",xa.i,0); !source error;
+%   outattr(sourceline,"xa.j (protected attr.):",xa.j,0); !source error;
+%   outattr(sourceline,"xb.i (hid prot. const):",xb.i,0); !source error;
+%   outattr(sourceline,"xb.k (hid prot. attr.):",xb.k,0); !source error;
+%   new y.virtproc(sourceline,"global"," NEW y.virt");    !source error;
+%   goto xa.L;                                            !source error;
+
+      outtext("--- END Simula a.s TEST 98");
+      if not errorFound then outtext(" (NO ERRORS FOUND)");
+      outimage;
+end

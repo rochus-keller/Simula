@@ -1,0 +1,66 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 74
+%
+%  PURPOSE:     Test resume and detach.
+%
+%  WRITTEN BY:  BEH   25/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Text t;
+
+   Procedure Sjekk (c); Character c;
+         Outchar (c);
+
+   Ref (A) x;
+   Ref (B) y;
+
+   Class A;
+   Begin Real array X(P:1); Sjekk ('A');
+         Detach; Sjekk ('B');
+         Detach; Sjekk ('F');
+   End;
+
+   Class B;
+   Begin Real array X(P:1); Sjekk ('E');
+         Detach; Sjekk ('G');
+         Detach; Sjekk ('H');
+   End;
+
+   Real Procedure P;
+   Begin If x=/=none then Resume(x); Sjekk ('C');
+         If y=/=none then Resume(y); Sjekk ('D');
+   End;
+
+   Outtext ("--- START Simula a.s. TEST 74") ;
+   Outimage ;
+   Outtext ("--- Test resume and detach.") ;
+   Outimage ; Outimage ;
+
+   x:- New A;
+   y:- New B;
+   y:- New B;
+   x:- none; x:- New A;
+   Resume(y);
+
+   t:- Copy(sysout.image.strip);
+   sysout.setpos (1);
+   sysout.image := notext;
+
+   IF t = "CDABCDEFCGDECGDAH" THEN
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ELSE
+   Begin
+      Outtext ("*** ERROR : Resume - Detach.");
+      Outimage ;
+      Outtext ("            Erroneus sequencing: ");
+      Outtext (t);
+      Outimage; Outimage
+   End;
+
+   Outtext ("--- END Simula a.s. TEST 74") ;
+   Outimage
+ END

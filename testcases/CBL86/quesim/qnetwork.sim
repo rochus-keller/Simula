@@ -1,0 +1,135 @@
+! QUESIM Queueing Network Example (problem specification in qnetwork.pdf;
+
+external class quesim;
+
+quesim  begin
+
+!====================== Global variables =========================;
+
+	real expduration;             ! experiment duration;
+	integer                       ! seeds of random generators:;
+	        seedoper,             ! operation duration;
+	        seedb,                ! branching after failure;
+	        seedlocal,            ! standard local service; 
+	        seedlocals,           ! short local service; 
+	        seedspec,             ! specialist sevice;
+	        seedlb,               ! branching after local service;
+	        seedsb;               ! branching after specialist service;
+	integer machines,             ! total number of machines;
+	        machinesop,           ! number of machines operational;
+	        repairmen;            ! number of local repain men;
+	real optime;                  ! mean exponential t.b.f.;
+	real smean,sstd;	          ! standard normal local service;
+	real smeans,sstds;	          ! short normal local service;
+	real smin,slikely,smax;       ! triangular specialist service;
+	
+	ref(station) operation,       ! operational machines;
+	             local,           ! local service;
+	             specialist;      ! specialist service;
+
+    ref(outfile) fres;            ! output file - results;
+    ref(infile) fin;              ! input file - model parameters;
+    
+    integer i;
+        
+!============================ Process ============================;
+
+	g_customer class machine;
+	begin
+     while true do begin             ! machine life;
+      operation.service(current,exponential(optime,seedoper));    ! normal operation period;  
+      if draw(0.75,seedb) then begin ! branching after failure;
+        local.service(current,normal_ns(smean,sstd,3,seedlocal)); ! first local service;
+        if draw(1/3,seedlb) then     ! also specialist service needed ?;
+          specialist.service(current,triangular(smin,slikely,smax,seedspec));
+      end else begin
+        specialist.service(current,triangular(smin,slikely,smax,seedspec)); ! first specialist service;   
+        if draw(0.2,seedsb) then     ! also local service needed ?;
+          local.service(current,normal_ns(smeans,sstds,3,seedlocals));
+	  end if;
+	 end while;
+	end of machine;
+	
+!=========================== Routines ============================;
+
+       procedure readdata;
+       begin
+        fin :- new infile("qnetwork.inp");
+        if fin.open(blanks(80)) then 
+         inspect fin do begin
+          expduration := inreal; inimage; ! experiment duration;
+	      seedoper := inint; inimage;     ! operation duration seed;
+	      seedb := inint; inimage;        ! branching after failure seed;
+	      seedlocal := inint; inimage;    ! standard local service seed;
+	      seedlocals := inint; inimage;   ! short local service seed;
+	      seedspec := inint; inimage;     ! specialist service seed;
+	      seedlb := inint; inimage;       ! branching after local service seed;
+	      seedsb := inint; inimage;       ! branching after specialist service seed;
+   	      machines := inint; inimage;     ! total number of machines;
+   	      machinesop := inint; inimage;   ! number of machines operational;
+	      repairmen := inint; inimage;    ! number of local repain men;
+	      optime := inreal; inimage;      ! mean exponential t.b.f.;   
+	      smean := inreal; inimage;       ! standard normal local service mean;
+	      sstd := inreal; inimage;        ! standard normal local service stddv;
+	      smeans := inreal; inimage;      ! short normal local service mean;
+	      sstds := inreal; inimage;       ! short normal local service stddv;
+	      smin := inreal; inimage;        ! triangular specialist service min;
+	      slikely := inreal; inimage;     ! triangular specialist service likely;
+	      smax := inreal; inimage;        ! triangular specialist service max;
+          close;
+         end inspect
+        else begin
+         outtext("File 'qnetwork.inp' can not be open");
+         outimage;
+         terminate_program;
+        end;
+       end;
+
+       procedure writedata;
+       begin
+        fres :- new outfile("qnetwork.res");
+        if fres.open(blanks(80)) then
+         inspect fres do begin
+          evaluation_heading(fres,"Queueing Network Example");
+          outimage;
+   	      operation.fileout(fres,"Operational machines",2,10);
+          outimage;
+   	      local.fileout(fres,"Local service",2,10);
+          outimage;
+   	      specialist.fileout(fres,"Specialist",2,10);
+          outimage;
+          close;
+         end inspect
+        else begin
+         outtext("Warning: file 'qnetwork.res' can not be open");
+         outimage;
+        end;
+       end;
+        
+!========================= Program body ==========================;
+
+        readdata;            ! read model and experiment data;
+
+        ! create the stations:;
+	    operation  :- new station("Operation",
+	                         new fifo("Qspares",maxint),                   ! queue of spare machines;
+	                         new multichannel("Operation",machinesop,0,0), ! operational machines;
+	                         new histotally(0,300,20));                    ! station time;
+	    local      :- new station("Local service",
+	                         new fifo_h("Qlocal",maxint,0,100,20),         ! queue for local service;
+	                         new multichannel("Local service",repairmen,0,0), ! local service;
+	                         new histotally(0,200,20));                    ! station time;
+	    specialist :- new station("Specialist service",
+	                         new fifo_h("Qspec",maxint,0,3,20),            ! queue for the specialist;
+	                         new multichannel("Specialist",1,0,0),         ! specialist service;
+	                         new histotally(0,80,20));                     ! station time;
+	                         
+        ! create and activate the machines:;
+        for i:=1 step 1 until machines do activate new machine(0,0);
+
+        hold(expduration);   ! wait till the end of the experiment;
+        
+        writedata;           ! save results to file & screen report;
+	    
+end of program qnetwork;
+

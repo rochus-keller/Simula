@@ -1,0 +1,480 @@
+simulation class statsim;
+begin
+
+!============================ accumulator ===============================;
+
+class accumulator(x); real x; ! time statistics object, x = initial value;
+
+  hidden valuex,sumsq,inittime,lasttime;
+
+begin
+  real valuex,       ! current value;
+       maxvalue,     ! maximum stored value;
+       minvalue,     ! minimum stored value;
+       sum,          ! time integral;
+       sumsq,        ! time integral of squares;
+       inittime,     ! initialization time;
+       lasttime;     ! last update time;
+
+  procedure initiate(initx); real initx; ! object initialization;
+  begin
+    valuex := initx;   ! the first value;
+    maxvalue := initx; ! so far maximum value;
+    minvalue := initx; ! so far minimum value;
+    sum := 0;          ! the integral;
+    sumsq := 0;        ! integral of squares;
+    inittime := time;  ! initialisation time;
+    lasttime := time;  ! last update time;
+  end;
+
+  procedure updateto(newx); real newx; ! changing value = assignment;
+  begin
+    real d;
+    d := (time - lasttime)*valuex; ! integral increment;
+    sum := sum + d;
+    sumsq := sumsq + d*valuex;
+    lasttime := time;
+    valuex := newx;
+    if (newx>maxvalue) then maxvalue := newx;
+    if (newx<minvalue) then minvalue := newx;
+  end;
+
+  procedure updateby(delta); real delta; ! incrementing value = assignment;
+  begin
+    updateto(valuex+delta);
+  end;
+
+  real procedure average; ! returns time average;
+  begin
+    if (time>inittime) then begin
+      updateby(0);
+      average := sum/(time - inittime);
+     end
+    else
+      average := 0;
+  end;
+
+  real procedure variance; ! returns time variance;
+  begin
+    if (time>inittime) then begin
+      real a;
+      a := average;
+      variance := sumsq/(time - inittime) - a*a;
+    end else
+      variance := 0;
+  end;
+
+  real procedure stddev; ! returns time standard deviation;
+  begin
+    stddev := sqrt(variance);
+  end;
+
+  ! output of the results to a file;
+  procedure fileout(f,title,n,w); value title; text title;
+                                  integer n, ! decimal places;
+                                          w; ! total width;
+                                  ref(outfile) f; ! f = sysout for screen;
+  begin                           
+    f.outtext(title & " statistics:"); f.outimage;
+    f.outtext("Average "); f.outfix(average,n,w); f.outimage;
+    f.outtext("Std Dev "); f.outfix(stddev,n,w); f.outimage;
+    f.outtext("Minimum "); f.outfix(minvalue,n,w); f.outimage;
+    f.outtext("Maximum "); f.outfix(maxvalue,n,w); f.outimage;
+  end;
+
+  initiate(x); ! life of accumulator;
+
+end of accumulator;
+
+!================================ tally =================================;
+
+class tally; ! time less statistics object;
+
+  protected sumsq,empty;
+
+begin
+  real maxvalue,   ! maximum stored value;
+       minvalue,   ! minimum stored value;
+       sum,        ! sum of stored values;
+       sumsq,      ! sum of squares of stored values;
+       updated;    ! number of updates;
+  boolean empty;   ! whether updated at least once or not;
+
+  procedure initiate; ! object initialization;
+  begin
+    maxvalue := 0;
+    minvalue := 0;
+    sum := 0;
+    sumsq := 0;
+    updated := 0;
+    empty := true;
+  end;
+
+  procedure update(newx); real newx; ! changing value = assignment;
+  begin
+    if (empty) then begin
+      sum := newx;
+      sumsq := newx*newx;
+      maxvalue := newx;
+      minvalue := newx;
+      updated := 1;
+      empty := false;
+    end else begin
+      updated := updated+1;
+      sum := sum + newx;
+      sumsq := sumsq + newx*newx;
+      if (newx>maxvalue) then maxvalue := newx;
+      if (newx<minvalue) then minvalue := newx;
+    end;
+  end;
+
+  real procedure average; ! returns average of stored values;
+  begin
+    if (empty) then
+      average := 0
+    else
+      average := sum/updated;
+  end;
+
+  real procedure variance; ! returns variance of stored values;
+  begin
+    if (empty) then
+      variance := 0
+    else begin
+      real a;
+      a := average;
+      variance := sumsq/updated - a*a;
+    end;
+  end;
+
+  real procedure stddev; ! returns standard deviation of stored values;
+  begin
+    stddev := sqrt(variance);
+  end;
+  
+  ! output of the results to a file;
+  procedure fileout(f,title,n,w); value title; text title;
+                                  integer n, ! decimal places;
+                                          w; ! total width;
+                                  ref(outfile) f; ! f = sysout for screen;
+  begin                           
+    f.outtext(title & " statistics:"); f.outimage;
+    f.outtext("Average "); f.outfix(average,n,w); f.outimage;
+    f.outtext("Std Dev "); f.outfix(stddev,n,w); f.outimage;
+    f.outtext("Minimum "); f.outfix(minvalue,n,w); f.outimage;
+    f.outtext("Maximum "); f.outfix(maxvalue,n,w); f.outimage;
+    f.outtext("Updates "); f.outfix(updated,0,w); f.outimage;
+  end;
+
+  initiate; ! life of tally;
+
+end of tally;
+
+!========================= histogrammed tally ===========================;
+
+tally class histotally(hmin,hmax,bins); real hmin,hmax; integer bins;
+
+! creates tally with histogram in the range [hmin,hmax] made of bins subintervals;
+
+begin
+  real array bounds(1:bins);      ! upper bounds of subintervals;
+  real array frequency(1:bins+1); ! frequences;
+                                  ! frequency 1 includes samples below hmin;
+                                  ! bins+1 frequency for samples above hmax;
+
+  procedure histinit; ! histogram initialization;
+  begin
+    real x,dx;
+    integer i;
+    dx := (hmax-hmin)/bins;
+    x := 0;
+    for i:=1 step 1 until bins do begin
+      x := x+dx;
+      bounds(i) := x;
+      frequency(i) := 0
+    end;
+    frequency(bins+1) := 0
+  end;
+
+  procedure initiate; ! object initialization;
+  begin
+    this histotally qua tally.initiate;
+    histinit;
+  end;
+
+  procedure update(newx); real newx; ! changing value = assignment;
+  begin
+    this histotally qua tally.update(newx);
+    histo(frequency,bounds,newx,1);
+  end;
+
+  ! output of the results to a file;
+  procedure fileout(f,title,n,w); value title; text title;
+                                  integer n, ! decimal places;
+                                          w; ! total width;
+                                  ref(outfile) f; ! f = sysout for screen;
+  begin                           
+    integer i,j,k;
+    real cdf,pdf,maxf,maxpdf;
+    this histotally qua tally.fileout(f,title,n,w);
+    f.outtext(blanks(max(0,w-4)) & "X     CDF    PDF   Histogram");
+    f.outimage;
+    cdf := 0;
+    maxf := 0;
+    for i:=1 step 1 until bins+1 do
+      if frequency(i)>maxf then maxf := frequency(i);
+    if updated=0 then
+      maxpdf := 0
+    else
+      maxpdf := maxf/updated;
+    for i:=1 step 1 until bins+1 do begin
+      if i<=bins then
+        f.outfix(bounds(i),n,w)
+      else
+        f.outfix(max(maxvalue,bounds(i-1)),n,w);
+      if updated=0 then
+        pdf := 0
+      else
+        pdf := frequency(i)/updated;
+      cdf := cdf + pdf;
+      if i<=bins then
+        f.outfix(cdf,3,7)
+      else
+        f.outfix(1,3,7); ! last point = (maxvalue,1);
+      f.outfix(pdf,3,7); f.outtext(" ");
+      if maxpdf>0 then begin
+        k := (pdf/maxpdf)*50;
+        for j:=1 step 1 until k do f.outchar('*');
+      end;
+      f.outimage;
+    end;
+  end;
+  
+  ! saves histogram converted to an empirical distribution to a file;
+  procedure savedistr(f); ref(outfile) f;
+  begin                   ! f = sysout for screen;
+    integer i;
+    real cdf,pdf;
+    f.outint(bins+2,20); f.outtext("  # of rows (bins + 2)");
+    f.outimage;
+    f.outfix(minvalue,5,20); ! first point = (minvalue,0);
+    f.outfix(0,7,12);
+    f.outfix(0,7,12);
+    f.outimage;
+    cdf := 0;
+    for i:=1 step 1 until bins+1 do begin
+      if i<=bins then
+        f.outfix(bounds(i),5,20)
+      else
+        f.outfix(max(maxvalue,bounds(i-1)),5,20);
+      pdf := frequency(i)/updated;
+      cdf := cdf + pdf;
+      if i<=bins then
+        f.outfix(cdf,7,12)
+      else
+        f.outfix(1,7,12); ! last point = (maxvalue,1);
+      f.outfix(pdf,7,12);
+      f.outimage
+    end;
+  end;
+
+  histinit; ! histotally life;
+
+end of histotally;
+
+!===================== empirical table distribution =====================;
+
+class empirical(points,seed); integer points,  ! total number of points;
+                                      seed;    ! initial seed;
+  hidden x,fx,U,isempty;
+
+begin
+  real array x,              ! the values x;
+             fx (1:points);  ! the cdf values F(x);
+  integer U;                 ! protected seed;
+  boolean isempty;           ! whether initialized or not;
+  real generated;            ! number of generated samples;
+
+  procedure arrayinit(ix,ifx); real array ix,ifx; ! initialization from arrays;
+  begin
+    integer i,lasti,L1,L2,H1,H2,d;
+    L1 := LowerBound(ix,1);
+    H1 := UpperBound(ix,1);
+    L2 := LowerBound(ifx,1);
+    H2 := UpperBound(ifx,1);
+    if (H1-L1)<>(H2-L2) then begin
+      outtext("Warning: different size of arrays of empirical");
+      outimage;
+    end;
+    d := min(H1-L1,H2-L2)+1;
+    if d<>points then begin
+      outtext("Warning: size of arrays of empirical does not match");
+      outimage;
+    end;
+    lasti := min(d,points);
+    for i:=1 step 1 until lasti do begin
+      x(i) := ix(L1-1+i);
+      fx(i) := ifx(L2-1+i);
+    end;
+    fx(lasti) := 1;
+    isempty := false;
+    generated := 0;
+  end;
+
+  ! initialization from a file (can be produced by histotally);
+  procedure fileinit(f); ref(infile) f; ! assumes f open;
+  begin
+    integer i,lasti;
+    lasti := f.inint;     ! # of points in file;
+    f.inimage;
+    if lasti<>points then begin
+      outtext("Warning: # of file points of empirical does not match");
+      outimage;
+    end;
+    lasti := min(lasti,points);
+    for i:=1 step 1 until lasti do begin
+      x(i) := f.inreal;   ! reading x;
+      fx(i) := f.inreal;  ! reading cdf F(x);
+      f.inimage;
+    end;
+    fx(lasti) := 1;
+    isempty := false;
+    generated := 0;
+  end;
+
+  real procedure generate; ! returns a new sample;
+  begin
+    real ux;
+    integer i;
+    if isempty then begin
+      outtext("Empirical distribution used and not initialized");
+      outimage;
+      terminate_program;
+    end;
+    ux := uniform(0,1,U);
+    i := 1;
+    while fx(i)<ux do i := i + 1;  ! search for first fx >= ux;
+    if i=1 then
+     generate := x(1)
+    else               ! linear interpolation;
+     generate := (x(i-1)*(fx(i)-ux) + x(i)*(ux-fx(i-1)))/(fx(i) - fx(i-1));
+    generated := generated + 1;
+  end;
+
+  isempty := true;  ! empirical life;
+  U := seed;
+
+end of empirical;
+
+!=================== some theoretical distributions =====================;
+
+long real procedure trapezoid(minx,    ! minimum value;
+                         likelymin,    ! minimum likely value;
+                         likelymax,    ! maximum likely value;
+                         maxx,         ! maximum value;
+                         seed);        ! initial seed;
+    name seed;
+    long real minx,likelymin,likelymax,maxx;
+    integer seed;
+begin
+  boolean found;
+  long real x,u;
+  if not(minx<=likelymin and likelymin<=likelymax and likelymax<=maxx) then begin
+    outtext("Wrong parameters of trapezoid distribution");
+    outimage;
+    terminate_program;
+  end;
+  found := false;
+  while not found do begin
+    x := uniform(minx,maxx,seed);
+    u := uniform(0,1,seed);
+    if x < likelymin then
+      found := u <= ((x - minx)/(likelymin - minx))  ! slope up;
+    else if x > likelymax then
+      found := u <= ((maxx - x)/(maxx - likelymax))  ! slope down;
+    else
+      found := true;  ! flat area;
+  end while;
+  trapezoid := x;
+end of trapezoid;
+
+!------------------------------------------------------------------------;
+
+long real procedure triangular(minx,   ! minimum value;
+                         likely,       ! most likely value;
+                         maxx,         ! maximum value;
+                         seed);        ! initial seed;
+    name seed;
+    long real minx,likely,maxx;
+    integer seed;
+begin
+  triangular := trapezoid(minx,likely,likely,maxx,seed);
+end of triangular;
+
+!------------------------------------------------------------------------;
+
+long real procedure exponential(mean,  ! mean value;
+                         seed);        ! initial seed;
+    name seed;
+    long real mean;
+    integer seed;
+begin
+  exponential := negexp(1/mean,seed);
+end of exponential;
+
+!------------------------------------------------------------------------;
+
+long real procedure truncated_exponential(mean,  ! mean value;
+                         maxim,        ! maximum possible value;
+                         seed);        ! initial seed;
+    name seed;
+    long real mean;
+    long real maxim;
+    integer seed;
+begin
+  long real x,y;
+  y := 1/mean;
+  x := negexp(y,seed);
+  while x>maxim do       ! trivial implementation (so far);
+    x := negexp(y,seed);
+  truncated_exponential := x;
+end of truncated_exponential;
+
+!------------------------------------------------------------------------;
+
+long real procedure erlangok(mean,     ! mean value;
+                         shape,        ! shape factor (# of exps);
+                         seed);        ! initial seed;
+    name seed;
+    long real mean;
+    integer shape,seed;
+begin
+  integer i;
+  long real x,y;
+  y := shape/mean;  ! 1/(mean of exp);
+  x := negexp(y,seed);
+  for i:=2 step 1 until shape do
+    x := x + negexp(y,seed);
+  erlangok := x;
+end of erlangok;
+
+!------------------------------------------------------------------------;
+
+long real procedure normal_ns(mean,    ! mean value;
+                         stddv,        ! standard deviation;
+                         n,    ! returns only values in mean +/- n stddevs;
+                         seed);        ! initial seed;
+    name seed;
+    long real mean,stddv;
+    integer n,seed;
+begin
+  long real x;
+  x := normal(0,1,seed);
+  while abs(x)>n do
+    x := normal(0,1,seed);
+  normal_ns := mean + x*stddv;
+end of normal_ns;
+
+!------------------------------------------------------------------------;
+
+end of statsim;

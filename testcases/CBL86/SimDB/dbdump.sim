@@ -1,0 +1,678 @@
+% ----------------------------------------------------------------------
+%	                          DBDUMP.SIM
+%
+%	MODIFIE:
+%
+%       VERSION 1.3	aout 1994	J. Vaucher
+%	            - Problemes a l'ouverture de fichier sour SOLARIS
+%	            => deplace le "PURGE" des fichiers a la find 
+%	            	du programme.
+%	            - Eliminated INDEXFILES	
+%	            - Eliminated temp Files: TEMP_OUT, REC_OUT (and ..._IN)
+%
+%       Version 1.2     7 aout 1992     Normand Masse
+%                       - fonction dump_struktur modifiee afin de respecter
+%                         LE nouveau format des struktures
+%
+%       Version 1.1     4 aout 1992     Normand Masse
+%                       - fichiers temporaires mis en mode "purge"
+%                         (set_in, rec_in, temp_in) les fichiers
+%                         temporaires une fois lus sont effaces afin
+%                         de NE pas laisser des fichiers inutiles
+%                         ----> file.setaccess("Purge")
+%                          Effaces seulement a la fermeture (Close)
+%
+%       Version 1.0     3 aout 1992     Normand Masse
+%                       - Affichage de la version
+%                       - Open et Close adaptes pour nouvelle version
+%                         de simula (un parametre en moins)
+%                       - Mode d'acces "old/NEW" retire
+%                         (ACCESS_METHOD pas utilise dans DBMMIN)
+%                       - Version 1982 recuperee
+% ----------------------------------------------------------------------
+EXTERNAL CLASS SAFEIO, DBMMIN;
+DBMMIN("", 0, TRUE)
+BEGIN
+   SIMSET BEGIN
+	  COMMENT ------------------ D B D U M P ----------------------------
+	  PURPOSE : SELECTIVE SEQUENTIAL DUMP OF A SIMDBM DATA BASE FILE.
+	  AUTHOR : JEAN-FRANCOIS LAMY
+	           DEPARTEMENT D'INFORMATIQUE ET DE RECHERCHE OPERATIONNELLE
+	           UNIVERSITE DE MONTREAL
+	  DESCRIPTION : PROGRAM "DBDUMP" PERMITS DUMPING OF SELECTED PARTS OR
+	      ALL OF A SIMDBM DATA BASE FILE.  INFORMATION DESCRIBING RECORD
+	      TYPES AND INTERNAL REPRESENTATION IS KEPT, THUS ALLOWING AN
+	      INTEGRAL STORAGE OF DATA BASE CONTENTS.
+	  
+	      AFTER WRITING OUT INFORMATION RELATED TO THE INTERNAL REPRESENTA-
+	      TION, "DBDUMP" SCANS ALL USER-DEFINED TYPES.  THE USER IS AKED
+	      IF HE WISHES A DUMP OF ALL RECORDS OF THE CURRENT TYPE.  IF YES,
+	      A COUNT OF ALL SUCH RECORDS IS WRITTEN, FOLLOWED BY A DESCRIPTION
+	      OF THE RECORD TYPE AND BY THE DUMP.
+	  
+	      THE SAME IS TRUE FOR HELPMESS, CPROC, TABLE AND INDEXFILE RECORDS,
+	      IF PRESENT.
+	  
+	      SETSPEC AND STRUKTUR RECORDS ARE TREATED SPECIALLY TO ENSURE
+	      THAT ALL RECORD TYPES INVOLVED IN THE RELATION HAVE BEEN DUMPED.
+	      INFORMATIONS IN STRUKTUR RECORDS PERTAINING TO RELATIONS NOT
+	      DUMPED ARE REMOVED PRIOR TO DUMPING THEM.  THE CONSISTENCY OF
+	      THE RELATIONS IS THUS MAINTAINED.
+	  
+	      PROGRAM "DBLOAD" USES THE DUMP FILE PRODUCED BY "DBDUMP" AS INPUT
+	      AND ALLOWS RELOADING OF RECORDS, ALONG WITH EXTENSIVE MANIPULA-
+	      TIONS OF THE SCHEMA.
+	  --------------------------------------------------------------------;
+			 
+TEXT VERSION =" version 1.3 ";	! Texte en entete d'execution ;
+
+REF(HEAD) DUMPED_TYPES;	! CONTAINS NAMES OF ALL RECORD TYPES DUMPED;
+	  
+LINK CLASS ELEMENT (T);
+  TEXT T; ;
+  COMMENT   LIST ELEMENT DESCRIBING A DUMPED TYPE;
+
+ELEMENT CLASS TYPE; ;
+ELEMENT CLASS SET ; ;
+
+Boolean Procedure Member(T,Set);
+	Text T;
+	Ref(head) Set;
+if Set =/= None then
+Begin
+	ref(Element) E;
+	E :- Set.first;
+	while E =/= none and then E.T <> T  
+		do E :- E.suc;
+	Member := E =/= None;
+end;
+
+
+! SETSPECS AND STRUKTURS ARE DUMPED AFTER RECORDS
+  BUT MUST BE FIRST ON DUMP FILE. TEMP_OUT IS USED
+  TO STORE RECORDS.
+  HOWEVER, A COUNT OF RECORDS IS PRESENT IN THE HEADER
+  
+  FOR EACH TYPE OF RECORD.
+  FURTHERMORE, USER-FRIENDLINESS RESULTS IN ALLOWING
+  A USER WISHING TO DUMP A RELATION FOR WHICH HE HAS
+  MISTAKENLY OMITTED TO DUMP RECORD TYPES INVOLVED
+  TO DUMP THE MISSING RECORD TYPE(S).
+  IN CONSEQUENCE, TWO MORE FILES, REC_OUT AND SET_OUT,
+  ARE REQUIRED TO DUMP THE RECORDS WHILE COUNTING
+  THEM;
+  
+  REF(Outfile) SET_OUT, SEQ_FILE;
+  REF(INFILE)  SET_IN;
+
+!  THE "IN" FILES ARE NECESSARY TO READ BACK THE
+   CORRESPONDING "OUT" TEMPORARY FILES.
+  ;
+  
+ INTEGER SEQ_IM_SIZE;
+
+            !   IMAGE SIZE FOR SEQUENTIAL FILES. SET TO 79 SO
+                THAT SEQ_FILE CAN BE DISPLAYEO ON A CRT.;
+  
+  CHARACTER C_PERIOD;
+  CHARACTER C_CONTINUED;
+
+!  C_PERIOD      CHARACTER "." (UDES INSTRUKTUR NAMES)
+   C_CONTINUED   CHARACTER INDICATING CONTINUATION ON SEQ_FILE;
+  
+COMMENT $P   INITIALIZATION;
+  
+% -------------------------------------------
+	PROCEDURE SET_UP;
+% -------------------------------------------
+  COMMENT
+  INITIALIZE GLOBAL LIST DUMPED_TYPES, SET CONTINUATION CHARACTER,
+  OPEN DATA BASE FILE AND SEQUENTIAL FILE.  WRITE OUT INFORMATIONS
+  NECESSARY TO EXACT RECREATION OF DATA BASE FILE.;
+  
+  BEGIN
+	 TEXT DB_NAME, SEQ_NAME;
+	 
+	 COMMENT   USED TO OBTAIN DATA BASE FILE NAME AND SEQUENTIAL
+	 FILE NAME;
+	 
+	 INTEGER DB_IM_SIZE;
+	 COMMENT IMAGE SIZE FOR DATA BASE FILE;
+
+	 BOOLEAN OLD;
+	 COMMENT
+	 TRUE IF DATA BASE FILE HAS TO BE OPENED WITH OLD ACCESS METHOD.
+	 USED TO ENSURE COMPATIBILITY WITH EARLIER VERSIONS OF SIMDBM;
+	 
+	 INTEGER PROCEDURE IMAGE_SIZE(DIRECT_FILE_NAME);
+	 TEXT DIRECT_FILE_NAME;
+	 
+	 COMMENT
+	 OBTAIN IMAGE SIZE OF A DIRECT ACCESS FILE.  AT PRESENT TIME, IT
+	 IS NOT POSSIBLE TO OBTAIN IT FROM THE FILE ITSELF, AND THE USER
+	 MUST PROVIDE IT. HOPEFULLY THIS SITUATION CAN BE CORRECTED.   ;
+	 
+	 BEGIN
+		INTEGER SIZE;
+		REQUEST("Image size", "78", INTINPUT(SIZE, SIZE>30),
+		        "Should be > 30", NOHELP);
+		IMAGE_SIZE := SIZE;
+	 END OF IMAGE_SIZE;
+	 
+	 C_CONTINUED := '&';
+	 C_PERIOD    := '.';
+	 DUMPED_TYPES:- NEW HEAD;
+	 
+	 REQUEST("Data base file name", "tmp",
+	         TEXTINPUT(DB_NAME, TRUE), "", NOHELP);
+	 DB_IM_SIZE := IMAGE_SIZE(DB_NAME);
+	 
+	 OPENBASE(DB_NAME, DB_IM_SIZE);
+	 
+	 REQUEST("Sequential file name", "seq",
+	         TEXTINPUT(SEQ_NAME, TRUE), "", NOHELP);
+	 SEQ_IM_SIZE := 79; COMMENT SO THAT IT CAN BE DISPLAYED;
+	 SEQ_FILE :- NEW OUTFILE(SEQ_NAME);
+     INSPECT SEQ_FILE DO
+		BEGIN
+		   OPEN(BLANKS(SEQ_IM_SIZE));		   
+		   OUTTEXT(DB_NAME);
+		   OUTIMAGE;
+		   OUTINT(DB_IM_SIZE, 6);
+		   OUTIMAGE;
+		   
+		   COMMENT COPY INFORMATIONS RELATED TO INTERNAL FORMAT OF DATA BASE;
+		   DB_FILE.LOCATE(1);
+		   DB_FILE.INIMAGE;
+		   OUTTEXT(DB_FILE.IMAGE);
+		   OUTIMAGE;
+		END;		   
+	 
+	 COMMENT INITIALIZE TEMPORARY FILES;
+
+	 SET_OUT :- NEW OUTFILE("ZZZDMP1");
+	 SET_IN  :- NEW INFILE ("ZZZDMP1");
+
+  END OF SET_UP;
+
+  COMMENT $P OUTPUT ROUTINES;
+  
+% -------------------------------------------
+  PROCEDURE TYPE_HEADER(FILE, TYPE_NAME, NB, TYPE_SPEC);
+% -------------------------------------------
+  VALUE TYPE_NAME; 
+  TEXT TYPE_NAME;
+  INTEGER NB;
+  REF(RECORD) TYPE_SPEC;
+  REF(OUTFILE) FILE;
+  
+  COMMENT
+  WRITE OUT SECTION HEADER, I.E. TYPE NAME, NUMBER OF RECORDS
+  OF THAT TYPE, AND A COPY OF THE TYPE SPECIFICATION. BEGINNING
+  OF A NEW SECTION IS INDICATED BY "###";
+  
+  BEGIN
+     INSPECT FILE DO
+		BEGIN
+		   OUTIMAGE;
+		   OUTTEXT("###");
+		   OUTTEXT(TYPE_NAME);
+		   OUTCHAR(CBACK);
+		   OUTINT(NB, 6);
+		   OUTIMAGE;
+		END;
+	 
+	 WRITE_RECORD(FILE, TYPE_SPEC);
+  END DF TYPE_HEADER;
+  
+% -------------------------------------------
+	PROCEDURE WRITE_RECORD (FILE, R);
+% -------------------------------------------
+REF(OUTFILE) FILE; 
+REF(RECORD) R;
+BEGIN
+   TEXT T;
+   INSPECT R DO
+	  BEGIN
+		 T :- BLANKS(ARRLGD(AVALUES));
+		 ARRTXT(AVALUES, T, CBACK);
+		 SEQ_TEXT(FILE, T);
+	  END;
+   END OF WRITE_RECORD;
+
+
+% -------------------------------------------
+	PROCEDURE SEQ_TEXT (FILE, STRING);
+% -------------------------------------------
+	REF(OUTFILE) FILE; 
+	TEXT STRING;
+COMMENT
+SEQ_TEXT OUTPUTS A TEXT STRING ON SEQ_FILE.  IF THE STRING
+IS LONGER THAN SEQ_IM_SIZE, IT IS SPLIT.  A "C_CONTINUED"
+CHARACTER IN COLUMN SEQ_IM_SIZE INDICATES THAT A STRING
+CONTINUES ON FURTHER LINES.  ;
+
+BEGIN
+   INSPECT FILE DO
+	  WHILE STRING.MORE DO
+	     IF STRING.LENGTH >= SEQ_IM_SIZE THEN
+			BEGIN
+			   OUTTEXT(STRING.SUB(1,SEQ_IM_SIZE -1));
+			   OUTCHAR(C_CONTINUED);
+			   OUTIMAGE;
+			   STRING :-
+			      STRING.SUB(SEQ_IM_SIZE, STRING.LENGTH-(SEQ_IM_SIZE-1));
+			END
+		 ELSE
+			BEGIN
+			   OUTTEXT(STRING);
+			   OUTIMAGE;
+			   STRING.SETPOS(STRING.LENGTH+1);
+			END;
+END OF SEQ_TEXT;
+
+
+% -------------------------------------------
+	PROCEDURE COPY_FILE(INF, OUTF);
+% -------------------------------------------
+REF(INFILE) INF;
+REF(OUTFILE) OUTF;
+
+COMMENT
+   CONTENTS OF FILE INF ARE COPIED FROM CURRENT LOCATION
+   TO FILE OUTF. NEITHER FILE IS REPOSITIONED;
+
+BEGIN
+   OUTF.IMAGE :- INF.IMAGE;
+   INF.INIMAGE;
+   WHILE NOT INF.ENDFILE DO
+	  BEGIN
+		 OUTF.OUTIMAGE;
+		 INF.INIMAGE;
+	  END;
+END OF COPY_FILE;
+
+
+COMMENT $P   ITERATION OVER RECORD TYPES
+             ============================ ;
+
+% -------------------------------------------
+	PROCEDURE SCAN_TYPES;
+% -------------------------------------------
+
+COMMENT
+   SCAN ALL "RSPEC" RECORDS  EXCLUDING THOSE RELATED TO SETS.
+   THE ITEM DESCRIBING RSPEC RECORDS IS SKIPPED IN THE LOOP
+   SINCE THE "RSPEC" DESCRIBING A GIVEN RECORD TYPE IS DUMPED
+   WITH THE RECORDS OF THAT TYPE (SEE PROCEDURE TYPE HEADER);
+
+BEGIN
+   REF(RSPEC) CURRENT_RSPEC;
+   TEXT TYPE_NAME;
+   BOOLEAN WANTED;
+
+   CURRENT_RSPEC :- RECORDSPEC;
+   OUTIMAGE;
+   OUTLINE("Dump of records...");
+   WHILE CURRENT_RSPEC =/= NONE DO
+	  BEGIN
+		 TYPE_NAME :- CURRENT_RSPEC.RNAME;
+         IF (TYPE_NAME NE "RSPEC") AND (TYPE_NAME NE "SETSPEC")
+		     AND (TYPE_NAME NE "STRUKTUR") THEN
+		 BEGIN
+		    REQUEST("Want to dump "&TYPE_NAME, "YES", BOOLINPUT(WANTED),	   
+		               "?", HELP_RECORDS);
+	        IF WANTED THEN
+			   NEW TYPE(TYPE_NAME).INTO(DUMPED_TYPES);
+		 END;
+		 CURRENT_RSPEC :- CURRENT_RSPEC.NEXT;
+	  END;
+END OF SCAN_TYPES;
+
+% -------------------------------------------------------
+	PROCEDURE DUMP_RECORDS (TYPE_NAME, TYPE_SPEC);
+% -------------------------------------------------------
+  TEXT TYPE_NAME;
+  REF(RECORD) TYPE_SPEC;
+  
+!	IN VERSION 1.3:  Removed direct dumping to an intermediate file
+		and just inserted type in LIST to be dumped at the end of
+		the program;
+  BEGIN
+	 NEW TYPE(TYPE_NAME).INTO(DUMPED_TYPES);
+  END OF DUMP_RECORDS;
+
+% -------------------------------------------
+	PROCEDURE DUMP_RECORD (R);  REF(RECORD) R;
+% -------------------------------------------
+   		WRITE_RECORD (SEQ_FILE, R);
+
+
+INTEGER NB_RECORDS;
+
+% -------------------------------------------
+	INTEGER PROCEDURE COUNT_RECORDS (TYPE_NAME);
+% -------------------------------------------
+  TEXT TYPE_NAME;
+BEGIN
+
+	PROCEDURE INCR (R); Text R;	
+        NB_RECORDS := NB_RECORDS + 1;
+
+	 NB_RECORDS:= 0;
+	 FOREACHKEY(TYPE_NAME, INCR);
+	 COUNT_RECORDS := NB_RECORDS;
+
+END OF NB_RECORDS;
+
+
+
+  COMMENT $P ITERATION OVER DEFINED RELATIONS.;
+
+% -------------------------------------------
+  PROCEDURE SCAN_RELATIONS;
+% -------------------------------------------
+
+  BEGIN
+	 REF(HEAD) OMITTED_SETS;
+	 
+	 COMMENT
+                  NECESSARY BECAUSE THE PROGRAM ALLOWS THE USER
+                  TO DUMP THE OWNER AND MEMBER TYPES IF HE HAS
+                  FORGOTTEN TO DUMP THEM AND BECAUSE ALL SETSPECS
+                  MUST BE DUMPED TOGETHER.
+	 OMITTED_SETS CONTAINS ALL RELATIONS WHICH THE USER CHOSE NOT
+                  TO DUMP AND THAT WILL HAVE TO BE REMOVED FROM
+	              STRUKTUR RECORDS.;
+	 
+	 INTEGER NB_WANTED;
+	 BOOLEAN WANTED;
+	 REF(SET) CURRENT_SET;
+	 
+	 
+	 PROCEDURE INTERACT (SETSPEC);
+	 REF(RECORD) SETSPEC;
+	 
+	 COMMENT
+	 CHECK THAT RECORDS OF OWNER AND MEMBER TYPES HAVE BEEN
+	 DUMPED. IF NOT, ASK USER IF HE WISHES TO DUMP THE MISSING
+	 RECORDS. IF EVERYTHING IS ALLRIGHT, DUMP THE SETSPEC, ELSE
+	 ADD THE RELATION'S NAME TO THE OMITTED SETS LIST FOR CLEAN-UP
+	 OF STRUKTUR RECORDS.  ;
+	 
+	 BEGIN
+		BOOLEAN	FOUND_OWNER_TYPE, FOUND_MEMBER_TYPE, ALLRIGHT, WANTED;
+		REF(TYPE) CURRENT_TYPE;
+		TEXT DEFAULT, Member_Name, Owner_Name;
+		
+	  BOOLEAN PROCEDURE GET_MISSING (KIND, TYPE_NAME);
+		VALUE KIND; 
+		TEXT KIND, TYPE_NAME;
+		BEGIN
+		   BOOLEAN WANTED;
+		   OUTTEXT(KIND);
+		   OUTTEXT(" Type records have NOT been dumped. ");
+		   REQUEST(CONC("Dump of ",TYPE_NAME), "YES",
+		           BOOLINPUT(WANTED), "", NOHELP);
+		   
+		   IF WANTED THEN
+			  BEGIN
+				 GET_MISSING := TRUE;
+				 NEW TYPE(TYPE_NAME).INTO(DUMPED_TYPES);
+			  END;
+		END OF GET_MISSING;
+		
+
+		CURRENT_TYPE :- DUMPED_TYPES.FIRST;
+        Owner_Name  :- SETSPEC.AVALUES(2);
+        Member_Name :- SETSPEC.AVALUES(3);
+
+	    WHILE (CURRENT_TYPE =/= NONE) AND NOT ALLRIGHT DO
+		   BEGIN
+			  FOUND_OWNER_TYPE := FOUND_OWNER_TYPE OR
+			                      (CURRENT_TYPE.T = Owner_Name);
+			  FOUND_MEMBER_TYPE := FOUND_MEMBER_TYPE OR
+	                               (CURRENT_TYPE.T = Member_Name);
+			  ALLRIGHT := FOUND_MEMBER_TYPE AND FOUND_OWNER_TYPE;
+			  CURRENT_TYPE :- CURRENT_TYPE.SUC;
+		   END;
+		DEFAULT :- IF ALLRIGHT THEN COPY("YES") ELSE COPY("NO");
+		REQUEST(SETSPEC.AVALUES(1), DEFAULT, BOOLINPUT(WANTED), 
+		        "?", HELP_SETS);
+		IF NOT WANTED THEN
+		   NEW SET(SETSPEC.AVALUES(1)).INTO(OMITTED_SETS)
+		ELSE
+		   BEGIN
+			  IF NOT ALLRIGHT THEN
+				 BEGIN
+                    IF NOT FOUND_OWNER_TYPE THEN
+					   FOUND_OWNER_TYPE :=
+	                      GET_MISSING("OWNER", Owner_Name);
+
+                    IF FOUND_OWNER_TYPE AND THEN
+					   NOT FOUND_MEMBER_TYPE THEN
+                     BEGIN
+                         FOUND_MEMBER_TYPE := 
+                             (Owner_Name = Member_Name) OR ELSE
+							 GET_MISSING("MEMBERS", Member_Name);
+					 END;
+				 END;
+              IF FOUND_MEMBER_TYPE AND FOUND_OWNER_TYPE THEN
+				 BEGIN
+					NB_WANTED := NB_WANTED + 1;
+					WRITE_RECORD(SET_OUT,SETSPEC);
+				 END
+			  ELSE
+				 BEGIN
+					OUTLINE2(SETSPEC.AVALUES( 1 ), " CANNOT be dumped ");
+					NEW SET(SETSPEC.AVALUES(1)).INTO(OMITTED_SETS);
+				 END;
+		   END;
+		END OF INTERACT;
+
+	 PROCEDURE DUMP_SETSPECS;
+	 
+	 COMMENT
+	 A HEADER FOR SETSPEC OBJECTS IS WRITTEN OUT.
+	 ALL SETSPECS DUMPED BY PROCEDURE INTERACT ARE COPIED
+	 TO SEQ_FILE.    ;
+	 
+	 BEGIN
+
+		SET_OUT.OPEN(BLANKS(SEQ_IM_SIZE));		
+		DOFOREACH("SETSPEC",INTERACT);
+		SET_OUT.CLOSE;		
+		
+		TYPE_HEADER(SEQ_FILE,
+		            "SETSPEC",NB_WANTED, GETRECORDSPEC("SETSPEC"));
+		
+		SET_IN.OPEN(BLANKS(SEQ_IM_SIZE));		
+			COPY_FILE(SET_IN, SEQ_FILE);
+		SET_IN.CLOSE;		
+	 END OF DUMP_SETSPECS;
+	 
+	 
+	 PROCEDURE DUMP_STRUKTURS;
+	 
+	 COMMENT
+	 CLEAN-UP STRUKTUR RECORDS ASSOCIATED WITH TYPES IN
+	 DUMPED TYPES LIST BY DELETING REFERENCES TO RELATIONS PRESENT
+	 IN LIST "OMITTED SETS". ;
+	 
+	 BEGIN
+		INTEGER NB_STRUKTURS;
+		
+		TEXT PROCEDURE CLEAN_STRUKTUR (STRUKTUR, EMPTY);
+		NAME EMPTY;
+		REF(RECORD) STRUKTUR;
+		BOOLEAN EMPTY;
+		
+		COMMENT
+		DELETE REFERENCES TO RELATIONS PRESENT IN OMITTED SETS.
+		IF NO RELATIONS ARE LEFT AFTER THIS PROCESS, SET EMPTY
+		TO TRUE TO PREVENT DUMPING.;
+		
+		BEGIN
+		   REF(SET) OMITTED_SET;
+		   BOOLEAN OMITTED;
+		   TEXT SET_, SET_NAME, KEPT, DELIMITER, FIELD;
+		   
+		   COMMENT
+		   KEPT       CLEANED UP IMAGE OF STRUKTUR RECORD.
+		   FIELD      CLEANED UP FIELD (OSETS OR MSETS).  ;
+		   
+		   INTEGER I, J;
+		   
+		   kept :- encode(struktur.avalues(1).Length)&struktur.avalues(1);
+		   EMPTY := TRUE;
+		   
+		   COMMENT
+		   SCAN OSETS AND MSETS FIELDS OF STRUKTUR RECORD;
+		   
+		   FOR I := 2, 3 DO
+			  BEGIN
+				 FIELD :- NOTEXT;
+				 DELIMITER :- NOTEXT;
+				 IF struktur.avalues(i).More then
+				 set_ :- scanfield( struktur.avalues(i))
+				 ELSE set_ :- NOTEXT;
+
+		         WHILE SET_ NE NOTEXT DO
+					BEGIN
+					   SET_NAME :- SCANTO(SET_, CSEMIKOLON);
+				 
+					   !	CHECK IF SET_NAME SET IS IN OMITTED_SETS;
+					   
+%					   OMITTED_SET :- OMITTED_SETS.FIRST;
+%					   OMITTED := FALSE;
+				 
+%				       WHILE (OMITTED_SET =/= NONE) AND NOT OMITTED DO
+%						  BEGIN
+%							 OMITTED := OMITTED_SET.T = SET_NAME;
+%							 OMITTED_SET :- OMITTED_SET.SUC;
+%						  END;
+				 
+				       IF NOT Member(SET_NAME, OMITTED_SETS) THEN
+						  BEGIN
+							 COMMENT
+							 ADD VALIDATED PART TO CLEANED FIELD;
+							 
+							 field :- field&encode(set_.Length)& set_;
+							 EMPTY := FALSE;
+							 DELIMITER :- ARRCHAR;
+						  END;
+					   IF struktur.avalues(i).More THEN 
+					   set_ :- scanfield( struktur.avalues(i))
+					   ELSE set_ :- NOTEXT;
+					END;
+				 kept :- kept&encode(field.Length)&field;
+			  END;
+		   
+		   CLEAN_STRUKTUR :- KEPT;
+		END OF CLEAN_STRUKTUR;
+		
+		
+		PROCEDURE EXAMINE (STRUKTUR);
+		REF(RECORD) STRUKTUR;
+		
+		COMMENT
+		CHECK THAT A STRUKTUR RECORD BELONGS TO A DUMPED TYPE. IF SO,
+		CLEAN IT UP. IF IT IS NOT EMPTY, THE STRUKTUR IS COUNTED AND
+		INSERTED IN CLEANED STRUKTURS LIST. ;
+		
+		BEGIN
+		   REF(TYPE) DUMPED_TYPE;
+		   TEXT TYPE_NAME, CLEANED;
+		   BOOLEAN EMPTY, FOUND;
+		
+		   TYPE_NAME :- SCANTO(STRUKTUR.AVALUES(1), C_PERIOD);
+		   DUMPED_TYPE :- DUMPED_TYPES.FIRST;
+		   WHILE (DUMPED_TYPE =/= NONE) AND NOT FOUND DO
+			  BEGIN
+				 FOUND := DUMPED_TYPE.T = TYPE_NAME;
+				 DUMPED_TYPE :- DUMPED_TYPE.SUC;
+			  END;
+		   IF FOUND THEN
+			  BEGIN
+				 CLEANED :- CLEAN_STRUKTUR(STRUKTUR, EMPTY);
+			     IF NOT EMPTY THEN
+					BEGIN
+					   NB_STRUKTURS := NB_STRUKTURS +1;
+					   SEQ_TEXT(SET_OUT, CLEANED);
+					END
+			  END
+		END OF EXAMINE;
+	 
+	 
+		SET_OUT.OPEN(BLANKS(SEQ_IM_SIZE));		
+		DOFOREACH("STRUKTUR", EXAMINE);
+		SET_OUT.CLOSE;		
+		
+		TYPE_HEADER(SEQ_FILE,
+		            "STRUKTUR",NB_STRUKTURS, GETRECORDSPEC("STRUKTUR"));
+		SET_IN.OPEN(BLANKS(SEQ_IM_SIZE));		
+		COPY_FILE(SET_IN, SEQ_FILE);
+		SET_IN.CLOSE;		
+	 
+	 END OF DUMP_STRUKTURS;
+  
+	 OUTIMAGE;
+	 REQUEST("Dump of set-related information", "YES",
+	         BOOLINPUT(WANTED), "?", HELP_SETS);
+     IF WANTED THEN
+		BEGIN
+		   OMITTED_SETS :- NEW HEAD;
+		   DUMP_SETSPECS;
+		   DUMP_STRUKTURS;
+		END;
+  END OF SCAN_RELATIONS;
+   
+  
+  COMMENT $P   HELP PROCEDURES;
+  
+  BOOLEAN PROCEDURE HELP_RECORDS;
+  NOHELP;
+  
+  BOOLEAN PROCEDURE HELP_SETS;
+  NOHELP;
+   
+   
+  COMMENT $P   MAIN PROGRAM;
+  
+  outline( "------------------ DBDUMP ("&VERSION&") -------------------");
+  OutImage;
+  
+  
+  SET_UP;
+
+	SCAN_TYPES;
+	SCAN_RELATIONS;
+
+
+  Begin		! Now we dump all the records for the TYPES in DUMPED_TYPES;
+
+	Ref(TYPE) R;
+	Text TYPE_NAME; 
+
+	R :- DUMPED_TYPES.first;
+	While R =/= NONE DO Begin
+	
+	  TYPE_NAME :- R.T;
+	  TYPE_HEADER(SEQ_FILE, TYPE_NAME, 
+                  COUNT_RECORDS(TYPE_NAME), 
+                  GETRECORDSPEC(TYPE_NAME));
+	  DOFOREACH(TYPE_NAME, DUMP_RECORD);
+	  R :- R.suc;
+	End;
+  End;
+
+  SEQ_FILE.CLOSE;
+  CLOSEBASE;
+
+  SET_IN.OPEN(BLANKS(SEQ_IM_SIZE));		
+  set_in.setaccess("purge");	 
+  SET_IN.CLOSE;		
+   
+   END
+   
+END OF DBDUMP;

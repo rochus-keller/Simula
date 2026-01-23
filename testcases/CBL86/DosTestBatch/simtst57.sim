@@ -1,0 +1,112 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 57
+%
+%  PURPOSE:     Test virtual procedure - different number of parameters in
+%               the matching procedures in two subclasses (not fo each other)
+%               of the prefix class which contains the virtual part.
+%
+%  WRITTEN BY:  BEH   01/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Text t ;
+
+
+   Class A ;
+      Virtual: Procedure Emit ;
+               Procedure Dump ;
+   BEGIN
+      Outtext ("in A.*") ;
+   END ;
+
+   A Class AA ;
+   BEGIN
+      Procedure Emit ;
+      BEGIN
+         Outtext ("in AA Emit.*") ;
+      END ;
+
+      Procedure Dump (rf) ;
+         Ref (A) rf ;
+      BEGIN
+         Outtext ("in AA Dump.*") ;
+      END ;
+
+      Outtext ("in AA.*") ;
+   END ;
+
+   A Class AB ;
+   BEGIN
+      Procedure Emit ;
+      BEGIN
+         Outtext ("in AB Emit.*") ;
+      END ;
+
+      Procedure Dump ;
+      BEGIN
+         Outtext ("in AB Dump.*") ;
+      END ;
+
+      Outtext ("in AB.*") ;
+   END ;
+
+   Ref (A) rA ;
+
+   Outtext ("--- START Simula a.s. TEST 57") ;
+   Outimage ;
+   Outtext ("--- Test virtual procedure - different number of parameters") ;
+   Outimage ;
+   Outtext ("--- in the matching procedures in two subclasses (not of each") ;
+   Outimage ;
+   Outtext ("--- other) of the prefix class which contains the virtual part.");
+   Outimage ; Outimage ;
+
+   rA :- New AA ;
+   rA.Emit ;
+   rA.Dump (rA) ;
+
+   t :- copy (sysout.image.strip) ;
+   sysout.image.setpos (1) ;
+   sysout.image := notext  ;
+
+   if t = "in A.*in AA.*in AA Emit.*in AA Dump.*" then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong program execution (1).") ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   rA :- New AB ;
+   rA.Emit ;
+   rA.Dump ;
+
+   t :- copy (sysout.image.strip) ;
+   sysout.image.setpos (1) ;
+   sysout.image := notext  ;
+
+   if t = "in A.*in AB.*in AB Emit.*in AB Dump.*" then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong program execution (2).") ;
+      Outimage ;
+      Outtext ("            ") ;
+      Outtext (t) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 57") ;
+   Outimage
+END

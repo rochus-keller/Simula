@@ -1,0 +1,367 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 65
+%
+%  PURPOSE:     Test parameter transmission by reference to classes.
+%
+%  REWRITTEN BY:  BEH   07/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Text array lines, facit (1:50) ;
+   Integer lnr ;
+
+   Procedure SaveLine ;
+   BEGIN
+      lnr := lnr + 1 ;
+      lines (lnr) :- copy (sysout.image.strip) ;
+      sysout.image.setpos (1) ;
+      sysout.image := notext
+   END pros. saveline ;
+
+
+   procedure Checklines (n, enr) ;
+      integer n, enr ;
+   begin
+      Boolean OK ;
+      integer i ;
+
+      OK := true ;
+
+      for i := 1 step 1 until n do
+      if facit (i) <> lines (i) then OK := false ;
+
+      if not OK then
+      begin
+         Outtext ("*** ERROR : Value of attributes (") ;
+         Outint (enr, if enr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus values : ") ;
+         Outimage ;
+         for i := 1 step 1 until n do
+         begin
+            Outtext ("            ") ;
+            Outchar ('"') ;
+            Outtext (lines (i)) ;
+            Outchar ('"') ;
+            Outimage ;
+         end ;
+         Outimage ;
+         found_error := true
+      end ;
+   end pros. checklines ;
+
+   procedure ClearLines ;
+   begin
+      integer i ;
+
+      for i := 1 step 1 until 20 do
+         facit (i) :- lines (i) :- notext ;
+
+      lnr := 0 ;
+   end  pros. clearlines ;
+
+
+   Class Q (ra, rb, t, ra1, rb1, b1, c1, i1, r1, t1) ;
+      Ref (A)          ra ;
+      Ref (B)          rb ;
+      Text              t ;
+      Ref (A)   array ra1 ;
+      Ref (B)   array rb1 ;
+      Boolean   array  b1 ;
+      Character array  c1 ;
+      Integer   array  i1 ;
+      Real      array  r1 ;
+      Text      array  t1 ;
+   BEGIN
+      Integer         z ;
+
+      Outtext ("**ENTER Q") ;
+      SaveLine ;
+
+      Outtext (ra.t) ;
+      Outchar (' ') ;
+      Outtext (rb.t) ;
+      Outchar (' ') ;
+      Outtext (t) ;
+      SaveLine ;
+
+      While  z <= 1  do
+      BEGIN
+         Outtext (ra1 (z).t) ;
+         Outchar (' ') ;
+         Outtext (rb1 (z).t) ;
+         Outchar (' ') ;
+         Outtext (t1 (z)) ;
+
+         If  b1 (z)  then Outtext ("true  ") else Outtext ("false ") ;
+         Outchar (c1 (z)) ;
+         Outint (i1 (z), 4) ;
+         Outreal (r1 (z), 5, 12) ;
+         SaveLine ;
+
+         z := z + 1
+      END ;
+
+                                           Comment  Now alter parameter values;
+      ra.t :- rb.t :- t :- Copy ("XXX") ;
+      z := 0 ;
+
+      While  z <= 1  do
+      BEGIN
+         ra1 (z).t := rb1 (z).t := t1 (z) := "XXX" ;
+         b1 (z) :=  NOT b1 (z) ;
+         c1 (z) := 'X' ;
+         i1 (z) := -i1 (z) ;
+         r1 (z) := -r1 (z) ;
+         z := z + 1
+      END ;
+
+      Outtext ("**EXIT FROM Q") ;
+      SaveLine ;
+   END of class Q ;
+
+   Q Class W (ra2, rb2, b2, c2, i2, r2, t2) ;
+      Ref (A)   array ra2 ;
+      Ref (B)   array rb2 ;
+      Boolean   array b2 ;
+      Character array c2 ;
+      Integer   array i2 ;
+      Real      array r2 ;
+      Text      array t2 ;
+   BEGIN
+      Integer         x, y ;
+
+      Outtext ("**ENTER W") ;
+      SaveLine ;
+
+      While  x <= 1  do
+      BEGIN
+         y := 0 ;
+
+         While  y <= 2  do
+         BEGIN
+            Outtext (ra2 (x, y).t) ;
+            Outchar (' ') ;
+            Outtext (rb2 (x, y).t) ;
+            Outtext (t2 (x, y)) ;
+
+            If  b2 (x, y)  then Outtext ("true  ") else Outtext ("false ") ;
+            Outint (i2 (x, y), 4) ;
+            Outreal (r2 (x, y), 5, 12) ;
+
+            SaveLine ;
+
+            y := y + 1
+         END ;
+
+         x := x + 1
+      END ;
+                                      Comment  Now alter parameter values ;
+      ra.t :- rb.t :- t :- Copy ("YYY") ;
+      z := 0 ;
+
+      While  z <= 1  do
+      BEGIN
+         ra1 (z).t := rb1 (z).t := t1 (z) := "YYY" ;
+         b1 (z) :=  NOT b1 (z) ;
+         c1 (z) := 'Y' ;
+         i1 (z) := -i1 (z) ;
+         r1 (z) := -r1 (z) ;
+         z := z + 1
+      END ;
+
+      x := y := 0 ;
+
+      While  x <= 1  do
+      BEGIN
+         y := 0 ;
+
+         While  y <= 2  do
+         BEGIN
+            ra2 (x, y).t := rb2 (x, y).t := "ZZZZZ" ;
+            b2 (x, y) := NOT b2 (x, y) ;
+            c2 (x, y) := 'Z' ;
+            i2 (x, y) := -i2 (x, y) ;
+            r2 (x, y) := -r2 (x, y) ;
+            y := y + 1
+         END ;
+
+         x := x + 1
+      END ;
+
+      Outtext ("**EXIT FROM W") ;
+      SaveLine
+   END of class W ;
+
+
+   Ref (A)            rav ;
+   Ref (B)            rbv ;
+   Ref (Q)            qr ;
+   Ref (W)            wr ;
+   Text               tv, txt ;
+   Integer            i1, i2, sum ;
+   Ref (A)   array    rav1 (0:1), rav2 (0:1, 0:2) ;
+   Ref (B)   array    rbv1 (0:1), rbv2 (0:1, 0:2) ;
+   Boolean   array    bv1 (0:1),  bv2 (0:1, 0:2) ;
+   Character array    cv1 (0:1),  cv2 (0:1, 0:2) ;
+   Integer   array    iv1 (0:1),  iv2 (0:1, 0:2) ;
+   Real      array    rv1 (0:1),  rv2 (0:1, 0:2) ;
+   Text      array    tv1 (0:1),  tv2 (0:1, 0:2) ;
+
+   Class A (t) ;  VALUE t ;  Text t ;
+   BEGIN
+      Outtext ("  Generate Reference") ;
+      Outtext (t) ;
+      Outtext  ("to Class A") ;
+      SaveLine ;
+
+      Inner ;
+
+   END of class A ;
+
+   A Class B ;
+   BEGIN
+      Outtext ("        -- and to Class B") ;
+      SaveLine ;
+   END ;
+   Outtext ("--- START Simula a.s. TEST 65") ;
+   Outimage ;
+   Outtext ("--- Test parameter transmission by reference to classes.") ;
+   Outimage ; Outimage ;
+
+                                   Comment  First initialise vairables
+                                            from without ;
+   rav :- New A (" rav ") ;
+   rbv :- New B (" rbv ") ;
+   tv :- Copy (" tv ") ;
+
+   While  i1 <= 1  do
+   BEGIN
+      bv1 (i1) := If  (i1//2)*2 = i1 then true else false ;
+      cv1 (i1) := 'K' ;
+      iv1 (i1) := i1 ;
+      rv1 (i1) := i1 ;
+      txt :- Copy ("( )") ;
+      txt.Sub (2, 1).Putint (i1) ;
+      tv1 (i1) :- txt ;
+      txt :- Copy ("RAV1   ") ;
+      txt.Sub (5, 3) := tv1 (i1) ;
+      rav1 (i1) :- New A (txt) ;
+      txt.Sub (2, 1) := "B" ;
+      rbv1 (i1) :- New B (txt) ;
+      i2 := 0 ;
+
+      While  i2 <= 2  do
+      BEGIN
+         sum := i1 + i2 ;
+         bv2 (i1, i2) := If  (SUM//2)*2 = sum  then true else false ;
+         cv2 (i1, i2) := 'J' ;
+         iv2 (i1, i2) := sum ;
+         rv2 (i1, i2) := sum ;
+         txt :- Copy ("( , )") ;
+         txt.Sub (2, 1).Putint (i1) ;
+         txt.Sub (4, 1).Putint (i2) ;
+         tv2 (i1, i2) :- txt ;
+         txt :- Copy ("RAV2     ") ;
+         txt.Sub (5, 5) := tv2 (i1, i2) ;
+         rav2 (i1, i2) :- New A (txt) ;
+         txt.Sub (2, 1) := "B" ;
+         rbv2 (i1, i2) :- New B (txt) ;
+         i2 := i2 + 1
+      END ;
+
+      i1 := i1 + 1
+   END ;
+
+   qr :- New Q (rav, rbv, tv, rav1, rbv1, bv1, cv1, iv1, rv1, tv1) ;
+
+   facit (1)  :- "  Generate Reference rav to Class A" ;
+   facit (2)  :- "  Generate Reference rbv to Class A" ;
+   facit (3)  :- "        -- and to Class B" ;
+   facit (4)  :- "  Generate ReferenceRAV1(0)to Class A" ;
+   facit (5)  :- "  Generate ReferenceRBV1(0)to Class A" ;
+   facit (6)  :- "        -- and to Class B" ;
+   facit (7)  :- "  Generate ReferenceRAV2(0,0)to Class A" ;
+   facit (8)  :- "  Generate ReferenceRBV2(0,0)to Class A" ;
+   facit (9)  :- "        -- and to Class B" ;
+   facit (10) :- "  Generate ReferenceRAV2(0,1)to Class A" ;
+   facit (11) :- "  Generate ReferenceRBV2(0,1)to Class A" ;
+   facit (12) :- "        -- and to Class B" ;
+   facit (13) :- "  Generate ReferenceRAV2(0,2)to Class A" ;
+   facit (14) :- "  Generate ReferenceRBV2(0,2)to Class A" ;
+   facit (15) :- "        -- and to Class B" ;
+   facit (16) :- "  Generate ReferenceRAV1(1)to Class A" ;
+   facit (17) :- "  Generate ReferenceRBV1(1)to Class A" ;
+   facit (18) :- "        -- and to Class B" ;
+   facit (19) :- "  Generate ReferenceRAV2(1,0)to Class A" ;
+   facit (20) :- "  Generate ReferenceRBV2(1,0)to Class A" ;
+   facit (21) :- "        -- and to Class B" ;
+   facit (22) :- "  Generate ReferenceRAV2(1,1)to Class A" ;
+   facit (23) :- "  Generate ReferenceRBV2(1,1)to Class A" ;
+   facit (24) :- "        -- and to Class B" ;
+   facit (25) :- "  Generate ReferenceRAV2(1,2)to Class A" ;
+   facit (26) :- "  Generate ReferenceRBV2(1,2)to Class A" ;
+   facit (27) :- "        -- and to Class B" ;
+   facit (28) :- "**ENTER Q" ;
+   facit (29) :- " rav   rbv   tv" ;
+   facit (30) :- "RAV1(0) RBV1(0) (0)true  K   0  0.0000&+00" ;
+   facit (31) :- "RAV1(1) RBV1(1) (1)false K   1  1.0000&+00" ;
+   facit (32) :- "**EXIT FROM Q" ;
+
+   Checklines (32, 1) ;
+
+   Clearlines ;
+
+   wr :- New W (rav, rbv, tv, rav1, rbv1, bv1, cv1, iv1, rv1, tv1,
+                     rav2, rbv2, bv2, cv2, iv2, rv2, tv2) ;
+
+   facit (1)  :- "**ENTER Q" ;
+   facit (2)  :- "XXX XXX  tv" ;
+   facit (3)  :- "XXX     XXX     XXXfalse X   0  0.0000&+00" ;
+   facit (4)  :- "XXX     XXX     XXXtrue  X  -1 -1.0000&+00" ;
+   facit (5)  :- "**EXIT FROM Q" ;
+   facit (6)  :- "**ENTER W" ;
+   facit (7)  :- "RAV2(0,0) RBV2(0,0)(0,0)true     0  0.0000&+00" ;
+   facit (8)  :- "RAV2(0,1) RBV2(0,1)(0,1)false    1  1.0000&+00" ;
+   facit (9)  :- "RAV2(0,2) RBV2(0,2)(0,2)true     2  2.0000&+00" ;
+   facit (10) :- "RAV2(1,0) RBV2(1,0)(1,0)false    1  1.0000&+00" ;
+   facit (11) :- "RAV2(1,1) RBV2(1,1)(1,1)true     2  2.0000&+00" ;
+   facit (12) :- "RAV2(1,2) RBV2(1,2)(1,2)false    3  3.0000&+00" ;
+   facit (13) :- "**EXIT FROM W" ;
+
+   Checklines (13, 2) ;
+
+   Clearlines ;
+
+   rav :- New B (" (Now rav points to a B-object)") ;
+
+   Outtext (wr.ra2 (0, 0).t) ;
+   SaveLine ;
+   Outtext (qr.t) ;
+   Outchar (' ') ;
+   Outtext (tv) ;
+   SaveLine ;
+
+
+   facit (1)  :- "  Generate Reference (Now rav points to "
+                 "a B-object)to Class A" ;
+   facit (2)  :- "        -- and to Class B" ;
+   facit (3)  :- "ZZZZZ" ;
+   facit (4)  :- "XXX  tv" ;
+
+   Checklines (4, 3) ;
+
+   Clearlines ;
+
+   If found_error then
+   else
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 65") ;
+   Outimage
+ END

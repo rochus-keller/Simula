@@ -1,0 +1,587 @@
+% ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo	
+%
+%	class: KEYFILE
+%  ---------------
+%
+%	Version 1.1	nov. 1996
+%	Jean Vaucher 
+% ----------------------------------------------------------------------          
+%
+%  KeyFile est une SOUS-CLASSE de DIRECTFILE.  Elle remplace l'acces par
+%  numero d'enregistrement avec 2 concepts importants :
+%
+%	     1) Acces par CLE
+%	     2) Enregistrements de longueur quelconque
+%
+%	Operations:
+%	-----------
+%	- WRITE( CLE, DATA):	Ecrit CLE & DATA dans le fichier.  Si un 
+%                         enregistrement existe deja avec la meme 
+%	                       cle, on ecrit par dessus
+
+%	- READ (CLE) -> text:  Si un record existe avec CLE, retourne
+%                         DATA sinon retourne "!0!"
+
+%	- DELETE (CLE):	Efface l'enregistrement avec cette CLE
+%   
+%	Ouverture et fermeture
+%	-----------------------
+%	Pour utiliser un KeyFile in faut d'abord creer un objet KEYFILE 
+%    et ne pas oublier de le FERMER avant de sortir du programme
+%    car la gestion d'enregistrements de longueur flexible exige
+%    le maintien d'une liste des blocs libres dans le fichiers.  Si
+%	  vous terminez sans faire CLOSE, cette liste sera faussee.
+%
+%  - Ouverture:	Le fichier est ouvert automatiquement a la creation.
+%    Il faut donc creer un objet KEYFILE avec 2 parametres: Le nom du
+%    fichier, FileName, et  N, une estimation du
+%    nombre d'enregistrements qui vont etre stockes dans le fichier   
+%    A la premiere ouverture, un fichier avec le nom sera 
+%    cree et initialise avec une table de hashing de taille N.
+%    Pour les ouvertures subsequentes, seul NOM est utile.
+%
+%	- Fermeture:	CLOSE
+%
+%	FICHIERS:  Voir dans ~dift1020/pub/TP4
+%
+%	    keyfile.sim:	Fichier contenant KeyFile
+%      textutil.sim: Routines utilisees par db_file; utiitaires de 
+%                    traitement de texte et d'interaction par MENU
+%                    (non-graphique)
+%      dbTest.sim:	Exemple d'utilisation de DB_FILE
+%      menutest.sim: Utilisation de TEXTUTIL
+%       
+%	Exemple d'utilisation:
+%
+%	begin
+%		external class keyfile;
+%		external class textutil;
+%		
+%		ref(KeyFile) F;
+%		integer i;
+%		Text Key, data;
+%		
+%		F :- new KeyFile("t1.60",10);
+%		for i := 1 step 1 until 10 do 
+%		begin
+%			Key :- int_as_text(i);
+%			F.WRITE(Key,"Contenu de l'enregistrement.....");
+%		end;
+%		 
+%		F.DELETE( int_as_text(3) );
+%		
+%		for i := 1 step 1 until 10 do 
+%		begin
+%			Key :- int_as_text(i);
+%			data :- F.READ(Key);
+%			outint(i,3); outtext(Key & ": " & data); outimage;
+%		end;
+%		
+%		F.CLOSE;
+%	end
+%		
+% ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo	
+	
+EXTERNAL class textutil;
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+  DirectFile CLASS KeyFile( HashSize );  Integer HashSize;
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+BEGIN
+  
+
+! ---------- Record format and fields --------------------------------;
+%
+%  Record 1:
+%     1) Hash_size:  Size of Hash Array
+%     2) Free:       Rec_number of first in FREE LIST
+%
+%  Starter Records
+%     1) NextFld: Points to next Starter Record in List of records 
+%                 with same HASH VALUE
+%     2) ContFld: Used for long records which don't fit in one image
+%                 points to the overflow record containing next portion
+%                 of record.
+%     3) HeadData: Key and rest of data
+%
+%  OverFlow records:
+%     1) NextFld: In the case of overflow records, points to the continuation 
+%                 of the record....not the nest in the synonym chain
+%     2) DataFld: data portion
+% ---------------------------------------------------------------------------- 
+%  Data Layout:  The various fields in the record should be delimited by the
+%                DELIMC character, "|" .  DO NOT USE THIS CHARACTER IN A KEY 
+%
+%  Image Size:   we use 60
+%  Field size:   we use 5 characters for the pointers linking various records
+% ----------------------------------------------------------------------------
+
+! === Useful constants ============;
+
+   Text    Nil;
+   Integer RecLen      = 60,
+           FldLen      = 5,
+           Fld2Pos     = 1 + FldLen,
+           Fld3Pos     = Fld2Pos + FldLen,
+           DataLen     = RecLen - FldLen ,
+           HeadDataLen = RecLen - 2*FldLen;
+           
+   Integer pos_Hash = 1,                  ! Taille du Primary Hash array ;
+           pos_Free = pos_Hash + FldLen;  ! RecNum du premier record LIBRE ;
+           
+   Character DelimC = '|' ;
+   Text      DelimT = "|" ;
+
+% //////////////////////////////////////////////////////////////////////
+% GLOBAL DATA:  The following Text variables point to various areas in 
+%               IMAGE.  Just about all procedures in KEYFILE
+%               consult theses variables OR modify them.  The information
+%               stored in these fields is shortlived since any WRITE
+%               operation resets them to NOTEXT.
+% //////////////////////////////////////////////////////////////////////
+             
+   Text  DBimage,
+         NextFld,
+         ContFld,
+         HeadData,
+         DataFld;
+   
+   Text procedure GetKey;
+   begin 
+      HeadData.setpos(1);
+      GetKey :- scanto( HeadData, DelimC);
+   end;
+      
+% \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+   Procedure InitFields;
+   Begin
+      DBimage  :- image;
+      NextFld  :- Image.sub(1,       FldLen );
+      ContFld  :- Image.sub(Fld2Pos, FldLen );
+      DataFld  :- Image.sub(Fld2Pos, DataLen );
+      HeadData :- Image.sub(Fld3Pos, HeadDataLen );
+      Nil      :- blanks(FldLen);
+   End;
+   
+   
+ ! ------------------------------------------------ ;
+   Procedure OPEN;
+ ! ------------------------------------------------ ;   
+   BEGIN        
+       
+      Setaccess("AnyCreate");
+
+      IF ( NOT this directFile.Open(Blanks(RecLen)) )
+         THEN error( "*** Could not Open:" & FileName );
+               
+      InitFields;
+      
+      Begin
+
+         IF LastLoc > 10  then
+         Begin
+            ! FILE EXISTS.... Use existing HashSize (from record 1)
+                              and create internal FREE_LIST  ;
+                              
+               INTEGER nextfree;    
+                  
+               DB_Read(1);
+               HashSize := Image.Sub(pos_Hash, FldLen).GetInt;
+               Nextfree := Image.Sub(pos_Free, FldLen).GetInt;
+               
+               Inspect Sysout do 
+               begin               
+               	Outimage;
+               	Outtext(">> KeyFile: Ouverture " & 
+               	        This DirectFile.FileName & 
+                          ", hashsize = ");
+                  outint( HashSize,0); 
+                  outimage; 
+               end;
+               
+               Freelist :- NONE;
+               WHILE (nextfree <> 0) DO
+               BEGIN
+                    Liberate (NextFree);
+                    DB_Read( nextfree );
+                    IF ( NextFld = Nil)
+                      THEN nextfree := 0
+                      ELSE nextfree := NextFld.GetInt;
+                END;
+         END
+         ELSE    ! Create Base ;
+         BEGIN    
+               Text  t;
+               Integer i;
+                     
+               Inspect Sysout do 
+               begin               
+               	Outimage;
+               	Outtext(">> KeyFile: Creation de " & This DirectFile.FileName & 
+                          ", hashsize = ");
+                  outint( HashSize,0); 
+                  outimage; 
+               end;
+                              
+               HashSize := max( HashSize, 13 );              
+               t :- Image;
+               t.sub( pos_Hash, FldLen).Putint( HashSize);
+               t.sub( pos_Free, FldLen).Putint( 0);
+               DB_WRITE(1);
+               
+               Locate(2);
+               Image := NOTEXT;
+               FOR i := 1 STEP 1 UNTIL HashSize DO
+                   Outimage;
+         END; 
+         Oflowtop := LastLoc + 1;
+      End;
+   END of openbase;
+  
+              
+   PROCEDURE close;
+   !-----------------------------------------------------------
+    Update DataBase and Record1 to chain free records on disk
+   ------------------------------------------------------------;
+   BEGIN
+   	inspect Sysout do begin
+	   	Outimage;
+	   	Outtext(">> KEYFILE: Fermeture de " & 
+	   	        This DirectFile.FileName); outimage;
+	   	Outtext("   Nombre d'ES ="); 
+	      outint( n_op,6); 
+	      outimage; outimage;
+	   end;
+
+	   Begin
+	      REF (ilist) P;                ! Pour le chainage des blocs libres ;
+	      
+	      DB_read(1); 
+	      Image.Sub( pos_Free, FldLen).Putint(IF freelist == NONE 
+	                                       THEN 0  ELSE freelist.num);
+	      DB_write(1); 
+	   
+	      P :- freelist;    
+	      WHILE P =/= NONE DO 
+	      BEGIN
+	            INSPECT P.next 
+	               DO        NextFld.Putint( Num)
+	               OTHERWISE NextFld := Nil;
+	            DB_Write(P.num); 
+	            P :- P.next
+	       END - WHILE -;
+	      this DirectFile. Close;
+	   End;
+	END  - of closebase - ;
+
+   
+      
+! ---------------------------------------------- ;
+   Text Procedure Read( Key ); Text Key  ;
+! ---------------------------------------------- ;
+   begin
+      Integer N,M;
+      Text    Syn, T;
+      
+      Read :- "!0!";      ! default value if Key is not found ;
+      N := dbadr( Key );
+      DB_Read( N );
+      
+      if HeadData.strip <> notext then  
+      begin
+   L1:   if GetKey = Key then 
+   		  begin
+   		      T :- copy(rest(HeadData));
+               T :- T & ReadTail(ContFld);
+               Read :- T.strip;
+           end
+         else if NextFld <> Nil then
+            begin
+               N := NextFld.getint;
+               DB_Read( N );
+               goto L1;
+            end;
+      end;
+   end;
+
+      
+      
+! ---------------------------------------------- ;
+   Procedure Write( Key, Data ); Text Key, Data  ;
+! ---------------------------------------------- ;
+   begin
+      Integer N,M;
+      Text    Syn;
+      
+      N := dbadr( Key );
+      DB_Read( N );
+      
+      if HeadData.strip = notext then  ! Liste est vide ;
+      begin
+         WriteData( N, Key & DelimT & Data, DataFld );
+      end
+      else begin
+   L1:
+         if GetKey = Key then 
+            begin
+               WriteData( N, Key & DelimT & Data, DataFld );
+            end
+         else if NextFld <> Nil then
+            begin
+               N := NextFld.getint;
+               DB_Read( N );
+               goto L1;
+            end
+         else 
+            begin
+               M := nextFree;
+               NextFld . Putint(M);
+               DB_Write(N);
+               WriteData( M, Key & DelimT & Data, DataFld );
+            end;
+      end;
+   end;  
+      
+ ! ---------------------------------------------------------- ;
+   integer procedure WriteData(Adr,Data,IM); 
+      Integer Adr;
+      Text    Data,IM ;
+ ! ---------------------------------------------------------- ;
+    begin
+      Text Nxt, NextFld, Body;
+      Integer N;
+      
+      NextFld :- IM.sub(1,FldLen); 
+      Body    :- From(IM,FldLen+1);
+      if Data.length <= Body.length then 
+       Begin
+         Body := Data;
+         Nxt :- copy(NextFld);
+         NextFld := Nil;
+         DB_Write(Adr);
+         FreeTail(Nxt);
+       end
+      else begin   ! === there is another record to write ;
+         Data.setpos(1+Body.length);
+         Body := Front(Data);
+         if NextFld = Nil then 
+            begin
+               N := nextFree;
+               NextFld.Putint(N);
+               DB_Write(Adr);
+            end
+           else begin
+               N := NextFld.Getint;
+               DB_Write(Adr);
+               DB_Read(N);
+            end;
+         WriteData(N, rest(Data), Image);
+      end;
+   
+   end   ------ WriteData ------ ;
+   
+      
+! ---------------------------------------------- ;
+   Procedure Delete( Key ); Text Key;
+! ---------------------------------------------- ;
+   begin
+      Integer N,M,S;
+      Text Fld,Syn;
+      Boolean Trouve;
+      
+      N := dbadr( Key );
+      DB_Read( N );
+      
+      if HeadData.strip = notext then  ! Liste est vide...rien a faire ;
+      
+      else if GetKey = Key then 
+         begin
+            Fld :- copy(ContFld);
+            if NextFld <> nil then ! replace this record by synonym;
+            begin
+               S := NextFld.getint;
+               DB_Read(S);
+               DB_Write(N);
+               Liberate (S);
+            end
+            else begin
+                  DataFld := notext;
+                  DB_Write(N);
+            end;
+         FreeTail(Fld);
+         end
+      else while NextFld <> Nil and then not Trouve do
+      begin
+         M := N;
+         N := NextFld.getint;
+         DB_Read( N );
+         if GetKey = Key then 
+         begin
+            Trouve := True;
+            Syn:- copy (NextFld);
+            FreeTail(ContFld);
+            Liberate(N);
+            DB_Read(M);
+            NextFld := Syn;
+            DB_Write(M);
+         end;
+      end;
+   end;
+      
+      
+
+ ! ---------------------------------------------- ;
+   TEXT PROCEDURE ReadTail(Fld); Text Fld;
+ ! ---------------------------------------------- ;
+   BEGIN  
+      Text Res;
+      
+      While Fld <> Nil do 
+      begin
+          DB_Read( Fld.getint );
+          Res :- Res & DataFld ;
+          Fld :- NextFld;
+      end;
+      ReadTail :- Res;
+   End;   
+
+      
+   ! ---------------------------------------------- ;
+     INTEGER PROCEDURE DBadr( t );  TEXT t;
+   ! ----------------------------------------------
+     Computing start address in HASHTABLE.
+   ------------------------------------------------;
+   BEGIN 
+      INTEGER N;
+      
+      N := hash(t);
+      dbadr := 1 + randint(1,HashSize, N);
+   END of dbadr;
+  
+   ! ---------------------------------------------- ;
+   INTEGER PROCEDURE hash(t);
+   TEXT t;
+   ! ---------------------------------------------- ;
+   BEGIN
+      INTEGER N, K;
+               
+      K := abs( minint // 16);      
+      t.Setpos(1); 
+      while t.More do begin
+         N := 11*N + Rank(t.Getchar);
+         IF N > K THEN N := rem( N, K);
+      end;
+      randint(0,255,N);
+      hash := N;
+   END of dbadr;
+   
+
+% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+%  Gestion de liste des enregistrements Libres;
+% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   
+   INTEGER     Oflowtop;
+   REF (ilist) Freelist;
+   
+   CLASS ilist( num, next); 
+      INTEGER num;
+      REF (ilist) next;;
+
+
+ ! ---------------------------------------------- ;
+   procedure FreeTail(Fld); Text Fld;
+ ! ---------------------------------------------- ;
+   while Fld <> NIL do
+   Begin
+       INTEGER n;
+       
+       n := Fld.getint;
+       freelist :- NEW ilist( n, freelist);
+       DB_Read(n);
+       Fld :- NextFld;
+   END FreeTail;
+
+   Procedure Liberate(N);  integer N;
+       freelist :- NEW ilist( n, freelist);   
+
+ ! ---------------------------------------------- ;
+   INTEGER PROCEDURE nextfree;
+ ! ---------------------------------------------- ;
+   IF freelist == NONE THEN
+      BEGIN 
+         nextfree := oflowtop; 
+         oflowtop := oflowtop + 1; 
+      END
+   ELSE
+      BEGIN
+         nextfree := freelist.num;
+         freelist :- freelist.next;
+      END  - nextfree - ;
+   
+% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+%      First Level IO
+% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+   Boolean DoTrace;
+   Integer N_op;		! Nombre d'ES 
+                     - Modifie par DB_Write/DB_read
+                     - Imprimer par close
+                     ;
+                           
+   ! ---------------------------------------------- ;
+   Procedure DB_Read(RecNum); integer RecNum;
+ ! ---------------------------------------------- ;
+   begin
+      Locate( RecNum );
+      inimage;
+      if DoTrace then 
+	     	inspect sysout do 
+	     	begin
+         	outtext("DB_read: "); 
+         	outint(RecNum,
+               if RecNum < 10000 then 4 else 0); 
+            	outtext(" <<" & DBimage.strip & "<<"); 
+         	outimage;
+      	end;
+      N_op := N_op + 1;
+   end;
+   
+  ! ---------------------------------------------- ;
+     Procedure DB_Write(RecNum); integer RecNum;
+  ! ---------------------------------------------- ;
+     begin
+         if DoTrace then 
+	     		inspect sysout do 
+	     		begin
+	            outtext("DB_Write:"); 
+	            outint(RecNum,
+	               if RecNum < 10000 then 4 else 0); 
+	            outtext(" >>" & DBimage.strip & ">>"); outimage;
+	         end;
+         Locate( RecNum );
+         Outimage;
+	      N_op := N_op + 1;
+      end;
+   
+
+
+
+% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+%            Programme Principal
+% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+  
+    OPEN ;
+    
+!   >>>>>>>> Ne pas oublier de faire CLOSE <<<<<<<<<<<<< ;
+      
+end class KeyFile;
+

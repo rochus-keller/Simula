@@ -1,0 +1,575 @@
+comment *************************************************
+
+    simpp.sim   (version 1.1)
+    ============================
+    auteur:  jean vaucher
+    date  :  fev. 1997   ( adapte de simanal v2.5)
+
+
+Function:  Pretty-print SIMULA programs.
+           Works as a filter from STDIN to STDOUT
+
+Uses:	Tokenizer
+
+///////////////////////////////////////////////////////////////
+ Modifications:
+****************************************************************;
+ 
+
+EXTERNAL CLASS tokenizer;
+
+   
+! *********************************************************;
+! *****************   analyseur  **************************;
+! *********************************************************;
+ 
+TOKENIZER  Begin
+
+	Boolean InComment,   
+	        TreatNL;
+	
+	procedure SetMargin(D); integer D;
+	begin
+		if Pos <> Margin then Outimage;
+		Margin := Margin + D;
+		setpos(Margin);
+	end;	
+	
+	
+! *********************************************************;
+	Integer NewLineCount;
+	
+	Procedure NewLine;
+	if pos <> margin then ForceNewLine;
+
+	Procedure ForceNewLine;
+	begin
+	   outimage;
+	   setpos(margin);
+	   NewLineCount := NewLineCount + 1;
+	end;
+	
+	Procedure Seperate;
+	while NewLineCount<2 do ForceNewLine;
+	
+! *********************************************************;
+
+  procedure STATEMENTS ;
+  begin
+    statement;
+    while usc=pv_sy do
+    begin
+      getsy; statement;
+    end;
+  end  ** statements **;
+ 
+ 
+  procedure STATEMENT ;
+  begin
+  	  NewLine;
+      Labels;
+      while not symbol_in( fin_comment ) do
+      begin
+        if      usc = begin_sy   then do_block  
+        else if usc = if_sy      then do_if     
+        else if usc = while_sy   then do_while     
+        else if usc = for_sy     then do_for     
+        else if usc = ident_sy   then identifier
+        else if usc = inspect_sy then do_inspect
+        else if usc = assign_sy then do_assign
+        else getsy;
+      end;
+  end;
+ 
+  procedure DO_BLOCK ;
+  begin Text T;
+%    NewLine;
+    getsy;
+    SetMargin(3);
+    	declarations;
+    	statements;
+    SetMargin(-3);
+    skip(end_sy); 
+    T :- GetEndComment;
+    if T <> notext then outToken("  " & T);
+    if not Symbol_is( pv_sy ) then NewLine;
+  end  ** block **;
+ 
+ 
+  procedure BODY ;
+  if Symbol_is( begin_sy ) then Do_Block
+  else begin
+    SetMargin(3);
+	    statement;
+    Margin := Margin - 3;
+  end ;
+     
+ 
+  procedure LABELS ;
+  while 
+    symbol_is (ident_sy) and then peekSY = deux_points 
+  do begin
+    SetMargin(-4);
+    getSy; getSy;
+    SetMargin(4);
+  end;
+  
+  procedure DO_IF ;
+  begin
+    getSy;
+    expression;
+    skip( then_sy );
+    Body;
+	if symbol_is( else_sy) then 
+    begin   
+	NewLine;
+        skip(else_sy);
+        if symbol_is( if_sy )
+           then Do_if
+   		   else Body;
+    end;
+  end;
+  
+  procedure DO_IF_EXPR ;
+  begin
+  	Integer Marge,P1;
+  	
+    getSy;
+    Marge := margin; 
+    Margin := sysout.pos;
+	    expression;
+	    Newline;
+	    skip( then_sy );
+	    Expression;
+    while symbol_is(else_sy) and then PeekSy = IF_sy do 
+    begin   
+    	setMargin(-2); 
+    	PrintandGet; PrintandGet; 
+    	Margin := Margin + 2;
+	    expression;
+	    Newline;
+	    skip( then_sy );
+	    Expression;
+    end ;
+    if symbol_is(else_sy) then 
+    begin   
+		NewLine;
+        skip(else_sy);
+        Expression;
+    end;
+    Margin := marge;
+  end;
+
+  procedure DO_ASSIGN ;
+  begin
+  	Integer Marge;
+  	
+    getSy;
+    Marge := margin; Margin := sysout.pos+1;
+    	expression;
+    Margin := marge;
+  end;
+  
+  procedure DO_WHILE ;
+  begin
+    getSy;
+    expression; 
+    skip( do_sy );
+    Body;
+  end;
+  
+  procedure DO_FOR ;
+  begin
+    getSy;
+    expression;
+    chercher1( do_sy );
+    getSy; 
+    Body;
+  end;
+  
+  procedure DO_INSPECT;
+  begin
+        text RefName;
+        
+    getSy;
+%    identifier;
+    expression; 
+    while symbol_in ( when_do ) do
+    begin
+        if usc = when_sy then begin
+            getsy;
+            getsy;
+        end;
+        skip(do_sy);
+        while not symbol_in( inspect_set ) do
+        begin
+            if      usc = begin_sy   then do_block  
+            else if usc = inspect_sy then do_inspect
+            else if usc = ident_sy   then identifier
+            else getsy;
+        end;
+    end;
+    if symbol_is(otherwise_sy) then begin
+        skip(otherwise_sy);
+        statement;
+    end;
+  end;
+  
+  ref(SymSet) ExpSymbols;
+  
+  procedure EXPRESSION ;
+  begin integer X;
+	  while symbol_in (ExpSymbols) and then progress(X) do
+	    if      usc = ident_sy then identifier
+	    else if usc = if_sy    then do_if_expr
+	    else if usc = leftPar  then begin
+	    	getsy; expression; skip(rightPar);
+	    end
+	    else getsy;
+  end;  
+
+  procedure IDENTIFIER;
+  begin
+
+    if  Token = "THIS" or else 
+        Token = "NEW" 
+    then Getsy;
+    
+    getsy;
+    Actual_parameters;
+    
+    while symbol_is (period) do
+    begin
+        getSy;
+        getSy;
+        Actual_parameters;
+    end;
+  end;
+
+ 
+    procedure Actual_parameters;
+    if usc = leftPar then 
+    begin  integer X;
+        getSy;
+        while not symbol_in( param_set ) and then progress(X) do
+        begin
+        	expression;
+        	skip(comma);
+        end;
+        skip(rightPar);
+    end;
+      
+
+  procedure DECLARATIONS;
+  begin  INteger NDCL;
+  
+	  while Symbol_in(decspec) or else
+	       (usc = ident_sy and then PeekSy = class_sy)
+	  DO BEGIN
+	  	  Boolean addnl;
+	  	  
+	  	  nDCL := nDCL+1;
+		  if Symbol_in(decspec) then 
+		  begin
+		  	 NewLine;
+		     if      Symbol_is(external_sy)  then procedure_spec
+		     else if Symbol_is(procedure_sy) or else
+		             PeekSy = procedure_sy   then 
+		         begin procDecl; addnl:= true end
+		     else if Symbol_is(switch_sy )   then 
+                                       chercher(fin_d_enonce)
+		     else if Symbol_is(class_sy  )   then 
+		         begin classDecl; addnl:= true end
+		     else if Symbol_is(ref_sy    )   then 
+                                       simpleDeclaration
+		     else simpleDeclaration;
+		            
+		  end
+		  else begin classDecl; addnl:= true end;
+	
+		  skip(pv_sy); NewLine;
+		  if addNL then seperate;
+	  END;  
+	  if Ndcl>0 then seperate; 
+  end;
+ 
+  procedure SimpleDeclaration;
+    begin  text T;
+           
+        T :- Token;
+        getSy;
+        if Symbol_is( array_sy) then getSy;
+        margin := margin + 4;
+        if atstart then setpos(pos+1);
+        TreatNL := true;
+        
+        while symbol_is(ident_sy) do 
+        begin 
+            Tab;
+            getSy;
+            if symbol_is( leftPar) then chercher1(RightPar);
+            chercher( pv_comma );
+            if symbol_is(comma) then begin
+            	skip(comma); 
+            	if pos > 60 then NewLIne; 
+            end       
+        end;    
+        margin := margin - 4;
+        TreatNL := false;
+    end;
+    
+    
+  procedure procDecl;
+  begin
+
+	Seperate;
+    if Symbol_in(simple_decl)
+    	then printAndGet;
+
+    printAndGet;
+    copy_to_pv;
+    
+    SetMargin(5);
+    	treat_specs;
+    SetMargin(-5);
+    body;
+  end  ** procDecl **;
+
+  procedure treat_specs;
+  begin
+	  while symbol_in(decspec) do
+	  if usc=procedure_sy 
+	  then procedure_spec
+	  else begin
+	    printAndGet;
+	    copy_to_pv;
+	    NewLine;
+	  end;
+  end  ** treat spec **;
+ 
+  procedure procedure_spec;
+  begin
+  	getSy;
+  	
+    while usc <> fdf_sy and 
+          usc <> pv_sy  and
+          usc <> is_sy  
+    do printAndGet; 
+     
+    if usc = is_sy then 
+    begin
+	    printAndGet; NewLine;
+    	SetMargin(3);
+	    copy_to_pv;
+	    
+	    SetMargin(3);
+	    	treat_specs;
+	    	skip(pv_sy);
+	    SetMargin(-6);
+	end
+	else skip(pv_sy);
+	NewLine;
+  end;
+	
+  procedure classDecl;
+  begin
+    text Prefix;
+ 
+	Seperate;
+    if symbol_is(ident_sy) then
+      printAndGet;
+    
+    printAndGet; 
+    copy_to_pv;
+    SetMargin(5);
+    	treat_specs;
+    SetMargin(-5);
+    
+    newLine;
+    if usc = virtual_sy then 
+    begin
+        getsy; getsy;
+    	SetMargin(5);
+        NewLine;
+        while usc = procedure_sy or else
+             Symbol_in(declar) and PeekSy = procedure_sy 
+        do 
+        	procedure_spec;
+        	
+    	SetMargin(-5);
+    end;
+    Body;
+    
+  end  ** classDecl **;
+ 
+ 
+% >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+%             Utilitaires
+% <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    integer syCnt, oldCnt;
+    boolean procedure progress(OLD); name OLD; integer OLD;
+    begin  progress := syCnt <> OLD;
+       OLD := syCnt
+    end;
+    
+    procedure getsy;  printAndGet;
+  
+    procedure printAndGet;
+    begin    
+        outToken(Token);
+        NewLineCount := 0; 
+        NextSymbol;
+        syCnt := syCnt+1;
+    end;
+ 
+ 
+    procedure NextSymbol;   
+    begin
+        integer Nnl;
+        
+        GetSy2;
+        while usc = comment_sy or usc = nl_sy do 
+        begin
+            if usc = nl_sy then begin
+                Nnl:= Nnl+1;
+                if Flag(1) then begin
+                   outtext("<nl:");outint(Nnl,0); outchar('>');
+                end;
+                if TreatNL then ForceNewLine else
+                if Nnl=2 then begin
+                    NewLine;
+                    ForceNewLine;
+                end;
+            end
+            else begin 
+                    integer nPos;  Text T;
+                    
+                T :- Token;
+                nPos := T.getint; 
+                T :- T.sub(4,T.length-3);
+                if not atStart and pos > npos then Outimage; 
+                Nnl := NewLIneCount := 0;
+                setpos( npos );
+                outText( T );  ForceNewLIne;
+                Nnl := 0;
+            end;
+            GetSy2;
+        end
+    end;
+        	
+  procedure Tab;
+  begin
+  	integer m, n,
+  	        ntab = 4;
+  	
+  	m := pos;
+  	n := if rem(m,nTab) = 0 
+  	     then m 
+  	     else nTab*(m//ntab+1);
+  	setpos(n);
+  end;
+  	
+  procedure outToken(T); text T;
+  if atStart then 
+  		outtext(T)
+  else 
+  begin    
+    integer P; 
+    integer a,b;      
+    
+    P := Pos ;
+    if not symbol_in( punctuation ) then P := P+1;
+    if P+T.length-1 > SysOut.Image.length then
+    begin
+        outimage; setpos(margin+4);
+    end
+    else setpos(P);
+    
+    outtext(T); 
+  end;
+
+   Boolean procedure AtStart;
+   	  AtStart := image.sub(1,pos-1).strip = notext;
+   	  
+  procedure copy_to_pv;
+  begin 
+    while usc<>fdf_sy and then usc<>pv_sy do
+        printAndGet;  
+    skip( pv_sy);
+  end  ** copy to pv ** ;
+ 
+  procedure Skip(Sy); integer Sy;
+    if usc = Sy then getSy;
+ 
+  procedure Chercher1 (s); integer s;
+  begin
+    while usc<>fdf_sy and then not symbol_is (S) 
+       do getsy;
+  end  ** chercher **;
+
+  procedure Chercher (s); ref(SymSet) s;
+  begin
+    while usc<>fdf_sy and then not symbol_in (S) 
+       do getsy;
+  end  ** chercher **;
+
+% >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+%             Programme principal 
+% <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+   INteger n1,n2;	
+   ref(SymSet) When_Do, Inspect_set,
+               Param_set,
+               pv_comma,
+               ssp ;
+
+  
+  ExpSymbols :- new SymSet(50).add(ident_sy)
+                              .add(other_sy)
+                              .add(qua_sy)
+                              .add(leftPar)
+                              .add(if_sy)
+                              ;
+  When_do :- new SymSet(50).add(when_sy)
+                           .add(do_sy);
+  Inspect_set :- fin_d_enonce.copy
+                 .add(when_sy) .add(otherwise_sy);
+  Param_set:- fin_d_enonce.copy
+                 .add(rightPar);
+  pv_comma :- new SymSet(50)
+                 .add(pv_sy) .add(comma);
+  
+  
+   margin := 1;
+   
+   NextSymbol;
+   declarations;
+   statements;
+ 
+ if usc <> fdf_sy then begin
+   outimage;
+   outtext("% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+   outimage;
+   outtext("%          PREMATURE EOF ENCOUNTERED ");  OUTIMAGE;
+   outtext("% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+   outimage;
+     while usc <> fdf_sy do 
+     begin
+   	copy_to_pv;
+   	declarations;
+   	statements;
+     end;
+   outtext("% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+   end;
+   
+   outimage;
+   outtext("% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+   outimage;
+   outtext("%                                         Formatted by simpp v1.1");  
+   outimage;
+   outtext("% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+   outimage;
+   
+   	
+end;

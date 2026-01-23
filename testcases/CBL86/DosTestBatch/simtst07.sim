@@ -1,0 +1,337 @@
+% ==========================================   Main   program   ================
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 7
+%
+%  PURPOSE :  To test the mathematical library (x**y, Sqrt, Ln, Exp, Sin, Cos
+%             and ArcTan) on variables of type real.
+%
+%  METHOD :   Compare the results obtained by using the functions in different
+%             ways, which should give the same answer.  If the difference is
+%             unacceptable, an error-message is given.
+%
+%  NOTE:  1 - At line marked with NOTE 1, the lowest acceptable difference
+%             between the answers should be filled in.
+%
+%  COMMENTED BY:  BEH  08/07-86
+%  pje 24/8 87: changed NOTE 1 from 1&-11 (absurd for reals!!) to 5&-7
+% ==============================================================================
+begin
+class Testmatlib ;
+   begin
+
+   Boolean  found_error;
+
+   procedure Error (t) ;  value t ;  text t ;
+      begin
+      outimage ;
+      outtext ("*** Error in the ") ;
+      outtext (t) ;
+      outtext (" routine") ;
+      outimage ;
+      found_error := true
+      END of procedure Error ;
+
+   Boolean procedure Realdiff (x, y) ;  real x, y ;
+      begin
+      real     diff ;
+      diff := ABS (IF  x = 0  THEN  x - y  ELSE  (x - y)/x) ;
+
+      IF  diff > 5.0&-05   THEN                    !***** NOTE 1 *****;
+         begin
+         outtext ("*** rel. Error =") ;
+         outreal (diff, 15, 22) ;
+         outimage ;
+         Realdiff := TRUE
+         END
+
+   END of procedure Realdiff ;
+
+
+   real procedure Rpower (x, y) ;  real x, y ;
+      Rpower := EXP (y*ln (x)) ;
+
+
+   real procedure Ipower (b, j) ;  real b ;  INTEGER j ;
+      begin
+      INTEGER  exp ;
+      real     prod, base ;
+
+      Boolean procedure Bit0 (n) ;  INTEGER  n ;
+         Bit0 := (n//2)*2 < n ;
+
+      base := b ;
+      exp :=  ABS (j) ;
+      prod := IF Bit0 (exp) THEN base ELSE 1.0 ;
+
+      WHILE  exp > 1  DO
+         begin
+         base := base*base ;
+         exp := exp//2 ;
+         IF Bit0 (exp) THEN prod := prod*base
+         END ;
+
+      Ipower := IF j>0 THEN prod ELSE 1.0/prod
+      END of procedure Ipower ;
+
+   procedure Testrpower (b, e) ;  Real b, e ;
+      begin
+      real     x, y, z, r ;
+      r := b ;
+      x := Rpower (b, e) ;
+      y := b**e ; z := r**e ;
+
+      IF Realdiff (x, y) or Realdiff (y, z)
+      THEN
+         begin
+         Error ("Rpower") ;
+         outtext ("  base=") ;
+         outreal (r, 15, 22) ;
+         outtext ("  exp=") ;
+         outreal (e, 15, 22) ;
+         outimage ;
+         outtext ("  base**exp=") ;
+         outreal (x, 15, 22) ;
+         outreal (y, 15, 22) ;
+         outreal (z, 15, 22) ;
+         outimage ;
+         outimage ;
+         outimage
+         END
+
+      END of procedure Testrpower ;
+
+   procedure Testipower (b, e) ;  INTEGER  b, e ;
+      begin
+      real    x, y, z, r ;
+      r := b ;
+      x := Ipower (b, e) ;
+      y := b**e ;
+      z := r**e ;
+
+      IF Realdiff (x, y) or Realdiff (y, z)
+      THEN
+         begin
+         Error ("Ipower") ;
+         outtext ("  base=") ;
+         outreal (r, 15, 22) ;
+         outtext ("  exp=") ;
+         outreal (e, 15, 22) ;
+         outimage ;
+         outtext ("  base**exp=") ;
+         outreal (x, 15, 22) ;
+         outreal (y, 15, 22) ;
+         outreal (z, 15, 22) ;
+         outimage ;
+         outimage ;
+         outimage
+         END
+
+      END of procedure Testipower ;
+
+
+   procedure Testsqrt (x) ;  real  x ;
+      begin
+      real     a ;
+      a :=  SQRT (x)**2 ;
+
+      IF Realdiff (a, x)
+      THEN
+         begin
+         Error ("sqrt") ;
+         outtext ("   x=") ;
+         outreal (x, 15, 22) ;
+         outtext (" SQRT (x)**2=") ;
+         outreal (a, 15, 22) ;
+         outimage ;
+         outimage ;
+         outimage
+         END
+
+      END of procedure Testsqrt ;
+
+   procedure Testln (x, y) ;  real  x, y ;
+      begin
+      real    a, b ;
+      a := LN (x*y) ;
+      b := LN (x)+LN (y) ;
+
+      IF Realdiff (a, b)
+      THEN
+         begin
+         Error ("ln") ;
+         outtext ("   x, y=") ;
+         outreal (x, 15, 22) ;
+         outreal (y, 15, 22) ;
+         outimage ;
+         outtext ("   LN (x*y)=") ;
+         outreal (a, 15, 22) ;
+         outtext ("   LN (x)+LN (y)=") ;
+         outreal (b, 15, 22) ;
+         outimage ;
+         outimage ;
+         outimage
+         END
+
+      END of procedure Testln ;
+
+   procedure Testexp (x, y) ;  real  x, y ;
+      begin
+      real    a, b ;
+      a := EXP (x + y) ;
+      b := EXP (x)*exp (y) ;
+
+      IF  Realdiff (a, b)
+      THEN
+         begin
+         Error ("exp") ;
+         outtext ("   x, y=") ;
+         outreal (x, 15, 22) ;
+         outreal (y, 15, 22) ;
+         outimage ;
+         outtext ("   EXP (x+y)=") ;
+         outreal (a, 15, 22) ;
+         outtext ("   EXP (x)*exp (y)=") ;
+         outreal (b, 15, 22) ;
+         outimage ;
+         outimage ;
+         outimage
+         END
+
+      END of procedure Testexp ;
+
+   procedure Testlnexp (x) ;  real  x ;
+      begin
+      real    a, b ;
+      a := EXP (LN (x)) ;
+      b := LN (exp (x)) ;
+
+      IF Realdiff (a, b) or Realdiff (b, x)
+      THEN
+         begin
+         Error ("ln or exp") ;
+         outtext ("   x=") ;
+         outreal (x, 15, 22) ;
+         outimage ;
+         outtext ("  EXP (ln (x))=") ;
+         outreal (a, 15, 22) ;
+         outtext ("  LN (exp (x))=") ;
+         outreal (b, 15, 22) ;
+         outimage ;
+         outimage ;
+         outimage
+         END
+
+      END of procedure Testlnexp ;
+
+
+   procedure Testsincos (x) ;  real  x ;
+      begin
+      real    a ;
+      a := SIN (x)**2 + COS (x)**2 ;
+
+      IF Realdiff (a, 1)
+      THEN
+         begin
+         Error ("sin or cos") ;
+         outtext ("   x=") ;
+         outreal (x, 15, 22) ;
+         outtext ("   SIN (x)**2+ COS (x)**2=") ;
+         outreal (a, 15, 22) ;
+         outimage ;
+         outimage ;
+         outimage
+         END
+
+      END of procedure Testsincos ;
+
+   procedure Testarctan (x) ;  real  x ;
+      begin
+      real    a ;
+      a := ARCTAN (SIN (x)/COS (x)) ;
+
+      IF Realdiff (a, x)
+      THEN
+         begin
+         Error ("arctan") ;
+         outtext ("   x=") ;
+         outreal (x, 15, 22) ;
+         outtext ("   arctan (sin (x)/cos (x))=") ;
+         outreal (a, 15, 22) ;
+         outimage ;
+         outimage ;
+         outimage
+         END
+
+      END of procedure Testarctan ;
+
+      procedure testepsilon(x); long real x;
+      begin
+         long real a, b;
+         a:= subepsilon(addepsilon(x));
+         b:= addepsilon(subepsilon(x));
+         if realdiff(a,x) or realdiff (b,x) then
+         begin
+            error("Add/sub-epsilon");
+            outtext("   x=");
+            outreal(x,15,22); outimage;
+         end;
+      end procedure testepsilon;
+
+
+   outtext ("--- START Simula a.s. TEST 7") ;
+   Outimage;
+   outtext ("--- Test math. functions") ;
+   outimage; Outimage;
+
+   INNER ;
+
+   IF found_error THEN  ELSE
+      begin Outtext ("--- NO ERRORS FOUND IN THIS TEST"); Outimage; end;
+   outtext ("--- END Simula a.s. TEST 7");
+   outimage;
+
+END of class Testmatlib ;
+
+
+Testmatlib begin
+           INTEGER  i, j, k, u1, u2 ;
+           real     x, y ; Real explim;
+           integer ipowblim= 215,
+                   ipowelim=4;
+           real    powblim=1.1&9,
+                   powelim=4.0;
+           real    twopi=6.2831853,
+                   pihalf=1.5707963;
+           real    hlexp;
+           u1 := 455470314;             ! Start values chosen to avoid;
+           u2 := 2011455689;            ! dependent series;
+           explim:= ln(maxreal);
+
+           FOR  k := 1  STEP  1  UNTIL  500  DO
+              begin
+              i := RANDINT (-Ipowblim, Ipowblim, u1) ;
+              j := RANDINT ( 0, Ipowelim, u2) ;
+              Testipower (i, j) ;
+              x := UNIFORM (0.0, powblim, u1) ;
+              y := UNIFORM (-powelim, powelim, u2) ;
+              Testrpower (x, y) ;
+              x := UNIFORM (0.0, maxreal, u1) ;
+              Testsqrt (x) ;
+              y := UNIFORM (0.0, maxreal/x, u1) ;
+              Testln (x, y) ;
+              x := UNIFORM (-explim, explim, u1) ;
+              y:= abs(x);
+              hlexp:= if y<1 then explim else explim/y;
+              y := UNIFORM (-hlexp, hlexp, u1) ;
+              Testexp (x/2, y/2) ;
+              Testlnexp (abs (x)) ;
+              x := UNIFORM (-Twopi, Twopi, u1) ;
+              Testsincos (x) ;
+              x := UNIFORM (-Pihalf, Pihalf, u1) ;
+              Testarctan (x);
+              testepsilon(x);
+              END;
+
+           testepsilon(0.0);
+           END;
+
+END of program

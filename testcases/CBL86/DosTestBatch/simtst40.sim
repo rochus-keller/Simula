@@ -1,0 +1,51 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 40
+%
+%  PURPOSE:     Test separate compilation of procedures.
+%
+%  METHOD:      Use two external procedures which call each other.
+%
+%  EXTERNAL PROCEDURES:  pb0, pb, pa.
+%
+%  NOTE:    1 - Procedure for testing:
+%                   compile sourcefile pb0 into objectfile pb
+%                   compile pa
+%                   recompile sourcefile pb into objectfile pb
+%                   compile simtest-40
+%                   execute simtest-40
+%
+%  WRITTEN BY:  BEH   23/07-86
+% ==============================================================================
+BEGIN
+   external integer procedure pa, pb ;
+
+   Boolean found_error ;
+   integer i ;
+
+   Outtext ("--- START Simula a.s. TEST 40") ;
+   Outimage ;
+   Outtext ("--- Test use of external procedures.") ;
+   Outimage ; Outimage ;
+
+   i := pa (0) ;
+   if i = 45 then
+   else
+   begin
+      Outtext ("*** ERROR : PA returned with wrong value.") ;
+      Outimage ;
+      Outtext ("            Erroneus value : ") ;
+      Outint (i, 5) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 40") ;
+   Outimage
+ END

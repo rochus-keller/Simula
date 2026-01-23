@@ -1,0 +1,106 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 66
+%
+%  PURPOSE:     Test corutines and two infiles which read from the same file.
+%
+%  WRITTEN BY:  BEH   07/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Class Innfil (neste, navn, a) ;
+      value navn ;
+      ref (Innfil) neste ;
+      text navn ;
+      Integer a ;
+   BEGIN
+      ref (infile) fil ;
+      Integer lnr ;
+      text array linjer (1:200) ;
+
+
+      fil :- new infile (navn) ;
+      if not fil.open (blanks (100)) then
+      begin outtext("The file "); outtext(navn);
+            outtext(" does not exist,"); outimage;
+            outtext("or cannot be opened as infile.");
+            goto slutt;
+      end;
+
+      detach ;
+
+      fil.inimage ;
+
+      while not fil.ENDfile do
+      BEGIN
+         for lnr := lnr+1 while not fil.ENDfile and lnr<201 do
+         BEGIN
+            linjer (lnr) :- copy (fil.image) ;
+            fil.inimage ;
+         END ;
+
+         resume (neste)
+      END ;
+
+      while not neste.fil.ENDfile do resume (neste) ;
+
+   END ;
+
+   ref (Innfil) fil1, fil2 ;
+
+   Boolean Procedure Ok (f1, f2, l) ;
+      ref (Innfil) f1, f2 ;
+      Integer l ;
+   if l > f1.lnr and l > f2.lnr then
+      OK := true
+   else
+      OK := f1.linjer (l) = f2.linjer (l) and OK (f1, f2, l+1) ;
+
+
+   Outtext ("--- START Simula a.s. TEST 66") ;
+   Outimage ;
+   Outtext ("--- Test corutines and two instances of infile which read ") ;
+   Outimage ;
+   Outtext ("--- from the same file (""any66"") simultanously.") ;
+   Outimage ; Outimage ;
+
+   fil1 :- new Innfil (new Innfil (none, "any66", 5), "any66", 13) ;
+   fil2 :- fil1.neste ;
+   fil2.neste :- fil1 ;
+
+   resume (fil1) ;
+
+   if not OK (fil1, fil2, 1) then
+   begin
+      Integer i ;
+      Outtext ("*** ERROR : Reading from file.") ;
+      Outimage ;
+      Outtext ("            Lines read from file :") ;
+      Outimage ;
+      Outimage ;
+      for i := 1 step 1 until fil1.lnr, i+1 step 1 until fil2.lnr do
+      begin
+         Outtext (" 1 : ") ;
+         Outtext (fil1.linjer (i)) ;
+         Outimage ;
+         Outtext (" 2 : ") ;
+         Outtext (fil2.linjer (i)) ;
+         Outimage ;
+         Outimage ;
+      end ;
+      found_error := true
+   end ;
+
+   IF found_error THEN outimage
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   fil1.fil.close; fil2.fil.close;
+
+slutt:
+   Outtext ("--- END Simula a.s. TEST 66") ;
+   Outimage
+ END

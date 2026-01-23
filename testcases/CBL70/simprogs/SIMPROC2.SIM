@@ -1,0 +1,16 @@
+Begin
+  Integer Procedure GCD(M, N); Integer M, N;
+  Begin
+     While M<>N do begin
+        If M<N then N := N - M else M := M - N;
+     end;
+     GCD := M
+  End of GCD;
+
+  Integer A, B;
+
+  OutText("Enter an integer number: "); OutImage; A := InInt;
+  OutText("Enter an integer number: "); OutImage; B := InInt;
+  OutText("Greatest Common Divisor of your numbers is ");
+  OutInt(GCD(A,B),4); OutImage;
+End of Program;

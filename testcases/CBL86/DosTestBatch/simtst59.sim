@@ -1,0 +1,41 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 59
+%
+%  PURPOSE:     Test virtual label in external class.
+%
+%  EXTERNAL CLASS: C59 - has to be compiled first.
+%
+%  WRITTEN BY:  BEH   04/08-86
+% ==============================================================================
+BEGIN
+   external class c59 ;
+
+   Boolean found_error ;
+
+   Outtext ("--- START Simula a.s. TEST 59") ;
+   Outimage ;
+   Outtext ("--- Test virtual label in external class.") ;
+   Outimage ; Outimage ;
+
+   c59 begin
+      i := 3 ;
+   L :
+      if i <> 1 then
+      begin
+         Outtext ("*** ERROR : Value of i : ") ;
+         Outint (i, 4) ;
+         Outimage ;
+         found_error := true
+      end ;
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 59") ;
+   Outimage
+ END

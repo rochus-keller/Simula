@@ -1,0 +1,113 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 35
+%
+%  PURPOSE:     Test type procedures as parameters.
+%
+%  NOTE:    1 - Lines after 'NOTE 1' is prefixed with %, because the ND-500
+%               implementation do not manage the parameters. If your imple-
+%               mentation does, the %'s should be removed.
+%
+%  WRITTEN BY:  BEH   23/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   integer i, j ;
+   Boolean b ;
+
+   Integer Procedure sqri ;
+      sqri := i*i ;
+
+   Integer Procedure P (f) ;
+      name f ;
+      integer f ;
+   begin
+      i := i+1 ;
+      if i = 10 then
+         P := f
+      else
+         P := f + P (f) ;
+   end ;
+
+   Procedure Q (f, a) ;
+      name a ;
+      integer procedure f ;
+      integer a ;
+      a := f ;
+
+
+   Outtext ("--- START Simula a.s. TEST 35") ;
+   Outimage ;
+   Outtext ("--- Test type procedures as parameters");
+   Outimage; Outimage;
+
+   i := 2 ;
+
+   Q (sqri, j) ;
+
+   if j <> 4 then
+   begin
+      Outtext ("*** ERROR : Value of j (1).") ;
+      Outimage ;
+      Outtext ("            Erroneus value : ") ;
+      Outint (j, 5) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   i := 0 ;
+
+   j := P (sqri) ;
+
+   if j <> 385 then
+   begin
+      Outtext ("*** ERROR : Value of j (2).") ;
+      Outimage ;
+      Outtext ("            Erroneus value : ") ;
+      Outint (j, 7) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+
+%  i := 0 ;                                     !********  NOTE 1  ********;
+%
+%  Q (P (sqri), j) ;
+%
+%  if j <> 385 then
+%  begin
+%     Outtext ("*** ERROR : Value of j (2).") ;
+%     Outimage ;
+%     Outtext ("            Erroneus value : ") ;
+%     Outint (j, 7) ;
+%     Outimage ;
+%     found_error := true
+%  end ;
+
+
+
+%  i := 0 ;                                     !*******  NOTE 1  ********;
+%
+%  Q (P (sqri*i), j) ;
+%
+%  if j <> 3025 then
+%  begin
+%     Outtext ("*** ERROR : Value of j (3).") ;
+%     Outimage ;
+%     Outtext ("            Erroneus value : ") ;
+%     Outint (j, 7) ;
+%     Outimage ;
+%     found_error := true
+%  end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 35") ;
+   Outimage
+ END

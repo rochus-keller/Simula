@@ -1,0 +1,98 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 48
+%
+%  PURPOSE:     Test of qua.
+%
+%  WRITTEN BY:  BEH   29/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   CLASS A ;
+   BEGIN
+      Text Procedure Tp ; Tp :- COPY (" A.Tp ") ;
+
+      Integer         i ;
+
+      i := 1 ;
+   End of class A ;
+
+   A CLASS B ;
+   BEGIN
+      Text Procedure Tp ; Tp :- COPY (" B.Tp ") ;
+
+      Integer         i ;
+
+      i := 2 ;
+   End of class B ;
+
+   B CLASS C ;
+   BEGIN
+      Text Procedure Tp ; Tp :- COPY (" C.Tp ") ;
+
+      Integer         i ;
+
+      i := 3 ;
+   End of class C ;
+
+   Ref (A)            ra ;
+   Ref (B)            rb ;
+   Ref (C)            rc ;
+
+   Procedure Check (i, t, vi, vt, enr) ; value t, vt ;
+      integer i, vi, enr ;
+      text t, vt ;
+   begin
+      if i = vi and t = vt then
+      else
+      begin
+         Outtext ("*** ERROR : Qualification (") ;
+         Outint (enr, if enr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus values : ") ;
+         Outimage ;
+         Outtext ("                   i = ") ;
+         Outint (i, 4) ;
+         Outimage ;
+         Outtext ("                   t = ") ;
+         Outtext (t) ;
+         Outimage ;
+         found_error := true
+      end ;
+   end ;
+
+
+   Outtext ("--- START Simula a.s. TEST 48") ;
+   Outimage ;
+   Outtext ("--- Test of Qua.") ;
+   Outimage ; Outimage ;
+
+   ra :- rb :- rc :- new C ;
+
+   Check (ra.i, ra.Tp, 1, " A.Tp ", 1) ;
+   Check (ra qua B.i, ra qua B.Tp, 2, " B.Tp ", 2) ;
+   Check (ra qua C.i, ra qua C.Tp, 3, " C.Tp ", 3) ;
+
+   Check (rb qua A.i, rb qua A.Tp, 1, " A.Tp ", 4) ;
+   Check (rb.i, rb.Tp, 2, " B.Tp ", 5) ;
+   Check (rb qua C.i, rb qua C.Tp, 3, " C.Tp ", 6) ;
+
+   Check (rc qua A.i, rb qua A.Tp, 1, " A.Tp ", 7) ;
+   Check (rc qua B.i, rc qua B.Tp, 2, " B.Tp ", 8) ;
+   Check (rc.i, rc.Tp, 3, " C.Tp ", 9) ;
+
+   Check (ra qua B qua C qua B qua A.i, rb qua A qua C qua B.Tp,
+          1, " B.Tp ", 10) ;
+   Check (rc qua C.i, ra qua C qua A qua B qua A qua C.Tp, 3, " C.Tp ", 11) ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   End ;
+
+   Outtext ("--- END Simula a.s. TEST 48") ;
+   Outimage
+ End

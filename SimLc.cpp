@@ -26,6 +26,7 @@
 #include <QThread>
 #include "SimErrors.h"
 #include "SimParser.h"
+#include "SimParser2.h"
 
 static QStringList collectFiles( const QDir& dir )
 {
@@ -75,6 +76,21 @@ static void dumpTree( Sim::SynTree* node, int level = 0)
     foreach( Sim::SynTree* sub, node->d_children )
         dumpTree( sub, level + 1 );
 }
+
+class Lex : public Sim::Scanner
+{
+public:
+    Sim::Lexer lex;
+    Sim::Token next()
+    {
+        return lex.nextToken();
+    }
+
+    Sim::Token peek(int offset)
+    {
+        return lex.peekToken(offset);
+    }
+};
 
 int main(int argc, char *argv[])
 {
@@ -149,6 +165,7 @@ int main(int argc, char *argv[])
     {
         qDebug() << "processing" << path;
 
+#if 0
         Sim::Lexer lex;
         lex.setStream(path);
         lex.setErrors(&err);
@@ -167,6 +184,24 @@ int main(int argc, char *argv[])
         if( dump )
             dumpTree( &p.d_root );
     #endif
+#else
+        Lex lex;
+        lex.lex.setStream(path);
+        lex.lex.setErrors(&err);
+        lex.lex.setIgnoreComments(true);
+        lex.lex.setPackComments(true);
+        Sim::Parser2 p(&lex);
+        p.RunParser();
+        {
+            if( !p.errors.isEmpty() )
+            {
+                foreach( const Sim::Parser2::Error& e, p.errors )
+                    qCritical() << e.path << e.row << e.col << e.msg;
+                p.errors.clear();
+            }
+        }
+
+#endif
 
     }
     if( err.getErrCount() == 0 && err.getWrnCount() == 0 )

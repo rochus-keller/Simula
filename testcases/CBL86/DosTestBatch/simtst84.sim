@@ -1,0 +1,114 @@
+% ====================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 84
+%
+%  PURPOSE: Test Printfile. (PW 24)
+%
+%  METHOD:
+%
+%  WRITTEN BY:
+% ====================================================================
+BEGIN
+REF (PRINTFILE)   myfile;
+BOOLEAN           save;
+
+PROCEDURE Check (b1, b2);   BOOLEAN b1, b2;
+%  BEGIN
+%  IF b1 EQV b2 THEN myfile.OUTTEXT("OK ") ELSE myfile.OUTTEXT("ERROR");
+%  myfile.OUTIMAGE
+%  END of procedure Check;
+   BEGIN
+   IF b1 EQV b2 THEN OUTTEXT ("OK ") ELSE OUTTEXT ("ERROR");
+   OUTIMAGE
+   END of procedure Check;
+
+outtext("--- START Simula a.s. TEST 84 (test PRINTFILE)"); outimage;
+outtext("    The program prints on ""new printfile(print84)"",");
+outimage;
+outtext("    compare that output to program source after exec.");
+outimage;
+outtext("    In addition, ""OK"" is printed 5 times on sysout.");
+outimage; Outimage;
+myfile:-NEW PRINTFILE ("print84");
+save:= myfile.LINE=0;
+Check (save, TRUE);
+myfile.OPEN (BLANKS (132));
+Check (myfile.LINE=1, TRUE);
+
+INSPECT myfile DO
+   BEGIN
+   LINESPERPAGE (4);
+   OUTTEXT ("LINESPERPAGE:=4    LINE 1."); OUTIMAGE;
+   OUTTEXT ("      LINE 2."); OUTIMAGE;
+   OUTTEXT ("      LINE 3."); OUTIMAGE;
+   OUTTEXT ("      LINE 4."); OUTIMAGE;
+   OUTTEXT ("      LINE 5."); OUTIMAGE;
+   SPACING (0);
+   OUTTEXT ("SPACING:=0  LINE 1");   OUTIMAGE;
+   OUTTEXT ("            LINE  2");  OUTIMAGE;
+   OUTTEXT ("            LINE   3"); OUTIMAGE;
+   SPACING (1);
+   EJECT (3);
+   OUTTEXT ("EJECT (3)"); OUTIMAGE;
+   EJECT (2);
+   OUTTEXT ("EJECT (2)"); OUTIMAGE;
+   LINESPERPAGE (60);
+   SPACING (2);
+   OUTTEXT ("LINESPERPAGE:=60,  SPACING:=2"); OUTIMAGE;
+   EJECT (80);
+   OUTTEXT ("EJECT (80),  EQUIV TO EJECT (1)"); OUTIMAGE;
+   Check (POS=1, TRUE);
+   Check (IMAGE=BLANKS (132), TRUE);
+   Check (LENGTH=132, TRUE);
+                                       ! CHECK OUTFILE ATTRIBUTES   ;
+   OUTINT (123, 3);
+   OUTFIX (456.7, 1, 6);
+   OUTREAL (8.9&-02, 2, 9);
+   OUTFRAC (1234.5, 1, 9);
+   OUTTEXT ("TEXT ");
+   OUTIMAGE;
+                                       ! FORCE OUTIMAGE AFTER OUTPUT;
+                                       ! OF ITEM                    ;
+   SETPOS (130);
+   OUTINT (123, 3);
+   OUTCHAR ('*');
+   SETPOS (127);
+   OUTFIX (456.7, 1, 6);
+   OUTCHAR ('*');
+   SETPOS (124);
+   OUTREAL (8.9&-02, 2, 9);
+   OUTCHAR ('*');
+   SETPOS (124);
+   OUTFRAC (1234.5, 1, 9);
+   OUTCHAR ('*');
+   SETPOS (129);
+   OUTTEXT ("TEXT");
+   OUTCHAR ('*');
+                                       ! FORCE OUTPUT BEFORE OUTPUT ;
+                                       ! OF ITEM                    ;
+   SETPOS (131);
+   OUTINT (123, 3);
+   SETPOS (129);
+   OUTFIX (456.7, 1, 6);
+   SETPOS (127);
+   OUTREAL (8.9&-02, 2, 9);
+   SETPOS (127);
+   OUTFRAC (1234.5, 1, 9);
+   SETPOS (130);
+   OUTTEXT ("TEXT");
+   SETPOS (132);
+   OUTCHAR ('X');
+   OUTCHAR ('Y');
+   SETPOS (199);
+   OUTCHAR ('Z');
+   SETPOS (120);
+   OUTCHAR ('A');
+   SETPOS (81);
+   OUTCHAR ('B');
+   OUTIMAGE;
+   OUTTEXT ("LAST LINE OF OUTPUT.");
+   CLOSE;
+   END;
+
+   Outimage; outtext("--- END Simula a.s. TEST 84"); outimage;
+
+END of program

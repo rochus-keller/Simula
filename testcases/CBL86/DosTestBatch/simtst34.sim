@@ -1,0 +1,72 @@
+% ===================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 34
+%
+%  PURPOSE:     Test procedures with procedures as parameters.
+%
+%  WRITTEN BY:  BEH   22/07-86
+% =================================================================
+BEGIN
+   Boolean found_error;
+   Boolean bool;
+
+   Procedure P (F, a); name F, a; Procedure F; Boolean a;
+   begin Boolean bool;
+         a := not a;
+         if a then P2 (F)
+         else F;
+   end;
+
+   procedure P2 (F); procedure F;
+   begin Boolean a;
+         a := true;
+         P (F, a);
+
+         bool := true;
+         if bool then P(Q1,bool) else P(Q2,bool);
+   end;
+
+   procedure P3 (F, a); name F; procedure F; Boolean a;
+   begin if a then P4 (F)
+         else F
+   end;
+
+   procedure P4 (F); name F; procedure F;
+   begin bool := not bool;
+         P3 (F, false)
+   end;
+
+   procedure Q1;
+   begin if bool then
+         begin Outtext ("*** ERROR : Wrong procedure called (1).");
+               Outimage;
+               found_error := true
+         end
+   end;
+
+   integer procedure Q2;
+   begin if bool then  !***OK***;
+         else
+         begin Outtext ("*** ERROR : Wrong procedure called (2).");
+               Outimage;
+               found_error := true
+         end
+   end;
+
+   Outtext ("--- START Simula a.s. TEST 34");
+   Outimage;
+   Outtext ("--- Test procedures with procedures as parameters");
+   Outimage; Outimage;
+
+   if bool then P(Q1,bool) else P(Q2,bool);
+
+   if bool then P3(Q1,true) else P3(Q2,true);
+
+   IF found_error THEN
+   ELSE BEGIN
+         Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+         Outimage
+   END;
+
+   Outtext ("--- END Simula a.s. TEST 34");
+   Outimage
+ END

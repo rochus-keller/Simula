@@ -1,0 +1,46 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 39
+%
+%  PURPOSE:     Check that a formal parameter is global to the procedure body.
+%
+%  WRITTEN BY:  BEH   23/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   integer i ;
+
+   procedure P (i) ;
+     name i ;
+     integer i ;
+   begin
+     Integer i ;
+     i := 5 ;
+   end ;
+
+   Outtext ("--- START Simula a.s. TEST 39") ;
+   Outimage ;
+   Outtext ("--- Check that the formal parameters are global to the") ;
+   Outimage ;
+   Outtext ("--- procedure body.") ;
+   Outimage ; Outimage ;
+
+   P (i) ;
+
+   if i <> 0 then
+   begin
+      Outtext ("*** ERROR : Wrong variable used in procedure body.") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 39") ;
+   Outimage
+ END

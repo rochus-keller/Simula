@@ -1,0 +1,215 @@
+% ===============================================   Main   program =====
+%  PROGRAM NAME:   Simula a.s - SIMULA TEST NO 94
+%
+%  PURPOSE:     Test Simset - first, last, empty, cardinal and clear.
+%
+%  DEPENDS ON:  Simtest-93
+%
+%
+%  WRITTEN BY:  BEH   12/01-87
+%
+% ======================================================================
+Begin
+
+   Boolean found_error ;
+
+   SIMSET Begin
+          Link Class Bead(i); Integer i;;
+
+          Link Class A;;
+
+          Procedure Skrivpeker(r); ref(linkage) r;
+          Begin Inspect r when Bead do begin Outtext("Bead - ");
+                                             Outint(i,4) end
+                          when A    do Outtext("A")
+                          when Link do Outtext("Link")
+                          when Head do Outtext("Head")
+                          when Linkage do Outtext("Linkage")
+                Otherwise              Outtext("none");
+                Outimage;
+          End;
+
+          Ref(A) Ar;
+          Ref(Head) chain; Integer j; Ref(Bead) r,s; Ref(Linkage) x;
+
+          Outtext ("--- START Simula a.s TEST 94"); Outimage;
+          Outtext ("--- Test Simset - first, last, empty,");
+          Outtext (" cardinal and clear.");
+          Outimage ; Outimage ;
+
+          chain:-New Head;
+          if chain.first == none and
+             chain.last  == none and
+             chain.empty         and
+             chain.cardinal = 0 then
+          else
+          Begin Outtext("*** ERROR : Values of attributes of");
+                Outtext(" Head (1).");
+                Outimage;
+                Outtext("            First:       ");
+                Skrivpeker(chain.first);
+                Outtext("            Last:       ");
+                Skrivpeker(chain.last);
+                Outtext("            Empty:      ");
+                Outtext(if chain.empty then "true" else "false");
+                Outimage;
+                Outtext("            Cardinal:   ");
+                Outint(chain.cardinal,5);
+                Outimage;
+                found_error:=true
+          end;
+
+
+          For j:=1 step 1 until 5 do New Bead(j).Into(chain);
+          if chain.first=/=none and !then; chain.first is Bead and
+             chain.first qua bead.i=1                          and
+             chain.last=/=none and !then; chain.last is Bead and
+             chain.last qua Bead.i=5                           and
+             not chain.empty                                   and
+             chain.cardinal=5                                  then
+          else
+          Begin Outtext("*** ERROR : Values of attributes of");
+                Outtext(" Head (2).");
+                Outimage;
+                Outtext("            First:       ");
+                Skrivpeker(chain.first);
+                Outtext("            Last:       ");
+                Skrivpeker(chain.last);
+                Outtext("            Empty:      ");
+                Outtext(if chain.empty then "true" else "false");
+                Outimage;
+                Outtext("            Cardinal:   ");
+                Outint(chain.cardinal,5);
+                Outimage;
+                found_error:=true
+          end;
+
+          chain.first.into(chain);
+          chain.first.precede(chain.last);
+          chain.last.follow(chain.first.suc);
+          chain.first.suc.suc.follow(chain.last.pred.pred);
+          if chain.first qua bead.i=3 and
+             chain.last  qua bead.i=2 and
+             not chain.empty          and
+             chain.cardinal=4         then
+          else
+          Begin Outtext("*** ERROR : Values of attributes of");
+                Outtext(" Head (3).");
+                Outimage;
+                Outtext("            First:       ");
+                Skrivpeker(chain.first);
+                Outtext("            Last:       ");
+                Skrivpeker(chain.last);
+                Outtext("            Empty:      ");
+                Outtext(if chain.empty then "true" else "false");
+                Outimage;
+                Outtext("            Cardinal:   ");
+                Outint(chain.cardinal,5);
+                Outimage;
+                found_error:=true
+          end;
+
+          x:-chain;
+          For x:-x.Suc While x=/=none do
+          Begin r:-x qua Bead; j:=r.i;
+                If j=(j//2)*2 then Begin r.Out; r.Into(chain) end
+          End;
+          if chain.first qua bead.i=3 and                      !3152;
+             chain.last  qua bead.i=4 and
+             not chain.empty          and
+             chain.cardinal=4         then
+          else
+          Begin Outtext("*** ERROR : Values of attributes of");
+                Outtext(" Head (4).");
+                Outimage;
+                Outtext("            First:       ");
+                Skrivpeker(chain.first);
+                Outtext("            Last:       ");
+                Skrivpeker(chain.last);
+                Outtext("            Empty:      ");
+                Outtext(if chain.empty then "true" else "false");
+                Outimage;
+                Outtext("            Cardinal:   ");
+                Outint(chain.cardinal,5);
+                Outimage;
+                found_error:=true
+          end;
+
+          New A.follow(chain);
+          if chain.first is A         and
+             chain.last  qua bead.i=4 and
+             not chain.empty          and
+             chain.cardinal=5         then
+          else
+          Begin Outtext("*** ERROR : Values of attributes of");
+                Outtext(" Head (5).");
+                Outimage;
+                Outtext("            First:       ");
+                Skrivpeker(chain.first);
+                Outtext("            Last:       ");
+                Skrivpeker(chain.last);
+                Outtext("            Empty:      ");
+                Outtext(if chain.empty then "true" else "false");
+                Outimage;
+                Outtext("            Cardinal:   ");
+                Outint(chain.cardinal,5);
+                Outimage;
+                found_error:=true
+          end;
+
+          New A.precede(chain.first.prev qua head.last.pred);
+          if chain.first is A         and
+             chain.last  qua bead.i=4 and
+             not chain.empty          and
+             chain.cardinal=6         then
+          else
+          Begin Outtext("*** ERROR : Values of attributes of");
+                Outtext(" Head (6).");
+                Outimage;
+                Outtext("            First:       ");
+                Skrivpeker(chain.first);
+                Outtext("            Last:       ");
+                Skrivpeker(chain.last);
+                Outtext("            Empty:      ");
+                Outtext(if chain.empty then "true" else "false");
+                Outimage;
+                Outtext("            Cardinal:   ");
+                Outint(chain.cardinal,5);
+                Outimage;
+                found_error:=true
+          end;
+
+          chain.clear;
+          if chain.first == none and
+             chain.last  == none and
+             chain.empty         and
+             chain.cardinal = 0 then
+          else
+          Begin Outtext("*** ERROR : Values of attributes of");
+                Outtext(" Head (7).");
+                Outimage;
+                Outtext("            First:       ");
+                Skrivpeker(chain.first);
+                Outtext("            Last:       ");
+                Skrivpeker(chain.last);
+                Outtext("            Empty:      ");
+                Outtext(if chain.empty then "true" else "false");
+                Outimage;
+                Outtext("            Cardinal:   ");
+                Outint(chain.cardinal,5);
+                Outimage;
+                found_error:=true
+          end;
+
+     end prefix block;
+
+     IF found_error then
+     ELSE
+     Begin
+           Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+           Outimage
+     End ;
+
+     Outtext ("--- END Simula a.s TEST 94") ;
+     Outimage
+End

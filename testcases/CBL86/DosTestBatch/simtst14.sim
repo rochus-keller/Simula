@@ -1,0 +1,126 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   SIMULA A/S - SIMULA TEST NO 14
+%
+%  PURPOSE:     To test the text attributes pos, setpos, more, getchar and
+%               putchar.
+%
+%  METHOD:      Try and fail.
+%
+%  WRITTEN BY:  BEH   11/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error;
+
+   text t1, t2;
+
+   Outtext ("--- START Simula a.s. TEST 14");
+   Outimage;
+   Outtext ("--- Test the text attributes pos, setpos, more,");
+   Outimage;
+   Outtext ("--- getchar and putchar.");
+   Outimage; Outimage;
+
+   if t1.pos = 1 then
+   else
+   begin
+        Outtext ("*** ERROR : Text attributes (1).");
+        Outimage;
+        Outtext ("            Erroneus values :");
+        Outtext ("            ");
+        Outint (t1.start, 3);
+        Outint (t1.length, 3);
+        Outint (t1.pos, 3);
+        Outtext (if t1.more then " true" else " false");
+        Outimage; outimage;
+        found_error := true
+   end;
+
+   t1 :- copy("abcd");
+   t1.setpos (3);
+
+   if     t1.more
+      and t1.pos = 3
+      and t1.getchar = 'c' and t1.pos = 4 and t1.more
+      and t1.getchar = 'd' and t1.pos = 5 and not t1.more then
+   else
+   begin
+      Outtext ("*** ERROR : Text attributes (2).");
+      Outimage;
+      Outtext ("            Erroneus values :");
+      Outtext ("            ");
+      Outint (t1.start, 3);
+      Outint (t1.length, 3);
+      Outint (t1.pos, 3);
+      Outtext (if t1.more then " true" else " false");
+      Outimage; outimage;
+      found_error := true
+   end;
+
+   t1.setpos (2);
+   t1.putchar ('2');
+   t2 :- t1;
+
+   if     t1 = "a2cd"
+      and t1.pos = 3
+      and t2.pos = 3
+      and t2.more then
+   else
+   begin
+      Outtext ("*** ERROR : Text attributes (3).");
+      Outimage;
+      Outtext ("            Erroneus values :");
+      Outtext ("            ");
+      Outint (t1.start, 3);
+      Outint (t1.length, 3);
+      Outint (t1.pos, 3);
+      Outtext (if t1.more then " true" else " false");
+      Outimage; outimage;
+      Outtext ("            Erroneus values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outtext (if t2.more then " true" else " false");
+      Outimage; outimage;
+      found_error := true
+   end;
+
+   t2.setpos (2);
+
+   if     t2.more
+      and t2.getchar = '2' and t2.pos = 3 and t2.more
+      and t1.pos = 3
+      and t1 == t2 then
+   else
+   begin
+      Outtext ("*** ERROR : Text attributes (4).");
+      Outimage;
+      Outtext ("            Erroneus values :");
+      Outtext ("            ");
+      Outint (t1.start, 3);
+      Outint (t1.length, 3);
+      Outint (t1.pos, 3);
+      Outtext (if t1.more then " true" else " false");
+      Outimage; outimage;
+      Outtext ("            Erroneus values :");
+      Outtext ("            ");
+      Outint (t2.start, 3);
+      Outint (t2.length, 3);
+      Outint (t2.pos, 3);
+      Outtext (if t2.more then " true" else " false");
+      Outimage; outimage;
+      found_error := true
+   end;
+
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END;
+
+   Outtext ("--- END Simula a.s. TEST 14");
+   Outimage
+ END

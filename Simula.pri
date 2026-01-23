@@ -22,6 +22,7 @@ HEADERS += \
     $$PWD/SimFileCache.h \
     $$PWD/SimLexer.h \
     $$PWD/SimParser.h \
+    $$PWD/SimParser2.h \
     $$PWD/SimSynTree.h \
     $$PWD/SimToken.h \
     $$PWD/SimTokenType.h
@@ -31,6 +32,7 @@ SOURCES += \
     $$PWD/SimFileCache.cpp \
     $$PWD/SimLexer.cpp \
     $$PWD/SimParser.cpp \
+    $$PWD/SimParser2.cpp \
     $$PWD/SimSynTree.cpp \
     $$PWD/SimToken.cpp \
     $$PWD/SimTokenType.cpp

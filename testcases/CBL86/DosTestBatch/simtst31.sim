@@ -1,0 +1,174 @@
+% =======================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 31
+%
+%  PURPOSE:     Test labels and switches as parameters to procedures
+%
+%  REWRITTEN BY:  BEH   21/07-86
+% ======================================================================
+BEGIN
+   Boolean found_error;
+
+   PROCEDURE P(LFD);  LABEL LFD;
+      BEGIN
+      b :=  NOT b;
+      GOTO LFD
+   END of procedure P;
+
+   PROCEDURE Q(LFN);  NAME LFN;  LABEL LFN;
+   BEGIN
+      b :=  NOT b;
+      GOTO LFN
+   END of procedure Q;
+
+   PROCEDURE R(SFD);  SWITCH SFD;
+   BEGIN
+      b :=  NOT b;
+      i := i + 1;
+      GOTO SFD(i);
+      GOTO SFD(1)
+   END of procedure R;
+
+   PROCEDURE S(SFN);  NAME SFN;  SWITCH SFN;
+   BEGIN
+      b :=  NOT b;
+      i := i + 1;
+      GOTO SFN(i);
+      GOTO SFN(1)
+   END of procedure S;
+
+
+   procedure testpath(p); value p; text p;
+   begin
+      if path.strip = p then
+      else
+      begin
+         Outtext("*** ERROR : Wrong path selected (");
+         Outint(j, if j < 10 then 1 else 2);
+         Outtext(").");
+         Outimage;
+         Outtext("            Erroneous values : ");
+         Outtext(path.strip);
+         Outint(j, 3);
+         Outimage;
+         found_error := true
+      end
+   end pros. testpath;
+
+
+   SWITCH S1 := L1, L2, L3, S2(1);
+   SWITCH S2 := S1(1), L2, S2(2);
+   SWITCH S3 := IF b THEN L2 ELSE L3;
+   SWITCH CONTROL := C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12;
+
+   BOOLEAN            b;
+   INTEGER            i, j;
+   TEXT               path;
+
+   GOTO START;
+
+   L1: path.putchar('1');
+   GOTO RETURN;
+
+   L2: path.putchar('2');
+   GOTO RETURN;
+
+   L3: path.putchar('3');
+   GOTO RETURN;
+
+   L4: path.putchar('4');
+   GOTO RETURN;
+
+
+RETURN:
+
+   GOTO CONTROL(J);
+
+
+START:
+
+   Outtext("--- START Simula a.s. TEST 31");
+   Outtext(" (labels/switches as procedure parameters)");
+   Outimage;
+
+   path :- blanks(20);
+   j := 1;
+   P(L1);
+
+C1:
+   testpath("1");
+   j := 2;
+   P(IF b THEN L2 ELSE L1);
+
+C2:
+   testpath("12");
+   j := 3;
+   Q(S1(3));
+
+C3:
+   testpath("123");
+   j := 4;
+   Q(IF b THEN S1(3) ELSE L4);
+
+C4:
+   testpath("1234");
+   j := 5;
+   i := 0;
+   R(S1);
+
+C5:
+   testpath("12341");
+   j := 6;
+   i := 2;
+   R(S1);
+
+C6:
+   testpath("123413");
+   j := 7;
+   i := 0;
+   R(S2);
+
+C7:
+   testpath("1234131");
+   j := 8;
+   i := 0;
+   S(S1);
+
+C8:
+   testpath("12341311");
+   j := 9;
+   i := 3;
+   S(S1);
+
+C9:
+   testpath("123413111");
+   j := 10;
+   i := 0;
+   if b then S(S1) else S(S3);
+
+C10:
+   testpath("1234131113");
+   j := 11;
+   b := TRUE;
+   i := 0;
+   if b then R(S3) else R(S2);
+
+C11:
+   testpath("12341311133");
+   j := 12;
+   i := 0;
+   S(S3);
+
+C12:
+   testpath("123413111332");
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END;
+
+   Outtext("--- END Simula a.s. TEST 31");
+   Outimage
+
+END of program

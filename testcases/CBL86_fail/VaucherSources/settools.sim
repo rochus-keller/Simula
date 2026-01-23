@@ -1,0 +1,719 @@
+
+
+class Settools;
+   begin integer versjon = 2; end;
+
+
+% external class Utilities;
+
+
+!********************************************
+!*	                                        *
+!*                 Element                  *
+!*	                                        *
+!********************************************;
+
+class element;
+    virtual: procedure key is 
+               text procedure key;;
+             procedure equiv is 
+               Boolean procedure equiv(el);
+                 ref(element) el;;
+             procedure precedes is 
+               Boolean procedure precedes(el);
+                 ref(element) el;;
+  	     procedure another is 
+               procedure another(el);
+                 ref(element) el;;
+  	     procedure as_text is 
+               text procedure as_text;;
+  	     procedure display is 
+               procedure display;;
+  begin
+
+    text procedure key; key :- notext;
+
+    Boolean procedure precedes(el); ref(element) el; 
+      precedes := el == none or else key < el.key;
+
+    Boolean procedure equiv(el); ref(element) el; 
+      equiv := el =/= none and then key = el.key;
+
+    text procedure as_text; as_text :- key;
+    
+    procedure display; outtext(key);
+    
+    procedure another(el); ref(element) el;;
+
+  end of element;
+
+
+
+!********************************************
+!*	                                        *
+!*             Container:                   *
+!*	                                        *
+!********************************************;
+
+element class Container;
+    virtual: procedure is_empty is 
+               Boolean procedure is_empty;;
+             procedure size is 
+               integer procedure size;;
+             procedure element_number is
+               ref(element) procedure element_number(elnr);
+                 integer elnr;;
+             procedure first_element is 
+               ref(element) procedure first_element;;
+             procedure next_element is
+               ref(element) procedure next_element;;
+             procedure remove_current is
+               ref(element) procedure remove_current;;
+             procedure make_empty is
+               ref(Container) procedure make_empty;;
+             procedure NewContainer is
+               ref(Container) procedure NewContainer;;
+             procedure map is
+               ref(Container) procedure map(f);
+#ifdef CIM
+                 procedure f is
+                   ref(element) procedure f(el);
+                     ref(element) el;;;
+#else
+                 ref(element) procedure f;;
+#endif
+             procedure filter is
+               ref(Container) procedure filter(b);
+#ifdef CIM
+                 procedure b is
+                   Boolean procedure b(el);
+                     ref(element) el;;;
+#else
+                 Boolean procedure b;;
+#endif
+  begin
+    
+    ref(element)   head;
+    ref(Container) tail;
+
+    Boolean procedure is_empty;
+      is_empty := head == none;
+
+    integer procedure size;
+      size := if head == none then 0 else
+	      if tail == none then 1
+              else 1 + tail.size;
+
+    ref(element) procedure element_number(elnr); integer elnr;
+      element_number :- 
+          if elnr <= 0    then none else
+	  if elnr =  1    then head else
+          if tail == none then none
+          else tail.element_number(elnr-1);
+
+    procedure display;
+      begin ref(element) el; 
+        outtext("{"); 
+        el :- first_element;
+        while el =/= none do
+          begin 
+            el.display; 
+            el :- next_element;
+            if el =/= none then outtext(", ");
+          end;
+        outtext("}");
+      end;
+
+    text procedure as_text;
+      begin text t; ref(element) el; 
+        t :- "{"; 
+        el :- first_element;
+        while el =/= none do
+          begin 
+            t :- t & el.as_text;
+            el :- next_element;
+            if el =/= none then t :- t & ", ";
+          end;
+        as_text :- t & "}";
+      end;
+
+    ref(Container) next_container, current_container;
+
+    ref(Stack)     next_stack;
+
+    ref(element) procedure first_element;
+      begin 
+        if next_stack == none then next_stack :- new Stack;
+        first_element :- head; 
+        next_stack.push(next_container);
+        current_container :- this Container;  
+        next_container :- tail;
+      end;
+
+    ref(element) procedure next_element;
+      begin 
+        next_element      :- if next_container =/= none 
+                               then next_container.head else none; 
+        current_container :- next_container;
+        next_container    :- if next_container =/= none then next_container.tail
+else
+                             if next_stack =/= none then next_stack.pop 
+                             else none;
+      end;
+
+    ref(element) procedure remove_current;
+      if next_container =/= none then
+        begin
+          remove_current :- current_container.head;
+          current_container.head  :- next_container.head;
+          current_container.tail  :- next_container.tail;
+          next_container :- current_container;
+        end
+      else remove_current :- remove_last;
+
+    ref(Container) procedure remove_head;
+      begin
+        head :- none;
+        if tail =/= none then
+          begin
+            head  :- tail.head;
+            tail :- tail.tail; 
+          end;
+        remove_head :- this Container;
+      end;
+
+    ref(element) procedure remove_last;
+      if tail == none 
+        then begin remove_last :- head; head :- none end
+        else begin
+           remove_last :- tail.remove_last;
+           if tail.is_empty then tail :- none;
+	  end; 
+
+    ref(element) procedure last_element;
+      last_element :- if tail == none then head
+		      else tail.last_element;
+
+    ref(Container) procedure make_empty;
+      begin
+        head :- none;
+        tail :- none;
+        make_empty :- this Container;
+      end;
+
+    ref(Container) procedure for_each_element(p); 
+#ifdef CIM
+    procedure p is
+      procedure p(el);
+        ref(element) el;;
+#else
+    procedure p;
+#endif
+      begin ref(element) el;
+        el :- first_element;
+        while el =/= none do
+          begin
+            p(el);
+            el :- next_element;
+          end;
+        for_each_element :- this Container;
+      end;
+
+    ref(Container) procedure map(f); 
+#ifdef CIM
+    procedure f is
+      ref(element) procedure f(el);
+        ref(element) el;;
+#else
+    ref(element) procedure f;
+#endif
+      begin
+        if head =/= none then head :- f(head);
+        if tail =/= none then tail :- tail.map(f);
+        map :- this Container; 
+      end;
+
+    procedure add_last(el); ref(element) el;
+      if head == none then head :- el 
+      else begin
+        if tail == none then tail :- NewContainer;
+        tail.add_last(el);
+      end;
+
+    ref(Container) procedure filter(b);
+#ifdef CIM
+    procedure b is
+      Boolean procedure b(el);
+        ref(element) el;;
+#else 
+    Boolean procedure b;
+#endif
+      begin ref(Container) c; ref(element) el;
+        c :- NewContainer;
+        el :- first_element;
+        while el =/= none do
+          begin
+            if b(el) then c.add_last(el);
+            el :- next_element;
+          end;
+        head :- c.head; tail :- c.tail;
+        filter :- this Container;
+      end;
+
+    ref(Container) procedure NewContainer;
+      NewContainer :- new Container;
+
+  end of Container;
+
+
+      
+
+!********************************************
+!*	                                        *
+!*                Sequence                  *
+!*	                                        *
+!********************************************;
+
+Container class Sequence;
+
+  begin
+    
+    ref(element) procedure pop;
+      begin pop :- head; remove_head end;
+
+    ref(element) procedure top;
+      top :- head;
+
+    ref(Sequence) procedure append(el); ref(element) el;
+      begin
+        if head == none then head :- el 
+        else begin
+          if tail == none then tail :- new sequence;
+          tail qua sequence.append(el);
+        end;
+        append :- this Sequence;
+      end;
+
+    ref(Sequence) procedure concatenate(s); ref(Sequence) s;
+      begin 
+        s.for_each_element(append);
+        concatenate :- this Sequence;
+      end;      
+
+    ref(Container) procedure NewContainer;
+      NewContainer :- new Sequence;
+
+  end of Sequence;
+
+
+
+!********************************************
+!*	                                        *
+!*                 Set                      *
+!*	                                        *
+!********************************************;
+
+Container class Set;
+    virtual: procedure add_element is
+               ref(Set) procedure add_element(el);
+                 ref(element) el;;
+             procedure find_element is
+               ref(element) procedure find_element(key);
+                 text key;;
+             procedure find_element_after is
+               ref(element) procedure find_element_after(key);
+                 text key;;
+             procedure remove_element is
+               ref(element) procedure remove_element(key);
+                 text key;;
+  begin
+    
+    ref(Set) procedure add_element(el); ref(element) el; 
+      begin
+        if el == none then else
+        if head == none or else 
+           head.key = el.key then head :- el 
+          else begin
+            if tail == none then tail :- new set;
+            if el.key < head.key then
+              begin
+                tail qua Set.add_element(head);
+                head :- el;
+              end
+            else tail qua Set.add_element(el);
+          end;
+        add_element :- this Set;
+      end;
+
+    Boolean procedure add_element_ok(el); ref(element) el; 
+      if el == none or else has_element(el.key)
+        then add_element_ok := false
+        else begin
+            add_element(el);
+            add_element_ok := true;
+          end;
+
+    ref(Set) procedure union(s); ref(Set) s;
+      begin 
+        s.for_each_element(add_element);
+        union :- this Set;
+      end;
+
+    Boolean procedure has_element(key); text key;
+      has_element := find_element(key) =/= none;
+
+    ref(element) procedure find_element(key); text key;
+      begin ref(element) el; 
+        el :- first_element;
+        while el =/= none and then el.key < key do el :- next_element;
+        find_element :- if el == none or else el.key <> key then none
+                        else el;
+      end;
+
+    ref(element) procedure find_element_after(key); text key;
+      begin ref(element) el; 
+        el :- first_element;
+        while el =/= none and then el.key < key do el :- next_element;
+        find_element_after :- el;
+      end;
+
+    ref(element) procedure remove_element(key); text key;
+      if head == none 
+        then remove_element :- none else
+      if head.key = key 
+        then begin 
+          remove_element :- head;
+          if tail == none 
+            then head :- none
+            else begin head :- tail.head; tail :- tail.tail end;
+        end else
+      if tail == none 
+        then remove_element :- none
+      else begin
+          remove_element :- tail qua set.remove_element(key); 
+          if tail.is_empty then tail :- none;
+        end;
+
+    Boolean procedure remove_element_ok(key); text key;
+      remove_element_ok := remove_element(key) =/= none;
+
+    ref(Container) procedure NewContainer;
+      NewContainer :- new Set;
+
+  end of set;
+
+
+
+!********************************************
+!*	                                        *
+!*                Stack                     *
+!*	                                        *
+!********************************************;
+
+Container class Stack;
+
+  begin
+    
+    ref(element) procedure push(el); ref(element) el;
+      begin
+        if head == none then head :- el 
+        else begin
+          if tail == none then tail :- new Stack;
+          tail qua Stack.push(head);
+          head :- el;
+        end;
+        push :- this Stack;
+      end;
+      
+    ref(element) procedure pop;
+      begin
+        pop :- head;  head :- none;
+        if tail == none then head :- none else
+          begin
+            head :- tail.head;
+            tail :- tail.tail;
+          end;
+      end;
+
+    ref(element) procedure top;
+      top :- head;
+
+    ref(Container) procedure NewContainer;
+      NewContainer :- new Stack;
+
+  end of Stack;
+
+
+
+
+!********************************************
+!*	                                        *
+!*                 Bag:                     *
+!*	                                        *
+!********************************************;
+
+Container class Bag;
+
+  begin
+    
+    ref(Bag) procedure add_element(el); ref(element) el;
+      begin
+        if head == none then head :- el else
+        if el.equiv(head) then head.another(el)
+        else begin
+          if tail == none then tail :- new Bag;
+          if el.precedes(head) then 
+            begin 
+              tail qua Bag.add_element(head); 
+              head :- el;
+            end
+          else tail qua Bag.add_element(el)
+        end;
+        add_element :- this Bag;
+      end;
+ 
+    ref(Bag) procedure union(b); ref(Bag) b;
+      begin 
+        b.for_each_element(add_element);
+        union :- this Bag;
+      end;
+
+    Boolean procedure has_element(el); ref(element) el;
+      has_element := find_equiv_element(el) =/= none;
+
+    ref(element) procedure find_equiv_element(el); ref(element) el;
+      find_equiv_element :-
+        if head == none   then none else
+        if head.equiv(el) then head else
+        if tail == none   then none 
+        else tail qua Bag.find_equiv_element(el);
+
+    ref(Container) procedure NewContainer;
+      NewContainer :- new Bag;
+
+  end of Bag;
+
+
+!********************************************
+!*	                                        *
+!*             Tabled_set                   *
+!*	                                        *
+!********************************************;
+
+Set class Tabled_set;
+
+  begin
+    
+    ref(table) element_table;
+
+    Boolean procedure is_empty;
+      is_empty := element_table.is_empty;
+
+    integer procedure size;
+      size := element_table.size;
+
+    ref(element) procedure element_number(elnr); integer elnr;
+      element_number :- element_table.element_number(elnr);
+
+    ref(Set) procedure add_element(el);
+        ref(element) el; 
+      begin 
+        if element_table.is_full then 
+           element_table :- element_table.increase; 
+        element_table.add_element(el);
+        add_element :- this Tabled_set;
+      end;        
+
+    Boolean procedure has_element(key); text key;
+      has_element := element_table.has_element(key);
+
+    ref(element) procedure remove_element(key); text key;
+      begin
+        remove_element :- element_table.remove_element(key);
+        if element_table.is_almost_empty then 
+           element_table :- element_table.decrease; 
+      end;
+
+    ref(element) procedure find_element(key); text key;
+      find_element :- element_table.find_element(key); 
+
+    ref(element) procedure find_element_after(key); text key;
+      find_element_after :- element_table.find_element_after(key); 
+
+    ref(element) procedure first_element;
+      first_element :- element_table.first_element;
+
+    ref(element) procedure next_element;
+      next_element :- element_table.next_element;
+
+    ref(element) procedure remove_current;
+      remove_current :- element_table.remove_current;
+
+    ref(Container) procedure NewContainer;
+      NewContainer :- new Tabled_set;
+
+    element_table :- new table(1);
+
+  end of Tabled_set;
+
+
+!********************************************
+!*	                                        *
+!*                Table                     *
+!*	                                        *
+!********************************************;
+
+class table(table_size); integer table_size;
+
+  begin
+    
+    ref(element) array the_elements(1 : table_size);
+
+    integer number_of_elements;
+
+    procedure add_element(el); ref(element) el; 
+      begin integer index, i; 
+        index := find_index(el.key);
+        if index <= number_of_elements and then
+	       the_elements(index).key = el.key 
+          then the_elements(index) :- el
+          else begin
+            for i := number_of_elements step -1 until index do
+              the_elements(i + 1) :- the_elements(i);
+            number_of_elements := number_of_elements + 1;
+            the_elements(index) :- el;
+          end;
+      end;        
+
+    Boolean procedure has_element(key); text key;
+      begin integer index; 
+        index := find_index(key);
+        has_element := index <= number_of_elements and then
+	               the_elements(index).key = key 
+      end;
+
+    ref(element) procedure remove_element(key); text key; 
+      begin integer index, i; 
+        index := find_index(key);
+        if index <= number_of_elements and then
+	       the_elements(index).key = key then
+          begin
+            remove_element :- the_elements(index);
+            for i := index + 1 step 1 until number_of_elements do
+              the_elements(i - 1) :- the_elements(i);
+            number_of_elements := number_of_elements - 1;
+            if index < next_index 
+              then next_index := next_index - 1;
+          end
+        else remove_element :- none;
+      end;
+
+    ref(element) procedure find_element(key); text key;
+      if is_empty then find_element :- none else
+      begin integer index; 
+        index := find_index(key);
+        find_element :- 
+	    if index <= number_of_elements and then
+	       the_elements(index).key = key then the_elements(index) 
+          else none;
+      end;
+
+    ref(element) procedure find_element_after(key); text key;
+      if is_empty then find_element_after :- none else
+      begin integer index; 
+        index := find_index(key);
+        find_element_after :- if index <= number_of_elements 
+	                        then the_elements(index) 
+                                else none;
+      end;
+
+    integer next_index, current_index;
+    
+    ref(Stack) next_stack;
+
+    ref(element) procedure first_element;
+      begin 
+        if next_stack == none then next_stack :- new Stack;
+        next_stack.push(new index_element(next_index));
+        current_index := 1;  
+        first_element :- element_number(1);
+        next_index  := 2;
+      end;
+
+    ref(element) procedure next_element;
+      begin 
+        next_element  :- element_number(next_index);
+        current_index := next_index;
+        next_index    := if next_index <= number_of_elements 
+                           then next_index + 1 else
+                         if next_stack =/= none 
+                           then next_stack.pop qua index_element.index
+                         else number_of_elements + 1;
+      end;
+
+    ref(element) procedure remove_current;
+      remove_current :- none;
+
+    integer procedure size;
+      size := number_of_elements;
+
+    Boolean procedure is_empty;
+      is_empty := number_of_elements = 0;
+
+    Boolean procedure is_full;
+      is_full := number_of_elements = table_size;
+
+    Boolean procedure is_almost_empty;
+      is_almost_empty := (number_of_elements < table_size//4
+			    and table_size > 1);
+
+    ref(element) procedure element_number(number); integer number;
+      element_number :- if 1 <= number and then number <= number_of_elements
+                          then the_elements(number)
+                          else none;
+
+    ref(table) procedure increase;
+      begin ref(table) aux_table; integer index;
+        aux_table :- new table(2 * table_size);
+        for index := 1 step 1 until number_of_elements do
+          aux_table.the_elements(index) :- the_elements(index);
+        aux_table.number_of_elements := number_of_elements; 
+        aux_table.next_index := next_index;
+        aux_table.current_index := current_index;
+        aux_table.next_stack :- next_stack;
+        increase :- aux_table;
+      end;
+      
+    ref(table) procedure decrease;
+      begin ref(table) aux_table; integer index;
+        aux_table :- new table(table_size//2);
+        for index := 1 step 1 until number_of_elements do
+          aux_table.the_elements(index) :- the_elements(index);
+        decrease :- aux_table;
+        aux_table.number_of_elements := number_of_elements; 
+        aux_table.next_index := next_index;
+        aux_table.current_index := current_index;
+        aux_table.next_stack :- next_stack;
+      end;
+      
+    integer procedure find_index(key); text key;
+      if number_of_elements = 0 or else  
+         the_elements(number_of_elements).key < key 
+      then find_index := number_of_elements + 1 
+      else begin integer b, t, m;
+        b := 0; t := number_of_elements;
+        while b + 1 ne t do
+          begin
+            m := (b + t)//2;
+            if the_elements(m).key < key
+              then b := m else t := m;
+          end;
+        find_index := t;
+      end;
+
+   number_of_elements := 0;  
+
+ end of table;
+
+element class index_element(index); integer index;;
+

@@ -1,0 +1,179 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 51
+%
+%  PURPOSE:     Test 'inner'.
+%
+%  WRITTEN BY:  BEH   31/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   CLASS A ;
+   BEGIN
+      OUTTEXT (" L1 ") ;
+      INNER ;
+      OUTTEXT (" L2 ")
+   END of class A ;
+
+   CLASS D ;
+      OUTTEXT (" L3 ") ;
+
+   A CLASS B ;
+      OUTTEXT (" L4 ") ;
+
+   B CLASS F ;
+   BEGIN
+      OUTTEXT (" L5 ") ;
+      INNER
+   END of class F ;
+
+   A CLASS C ;
+   BEGIN
+      OUTTEXT (" L6 ") ;
+      INNER ;
+      OUTTEXT (" L7 ")
+   END of class C ;
+
+   C CLASS G ;
+      OUTTEXT (" L8 ") ;
+
+   C CLASS J ;
+   BEGIN
+      OUTTEXT (" L9 ") ;
+      INNER ;
+      OUTTEXT (" L10 ")
+   END of class J ;
+
+   B CLASS I ;
+   BEGIN
+      OUTTEXT (" L11 ") ;
+      INNER ;
+      OUTTEXT (" L12 ")
+   END of class I ;
+
+   D CLASS E ;
+   BEGIN
+      OUTTEXT (" L13 ") ;
+      INNER ;
+      OUTTEXT (" L14 ")
+   END of class E ;
+
+   E CLASS H ;
+   BEGIN
+      OUTTEXT (" L15 ") ;
+      INNER ;
+      OUTTEXT (" L16 ")
+   END of class H ;
+
+   D CLASS K ;
+   BEGIN
+      OUTTEXT (" L17 ") ;
+      INNER ;
+      OUTTEXT (" L18 ")
+   END of class K ;
+
+   L CLASS N ;
+   BEGIN
+      OUTTEXT (" L21 ") ;
+      INNER ;
+      OUTTEXT (" L22 ")
+   END of class N ;
+
+   K CLASS M ;
+      OUTTEXT (" L19 ") ;
+
+   D CLASS L ;
+      OUTTEXT (" L20 ") ;
+
+
+   REF  (A) ra ;
+   REF  (D) rd ;
+
+   Procedure Check (t, vt, errnr) ;
+      value t, vt ;
+      text t, vt ;
+      integer errnr ;
+   begin
+      sysout.image.setpos (1) ;
+      sysout.image := notext ;
+
+      if t = vt then
+      else
+      begin
+         Outtext ("*** ERROR : Sequence of execution of statements in ") ;
+         Outimage ;
+         Outtext ("            class bodies (") ;
+         Outint (errnr, if errnr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus value :") ;
+         Outimage ;
+         Outtext ("                  ") ;
+         Outtext (t) ;
+         Outimage ;
+         Outtext ("            Should have been :") ;
+         Outimage ;
+         Outtext ("                  ") ;
+         Outtext (vt) ;
+         Outimage ; Outimage ;
+         found_error := true
+      end ;
+   end  pros. check ;
+
+   Outtext ("--- START Simula a.s. TEST 51") ;
+   Outimage ;
+   Outtext ("--- Test 'inner'") ;
+   Outimage ; Outimage ;
+
+   ra :- NEW A ;
+   Check (sysout.image.strip, " L1  L2", 1) ;
+
+   rd :- NEW D ;
+   Check (sysout.image.strip, " L3", 2) ;
+
+   ra :- NEW B ;
+   Check (sysout.image.strip, " L1  L4  L2", 3) ;
+
+   ra :- NEW C ;
+   Check (sysout.image.strip, " L1  L6  L7  L2", 4) ;
+
+   rd :- NEW E ;
+   Check (sysout.image.strip, " L3  L13  L14", 5) ;
+
+   ra :- NEW F ;
+   Check (sysout.image.strip, " L1  L4  L5  L2", 6) ;
+
+   ra :- NEW G ;
+   Check (sysout.image.strip, " L1  L6  L8  L7  L2", 7) ;
+
+   ra :- NEW I ;
+   Check (sysout.image.strip, " L1  L4  L11  L12  L2", 8) ;
+
+   ra :- NEW J ;
+   Check (sysout.image.strip, " L1  L6  L9  L10  L7  L2", 9) ;
+
+   rd :- NEW H ;
+   Check (sysout.image.strip, " L3  L13  L15  L16  L14", 10) ;
+
+   rd :- NEW M ;
+   Check (sysout.image.strip, " L3  L17  L19  L18", 11) ;
+
+   rd :- NEW N ;
+   Check (sysout.image.strip, " L3  L20  L21  L22", 12) ;
+
+   rd :- NEW L ;
+   Check (sysout.image.strip, " L3  L20", 13) ;
+
+   rd :- NEW K ;
+   Check (sysout.image.strip, " L3  L17  L18", 14) ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 51") ;
+   Outimage
+ End ;

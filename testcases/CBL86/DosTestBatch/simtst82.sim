@@ -1,0 +1,1068 @@
+% ========================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST  NO 82
+%
+%  PURPOSE: Make a very simple test of the operations +, -, *, / and //.
+%
+%  METHOD:  Try some simple expressions and see if they give the correct
+%           answer.
+%
+%  NOTE:  1. At lines commented by NOTE 1 : The expected precision of
+%            reals and long reals that are a result of an arithmetic
+%            expression must be filled in.
+%         2. At lines commented by NOTE 2 : The smallest and largest
+%            permitted positive and negative real values on your
+%            implementation must be filled in.
+%
+%  WRITTEN BY:  THE  26/10-83
+% ======================================================================
+begin
+Boolean            found_error ;        ! Set to true when errors are ;
+                                        ! found.                      ;
+
+integer            i1 ;                 ! To use in the expressions.  ;
+integer            i2 ;                 ! To use in the expressions.  ;
+short integer      s1 ;                 ! To use in the expressions.  ;
+short integer      s2 ;                 ! To use in the expressions.  ;
+real               r1 ;                 ! To use in the expressions.  ;
+real               r2 ;                 ! To use in the expressions.  ;
+long real          l1 ;                 ! To use in the expressions.  ;
+long real          l2 ;                 ! To use in the expressions.  ;
+
+long real          minpreal ;           ! To contain min positive real;
+                                        ! value.                      ;
+long real          minnreal ;           ! To contain min negative real;
+                                        ! value.                      ;
+text               result ;             ! To be used in the checking  ;
+text               facit ;              ! of the results of real      ;
+                                        ! operations.                 ;
+
+integer            realprecision ;      ! To contain the precision of;
+                                        ! reals (no of digits).      ;
+integer            longprecision ;      ! To contain the precision of;
+                                        ! long reals (no of digits). ;
+
+text ERRHEAD = "*** ERROR : In expression of the form ";
+text BLKSAPP = "            '";
+text WASRES  = "' was result while";
+text WASEXP  = "' was expected.";
+
+
+
+Outtext ("--- START Simula a.s. TEST 82");
+Outimage;
+Outtext ("--- Do a simple test of the operations +, -, *, / and //.");
+Outimage; Outimage;
+
+                                        !********* NOTE 1 ************;
+realprecision := 6 ;                    ! Fill in expected precision  ;
+                                        ! (no of digits) for reals and;
+longprecision := 15 ;                   ! long reals that are a result;
+                                        ! of a computation.           ;
+
+                                        !********* NOTE 2 ************;
+                                        ! Fill in :                   ;
+minpreal :=  addepsilon(0.0);           !  min positive real value,   ;
+minnreal :=  subepsilon(0.0);           !  max positive real value,   ;
+                                        ! all with a precision >= the ;
+                                        ! precision of long reals.    ;
+
+facit :- blanks (30);
+result :- blanks (30);
+
+                                        !*****************************;
+                                        ! Test integer /short integer ;
+                                        ! arithmetic expressions.     ;
+                                        !*****************************;
+i2 := -100;
+s1 :=   30;
+s2 := -  1;
+
+if           0 + i1 = 0       and
+            i1 + s1 = 30      and
+             i2 + 0 = -100    and
+            90 + s1 = 120     and
+             -1 + 6 = 5       and
+             1 + s2 = 0       and
+           150 + i2 = 50      and
+         0 + minint = minint  and
+          -100 + s2 = -101    and
+    maxint + minint = -1
+then else begin
+   Outtext (ERRHEAD); Outtext ("<integer>+<integer>."); Outimage;
+   found_error := true
+   end;
+
+i2 :=   1;
+s1 := -30;
+s2 := - 1;
+
+if           i1 - 0 = 0       and
+          1234 - i2 = 1233    and
+            s2 - i1 = -1      and
+             0 - s2 = 1       and
+            25 - s1 = 55      and
+          -100 - i2 = -101    and
+           -20 - s1 = 10      and
+         minint - 0 = minint  and
+           -i2 - s2 = 0       and
+     maxint-maxint  = 0
+then else begin
+   Outtext (ERRHEAD); Outtext("<integer>-<integer>."); Outimage;
+   found_error := true
+   end;
+
+i1 :=   10;
+i2 := - 10;
+s1 := -  3;
+s2 :=    1;
+
+if           -0 * 0 = 0       and
+             i1 * 0 = 0       and
+         0 * minint = 0       and
+            i1 * i2 = -100    and
+            s1 * i1 = -30     and
+          -100 * s2 = -100    and
+            i2 * s1 = 30      and
+        maxint * s2 = maxint  and
+            i1 * i1 = 100     and
+            s1 * s2 = -3
+then else begin
+   Outtext (ERRHEAD); Outtext("<integer>*<integer>."); Outimage;
+   found_error := true
+   end;
+
+i1 :=   25;
+i2 := -111;
+s1 := -  1;
+s2 :=   24;
+
+if          0 // i1 = 0       and
+           i1 // 25 = 1       and
+           i1 // 26 = 0       and
+           i2 // 1  = -111    and
+          -56 // i1 = -2      and
+         s2 // (-7) = -3      and
+          200 // i2 = -1      and
+%   minint//minint  = 1       and
+        -1000 // i2 =  9      and
+     i2 // (-11200) = 0
+then else begin
+   Outtext (ERRHEAD); Outtext("<integer>//<integer>."); Outimage;
+   found_error := true
+   end;
+                                        !*****************************;
+                                        ! Test real / long real       ;
+                                        ! arithmetic expressions.     ;
+                                        !*****************************;
+r1 := 0.0;
+r2 := 0.0;
+
+result.putreal (r1 + r2, realprecision);
+facit.putreal (0.0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (1):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := maxlongreal;
+l2 := 0.0;
+
+result.putreal (l1 + l2, longprecision);
+facit.putreal (maxlongreal, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (2):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := minnreal;
+l2 := 0.0;
+
+result.putreal (l1 + l2, longprecision);
+facit.putreal (minnreal, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (3):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 0.0;
+r2 := 3.3;
+
+result.putreal (r1 + r2, realprecision);
+facit.putreal (3.3, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (4):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 1.23456&10;
+r2 := 1.0&8;
+
+result.putreal (r1 + r2, realprecision);
+facit.putreal (1.24456&10, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (5):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := minpreal;
+l2 := maxlongreal;
+
+result.putreal (l1 + l2, longprecision);
+facit.putreal (maxlongreal, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (6):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 :=  5.0&&08;
+r2 := -5.0&08;
+
+result.putreal (l1 + r2, realprecision);
+facit.putreal (0.0&&0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (7):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 :=  6.66&-6;
+r2 := -3.33&-6;
+
+result.putreal (r1 + r2, realprecision);
+facit.putreal (3.33&-6, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (8):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 :=  1.08&5;
+l2 := -1.0&&6;
+
+result.putreal (r1 + l2, realprecision);
+facit.putreal (-8.92&&5, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (9):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := -9.868&&-1;
+l2 :=  1.080&&+1;
+
+result.putreal (l1 + l2, longprecision);
+facit.putreal (9.8132&&+0, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (10):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := minlongreal;
+l2 := minpreal;
+
+result.putreal (l1 + l2, longprecision);
+facit.putreal (minlongreal, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (11):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -1.111&8;
+r2 :=  1.11&7;
+
+result.putreal (r1 + r2, realprecision);
+facit.putreal (-1.0&8, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<real> (12):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 0.0;
+r2 := 0.0;
+
+result.putreal (r1 - r2, realprecision);
+facit.putreal (0.0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (1):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := minpreal;
+l2 := 0.0;
+
+result.putreal (l1 - l2, longprecision);
+facit.putreal (minpreal, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (2):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 0.0;
+r2 := 6.2&-5;
+
+result.putreal (r1 - r2, realprecision);
+facit.putreal (-6.2&-5, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (3):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 0.0;
+r2 := -2.2&2;
+
+result.putreal (r1 - r2, realprecision);
+facit.putreal (2.20&2, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (4):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := 5.0&&-8;
+l2 := 5.0&&-8;
+
+result.putreal (l1 - l2, longprecision);
+facit.putreal (0.0&&0, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (5):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 64.82;
+r2 :=  2.22;
+
+result.putreal (r1 - r2, realprecision);
+facit.putreal (62.6, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (6):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 :=  8.648&-2;
+l2 := -1.352&&-2;
+
+result.putreal (r1 - l2, realprecision);
+facit.putreal (1.0&&-1, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (7):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := maxlongreal;
+l2 := minnreal;
+
+result.putreal (l1 - l2, longprecision);
+facit.putreal (maxlongreal, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (8):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -5.2&3;
+r2 :=  4.8&3;
+
+result.putreal (r1 - r2, realprecision);
+facit.putreal (-1&4, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (9):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := minlongreal;
+l2 := minnreal;
+
+result.putreal (l1 - l2, longprecision);
+facit.putreal (minlongreal, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (10):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -1.0&+1;
+r2 := -1.0;
+
+result.putreal (r1 - r2, realprecision);
+facit.putreal (-9.0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (11):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -2&-6;
+r2 := -1&-7;
+
+result.putreal (r1 - r2, realprecision);
+facit.putreal (-1.9&-6, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<real> (12):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 0.0;
+r2 := 0.0;
+
+result.putreal (r1 * r2, realprecision);
+facit.putreal (0.0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (1):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 1.0;
+r2 := 0.0;
+
+result.putreal (r1 * r2, realprecision);
+facit.putreal (0.0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (2):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := 0.0;
+l2 := maxlongreal;
+
+result.putreal (l1 * l2, longprecision);
+facit.putreal (0.0&&0, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (3):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := 0.0;
+l2 := minlongreal;
+
+result.putreal (l1 * l2, longprecision);
+facit.putreal (0.0&&0, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (4):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 1.0;
+r2 := 6.3&-10;
+
+result.putreal (r1 * r2, realprecision);
+facit.putreal (6.3&-10, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (5):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 1&-10;
+l2 := 1&+10;
+
+result.putreal (r1 * l2, realprecision);
+facit.putreal (1.0&&0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (6):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 :=  4.0&-1;
+r2 := -4.0&-1;
+
+result.putreal (r1 * r2, realprecision);
+facit.putreal (-1.6&-1, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (7):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 :=  6.08&-1;
+r2 := -2.00&3;
+
+result.putreal (r1 * r2, realprecision);
+facit.putreal (-1.216&3, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (8):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 :=  2&&6;
+l2 := -4.3&&-3;
+
+result.putreal (l1 * l2, longprecision);
+facit.putreal (-8.6&&+3, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (9):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -2.1&-1;
+r2 :=  4.2&-1;
+
+result.putreal (r1 * r2, realprecision);
+facit.putreal (-8.82&-2, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (10):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := minnreal;
+l2 := -1.0;
+
+result.putreal (l1 * l2, longprecision);
+facit.putreal (-minnreal, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (11):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -.8;
+r2 := -3&5;
+
+result.putreal (r1 * r2, realprecision);
+facit.putreal (2.4&5, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (12):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -8.6&00;
+r2 := -1&10;
+
+result.putreal (r1 * r2, realprecision);
+facit.putreal (8.6&10, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<real> (13):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 0.0;
+r2 := 2&6;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (0.0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (1):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := 0.0;
+l2 := minnreal;
+
+result.putreal (l1 / l2, longprecision);
+facit.putreal (0.0&&0, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (2):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 1.0;
+r2 := 1.0;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (1.0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (3):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 2.0&10;
+r2 := 1.0;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (2.0&10, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (4):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := 1&&5;
+l2 := 1&&-5;
+
+result.putreal (l1 / l2, longprecision);
+facit.putreal (1&&10, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (5):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := minlongreal;
+l2 := minlongreal;
+
+result.putreal (l1 / l2, longprecision);
+facit.putreal (1.0&&0, longprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (6):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 :=  24.0;
+r2 := -6.0;
+
+result.putreal (l1 / r2, realprecision);
+facit.putreal (-4.0&&0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (7):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 :=  1.6&4;
+r2 := -4.0&6;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (-4.0&-3, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (8):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -73&-5;
+r2 :=  73&-5;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (-1.0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (9):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -1.21&3;
+r2 :=  1.1&-2;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (-1.1&+5, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (10):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -81&-2;
+r2 :=  9.0&1;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (-9.0&-3, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (11):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -1&-5;
+r2 :=  1&5;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (-1&-10, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (12):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -9.0&3;
+r2 := -9.0&3;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (1.0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (13):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -8.321&-3;
+l2 := -1.0;
+
+result.putreal (r1 / l2, realprecision);
+facit.putreal (8.321&&-3, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (14):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -9.0&-2;
+r2 := -3.0&-6;
+
+result.putreal (r1 / r2, realprecision);
+facit.putreal (3.0&4, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<real> (15):"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+                                        !*****************************;
+                                        ! Now try some conversion.    ;
+                                        !*****************************;
+l1 := minnreal;
+i2 := maxint;
+
+result.putreal (l1 + i2, realprecision);
+facit.putreal (maxint+0.0&&0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>+<integer>:"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+s1 := 64;
+r2 := 8.55&01;
+
+result.putreal (s1 + r2, realprecision);
+facit.putreal (1.495&2, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<integer>+<real>:"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := 3.14;
+i2 := -2;
+
+result.putreal (r1 - i2, realprecision);
+facit.putreal (5.14, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>-<integer>:"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+s1 := 90;
+l2 := &2;
+
+result.putreal (s1 - l2, realprecision);
+facit.putreal (-&&1, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<integer>-<real>:"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+s1 := 4;
+l2 := 3&6;
+
+result.putreal (s1 * l2, realprecision);
+facit.putreal (12000000.0&&0, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<integer>*<real>:"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+r1 := -1.111&-3;
+i2 :=  2000;
+
+result.putreal (r1 * i2, realprecision);
+facit.putreal (-2.222, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>*<integer>:"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+l1 := -3.0&10;
+i2 :=  100;
+
+result.putreal (l1 / i2, realprecision);
+facit.putreal (-3&&8, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<real>/<integer>:"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+s1 := 9;
+r2 := &2;
+
+result.putreal (s1 / r2, realprecision);
+facit.putreal (9&-2, realprecision);
+
+if result <> facit then begin
+   Outtext (ERRHEAD); Outtext("<integer>/<real>:"); Outimage;
+   Outtext (BLKSAPP); Outtext (result);
+   Outtext (WASRES); Outimage;
+   Outtext (BLKSAPP); Outtext (facit);
+   Outtext (WASEXP); Outimage;
+   found_error := true
+   end;
+
+if found_error then
+else begin
+   Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+   Outimage
+   end;
+
+Outtext ("--- END Simula a.s. TEST 82");
+Outimage
+
+end of program

@@ -1,0 +1,137 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 45
+%
+%  PURPOSE:     Test object relations - is and in.
+%
+%  WRITTEN BY:  BEH   28/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   CLASS A ; ;
+   A CLASS B ; ;
+   A CLASS C ; ;
+   B CLASS D ; ;
+   C CLASS E ; ;
+
+   REF (A) ra ;
+   REF (B) rb ;
+   REF (C) rc ;
+   REF (D) rd ;
+   REF (E) re ;
+
+   PROCEDURE Check (a, b, enr) ;  BOOLEAN a, b ;  integer enr ;
+   IF  a EQV b  THEN
+   ELSE
+   begin
+      Outtext ("*** ERROR : Object relation (") ;
+      Outint (enr, if enr < 10 then 1 else 2 ) ;
+      Outtext (").") ;
+      Outimage ;
+      Outtext ("            Erroneus valus : ") ;
+      Outimage ;
+      Outtext ("                 a = ") ;
+      Outtext (if a then "true" else "false") ;
+      Outimage ;
+      Outtext ("                 b = ") ;
+      Outtext (if b then "true" else "false" ) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   Outtext ("--- START Simula a.s. TEST 45") ;
+   Outimage ;
+   Outtext ("--- Test object relations - IS and IN.") ;
+   Outimage ; Outimage ;
+
+   ra :- NEW A ;
+   rb :- NEW B ;
+   rc :- NEW C ;
+   rd :- NEW D ;
+   re :- NEW E ;
+
+
+   Check (ra IS A, TRUE, 1) ;
+   Check (rb IS B, TRUE, 2) ;
+   Check (rc IS C, TRUE, 3) ;
+   Check (rd IS D, TRUE, 4) ;
+   Check (re IS E, TRUE, 5) ;
+   Check (ra IS B, FALSE, 6) ;
+   Check (ra IS C, FALSE, 7) ;
+   Check (ra IS D, FALSE, 8) ;
+   Check (ra IS E, FALSE, 9) ;
+   Check (rb IS A, FALSE, 10) ;
+   Check (rb IS C, FALSE, 11) ;
+   Check (rb IS D, FALSE, 12) ;
+   Check (rb IS E, FALSE, 13) ;
+   Check (rc IS A, FALSE, 14) ;
+   Check (rc IS B, FALSE, 15) ;
+   Check (rc IS D, FALSE, 16) ;
+   Check (rc IS E, FALSE, 17) ;
+   Check (rd IS A, FALSE, 18) ;
+   Check (rd IS B, FALSE, 19) ;
+   Check (rd IS C, FALSE, 20) ;
+   Check (rd IS E, FALSE, 21) ;
+   Check (re IS A, FALSE, 22) ;
+   Check (re IS B, FALSE, 23) ;
+   Check (re IS C, FALSE, 24) ;
+   Check (re IS D, FALSE, 25) ;
+
+   Check (rb QUA A IS B, TRUE, 26) ;
+   Check (rc QUA A IS C, TRUE, 27) ;
+   Check (rd QUA A IS D, TRUE, 28) ;
+   Check (re QUA A IS E, TRUE, 29) ;
+
+   ra :- NEW B ;
+   Check (ra QUA A IS B, TRUE, 30) ;
+
+   rc :- NEW E ;
+   Check (rc QUA A IS E, TRUE, 31) ;
+
+   ra :- NEW A ; rc :- NEW C ;
+   Check (ra IN A, TRUE, 32) ;
+   Check (rb IN B, TRUE, 33) ;
+   Check (rc IN C, TRUE, 34) ;
+   Check (rd IN D, TRUE, 35) ;
+   Check (re IN E, TRUE, 36) ;
+   Check (ra IN B, FALSE, 37) ;
+   Check (ra IN C, FALSE, 38) ;
+   Check (ra IN D, FALSE, 39) ;
+   Check (ra IN E, FALSE, 40) ;
+   Check (rb IN D, FALSE, 41) ;
+   Check (rc IN E, FALSE, 42) ;
+   Check (rb IN A, TRUE, 43) ;
+   Check (rc IN A, TRUE, 44) ;
+   Check (rd IN A, TRUE, 45) ;
+   Check (rd IN B, TRUE, 46) ;
+   Check (re IN A, TRUE, 47) ;
+   Check (re IN C, TRUE, 48) ;
+   Check (re IN D, FALSE, 49) ;
+   Check (rd IN E, FALSE, 50) ;
+   Check (rb IN E, FALSE, 51) ;
+   Check (re IN B, FALSE, 52) ;
+
+   Check (rb QUA A IN B, TRUE, 53) ;
+   Check (rc QUA A IN C, TRUE, 54) ;
+   Check (rd QUA A IN D, TRUE, 55) ;
+   Check (re QUA A IN E, TRUE, 56) ;
+   Check (rd QUA B IN D, TRUE, 57) ;
+   Check (re QUA C IN E, TRUE, 58) ;
+
+   ra :- rb :- NONE ;
+   Check (ra IN A, FALSE, 59) ;
+   Check (ra IS A, FALSE, 60) ;
+   Check (rb IN A, FALSE, 61) ;
+   Check (rb IS A, FALSE, 62) ;
+   Check (rb IN B, FALSE, 63) ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 45") ;
+   Outimage
+ END

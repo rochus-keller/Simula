@@ -1,0 +1,1514 @@
+% -----------------------------------------------------------
+%   DBMMIN.SIM
+%
+%   MODIFIE:
+%       Version: 2.0   28 aout 1992 Jean Vaucher
+%           - ajout de -1 au facteur K de la fonction HASH
+%
+%       Version: 1.9   14 aout 1992     Jean Vaucher
+%           - Ajout de fonctions pour faciliter la creation
+%             de nouvelles Bases dans SPEC, DBSPEC et DBLOAD.
+%               - Init_New_Base
+%               - NewRspecStore
+%	        - reintroduit WRPROTECT pour DBLOAD;
+%
+%       Version: 1.8   6 juillet 1992     Jean Vaucher
+%                  - Remplacement de Request par InPassWd
+%                    dans: passwd_ok( file)et  ch_passwd( file);
+%
+%       Version: 1.7   17 juin 1992     Jean Vaucher
+%                       - ajout de la fonction 'ForEachKey'
+%
+%       Version: 1.6    3 juin 1992     Normand Masse
+%                       - parametre Autoclose remplace par ReadOnly
+%                         qui controle les acces disponibles
+%                         (un message est affiche quand ecrit en RO)
+%                       - fonctions modifiee: lookup, store_record, delete
+%                                             ch_passwd
+%
+%       Version: 1.5    2 juin 1992     Normand Masse
+%                       - crypt retourne maintenant des valeurs seulement
+%                         positives afin d'eviter des erreurs d'espace
+%                         dans le mot de passe
+%
+%       Version: 1.4    29 mai 1992     Normand Masse
+%                       - tabulate affiche les tableaux de LONG variable
+%                         format tab( nbre_ele lg1 ele1 lg2 ele2 ... )
+%
+%       Version: 1.3    28 mai 1992     Nicolas Anquetil
+%                       - encryptage et changement de mot de passe
+%                         ajoutes ( encryptage par fonction de hachage)
+%
+%       Version: 1.2    22 mai 1992     Normand Masse
+%                       - procedure LOCTEXT enlevee de dbmmin 
+%                         pour utiliser la version corrigee dans safeio
+%
+%       Version 1.1     21 mai 1992     Normand Masse
+%                       - virtual proc SetDebugLevel mis dans safeio
+%
+%       Version 1.0     20 mai 1992     Normand Masse
+%
+%                       - Entete d'execution: numero de version affiche
+%                       - Procedure VIRTUAL ajoutees:
+%                           - INT PROC debugLevel   => 0 par defaut
+%                           - PROC INITSET  => NOOP par defaut , 
+%                               defini dans DBMSET
+% -----------------------------------------------------------
+
+% ===================================================
+%   CLASS dbmmin(load_file,imsize, readonly);
+% ===================================================
+
+EXTERNAL CLASS safeio;
+
+SAFEIO class DBMMIN (load_file, imsize, readonly);
+VALUE load_file; 
+TEXT load_file;
+INTEGER imsize;
+BOOLEAN readonly;
+VIRTUAL: 
+    PROCEDURE delstruc;
+    PROCEDURE hash IS
+        INTEGER PROCEDURE hash(t); TEXT t;;
+    PROCEDURE initSet IS
+        PROCEDURE initSet;;
+
+BEGIN
+
+% ======= Default Virtuals ====================
+
+    PROCEDURE initSet;;
+    
+% ======= End of Default Virtuals ============
+
+   TEXT     VERSION =" version 2.0 ";   ! Texte en entete d'execution ;
+
+   REF(Directfile) DB_File;
+  
+   INTEGER RspecN      = 13,    ! Expected Number of Record Specs ;
+           offset_size = 6,
+           pst1        = offset_size + 1,
+           pstart      = pst1 + 1;
+   
+   INTEGER pos_overflow = 1,
+           pos_genkey   = pos_overflow   + offset_size,
+           pos_imsize   = pos_genkey + 2 + offset_size,
+           pos_freelist = pos_imsize     + offset_size,
+           pos_passwd   = pos_freelist   + offset_size,
+           lg_passwd    = 9;           ! doit etre <= 9 (v. crypt) ;
+   
+   TEXT DefBootRSpecFields = "RNAME,KEY,BASE,SIZE,KEYPOS,ADIM,ANAMES,ATYPES",
+        DefBootRSpecTypes  = "33111133 ";
+
+   INTEGER     Rlength,  n__spa;
+
+   CHARACTER   ckomma, csemikolon, cback, nullc;   
+   TEXT         komma,  semikolon,  backslash ;
+   CHARACTER   carrchar;   
+   TEXT         arrchar, undefined, em ;
+
+
+   BOOLEAN   break_key, break_do ;
+   BOOLEAN   emptybase,  defined__f;
+   BOOLEAN   nameonly,   AutoClose; 
+   BOOLEAN   WRPROTECT ; 
+
+   TEXT    synpointer;
+   INTEGER prev_syn, k__;
+   INTEGER oflowtop, gen_key;
+            
+   BOOLEAN statist, DBtrace;
+   INTEGER nr_record, nr_get, nr_lookup, nr_load, nr_store;
+            
+   TEXT last_d_image, store_buff;
+   TEXT ARRAY typtext(1 : 7);
+            
+   REF (rspec) r__spec, r__s, current_spec, spec__spec;
+   REF (rspec) recordspec ;
+   REF (record) refr;
+            
+   PROCEDURE delstruc(r);
+   REF (record) r;; 
+   ! virtual default is NOOP ;
+   
+   
+   CLASS ilist( num, next); 
+   INTEGER num;
+   REF (ilist) next;;
+  
+   REF (ilist) freelist;
+   
+   ! ----------------------------------------------
+             Message d'erreur affiche quand
+   tente de modifier un base ouverte en READONLY
+   ------------------------------------------------;
+   PROCEDURE err_readonly;
+   BEGIN
+      outline( " ================== AVERTISSEMENT ! ================= ");
+      outline( "    La base:");
+      outline( "            [ "&DB_File.Filename&" ] ");
+      outimage;
+      outline( "    a ete ouverte en READ ONLY.  Il n'est donc pas ");
+      outline( "    possible de modifier celle-ci." );
+      outline( " ==================================================== ");
+   END - err_readonly;
+            
+   ! ---------------------------------------------- ;
+   CLASS record( spec, avalues);
+   REF (rspec) spec;
+   TEXT ARRAY avalues;
+   !  ---------------------------------------------------
+   spec: pointer to rspec object with specification for
+   this record type
+   avalues: text array with attribute values
+   -----------------------------------------------------;
+   VIRTUAL: 
+       TEXT PROCEDURE getkey; 
+       REF (record) PROCEDURE load;
+       PROCEDURE store;
+   BEGIN  
+      INTEGER dbskey;
+      TEXT syn_;
+      
+      TEXT PROCEDURE getkey;
+          getkey :- frontstrip( avalues( spec.keypos));
+     
+      ! ---------------------------------------------- ;
+      REF (record) PROCEDURE load( t);
+      VALUE t;
+      TEXT t;
+      !--------------------------------------------------------
+      Load elements from text T to array AVALUES.
+      Elements are either numbers or text between delimiters.
+      Arrays become just a single textstring.
+      
+      Modification du codage des champs : (longueur + champ)
+                                  NA le 25/03/92
+      --------------------------------------------------------;
+      BEGIN
+         INTEGER k, max;
+         
+         max := spec.adim;
+         BEGIN 
+            TEXT ARRAY avalues(1 : max);
+            
+            FOR k := k + 1 WHILE t.More AND k <= max DO
+               avalues(k) :- scanfield( t);
+                       
+            load :- NEW record( spec, avalues);
+         END;
+      END of load;
+    
+      ! ---------------------------------------------- ;
+      PROCEDURE store;
+      !--------------------------------------------------------
+      Put elements from AVALUES into one single text.
+      Then use STORERECORD to store total record in database.
+      --------------------------------------------------------;
+      BEGIN
+         TEXT s;
+         
+         dbskey := lookup( getkey, spec);
+         IF (dbskey <> 0) THEN
+            BEGIN
+               DB_File.Locate( dbskey);
+
+               store_buff := NOTEXT;
+               k__:= arrlgd( avalues);
+               IF k__ <= store_buff.Length THEN s :- store_buff.Sub( 1, k__)
+                  ELSE s :- Blanks( k__);
+               arrtxt( avalues, s, cback);
+               storerecord( synpointer, s);
+            END;
+      END of store;
+    
+      !--------------------------------------------------------
+      Initialisation d'un record
+      --------------------------------------------------------;
+      syn_ :- Blanks(offset_size);
+      nr_record := nr_record+1;
+   END ** of record ** ;
+   
+   
+   ! ---------------------------------------------- ;
+   RECORD CLASS rspec( rname, key, base, size, keypos, adim, anames, atypes);
+   TEXT rname, key;
+   INTEGER base, size, keypos, adim;
+   TEXT ARRAY anames;
+   INTEGER ARRAY atypes;
+   !  -------------------------------------------------------
+   rname           name of record
+   key             key attribute
+   base            start location for primary data area
+   size            size of primary data area
+   keypos          position of key among parameters
+   adim            number of attributes
+   anames          text array containing all attribute names
+   atypes          integer array with types:  1=integer, 2=real, 3=text
+   -----------------------------------------------------------;
+   BEGIN 
+      REF (rspec) next;
+      REF (record) prototype;
+%     TEXT type1, type2; 
+      INTEGER keypos2; 
+
+      ! ---------------------------------------------- ;
+      REF (rspec) PROCEDURE load(t);
+      VALUE t;
+      TEXT t;
+      !--------------------------------------------------------
+      t is total record. Its elements are loaded into the
+      corresponding attributes of the RSPEC object.
+      --------------------------------------------------------;
+      BEGIN
+         REF (rspec) r;
+         INTEGER k, n, r_adim; 
+         TEXT ARRAY avalues(1 : n__spa);
+
+         k := split( t, avalues, n__spa);
+         r_adim := scanint( avalues( 6));
+         IF r_adim <= 0
+            THEN r_adim := 200;
+         
+         r :- getrecordspec(avalues(1));
+         
+         IF (r == NONE)
+         THEN
+         BEGIN
+            TEXT ARRAY r_anames(1 : r_adim);
+            INTEGER ARRAY r_atypes(1 : r_adim);
+            
+            ! utilisation de r_anames comme variable temporaire ;
+            n := splitc( avalues(8), ',' , r_anames, r_adim);
+            FOR k:=1 STEP 1 UNTIL n DO
+               r_atypes(k) := r_anames(k).Getint;
+            
+            n := splitc ( avalues(7), ',' , r_anames, r_adim);
+            
+            r :- NEW rspec(spec__spec, avalues, avalues(1), avalues(2),
+                           avalues(3).Getint, avalues(4).Getint,
+                           avalues(5).Getint, r_adim, r_anames, r_atypes);
+         END;
+         
+         load :- r;
+      END of load;
+     
+      !--------------------------------------------------------
+      Initialisation d'un rspec
+      --------------------------------------------------------;
+      BEGIN
+         REF (rspec) rnext;
+         
+         rnext :- recordspec;
+         recordspec :- THIS rspec;
+         recordspec.next :- rnext;
+      END;
+   END ** of rspec ** ;
+   
+   
+    ! -------------------------------------------------- ;
+    PROCEDURE NewRspecStore(R,size);
+    REF( record ) R;
+    INTEGER size;
+    BEGIN
+        INTEGER i;
+        
+        DB_File.image := notext;
+        DB_file.Locate(oflowtop);
+        FOR i := 1 STEP 1 UNTIL size DO
+            DB_File.Outimage;           
+        oflowtop:=oflowtop + size;
+        R.store;
+    end -- NewRspecStore -- ;
+
+
+   ! ---------------------------------------------- ;
+   PROCEDURE put_record( rtyp, r);
+   REF (rspec) rtyp;
+   TEXT r;
+   !-------------------------------------------------------
+   Store text R as an external record of type RTYP.
+   Produce its key, compute its location and store by
+   calling STORERECORD.
+   -------------------------------------------------------;
+   INSPECT rtyp DO
+      BEGIN
+         TEXT ARRAY ta(1 : rtyp.adim+1);
+         INTEGER k;
+         
+         k := split( r, ta, rtyp.adim) + 1;
+         IF k < rtyp.adim 
+         THEN outline2("Put_record: bad record !", NOTEXT)
+         ELSE
+            BEGIN
+               k := lookup( ta(rtyp.keypos), rtyp);
+               IF (k <> 0)
+               THEN
+               BEGIN
+                  DB_File.Locate(k);
+                  storerecord( synpointer, r);
+               END;
+            END;
+      END of put_record;
+  
+  
+   ! ---------------------------------------------- ;
+   INTEGER PROCEDURE lookup( t, rtype);
+   TEXT t;
+   REF (rspec) rtype;
+   !-----------------------------------------------------
+   When a record is to be stored this procedure is called
+   to compute a location for it.
+   Analoguous to GET, but if record is NOT found a
+   location to an empty place is returned as value,
+   if found the location for the previous record
+   is returned.
+   -----------------------------------------------------;
+   BEGIN 
+      INTEGER n;
+      REF (record) r;
+      TEXT u;
+      
+      PROCEDURE tail(n);
+      INTEGER n;
+      BEGIN
+         TEXT u;
+         INTEGER k;
+         
+         DB_File.Locate(n);
+         DB_File.Inimage;
+         u :- DB_File.Image;
+         IF u.Sub( u.Length, 1) = ":"
+         THEN                            ! Il y a continuation ;
+         BEGIN
+            k := u.Sub( u.Length - offset_size, offset_size).Getint;
+            freelist :- NEW ilist( k, freelist);
+            tail(k);
+         END;     
+      END tail;
+      
+      nr_lookup := nr_lookup+1;
+      synpointer := NOTEXT;
+      refr :- rtype.prototype;
+      n := dbadr( t, rtype.size, rtype.base);
+      
+nextsym: 
+      r :- getrec(n);
+      IF r == NONE THEN
+         BEGIN
+            lookup := n;
+            GOTO fin;
+         END;
+      IF t = r.getkey THEN
+         BEGIN                     ! overwrite previous record;
+            IF readonly THEN
+               BEGIN
+                  err_readonly;
+                  GOTO fin;
+               END;
+            IF WRPROTECT THEN
+               BEGIN
+                  OutLine("  ** " & t & ": already exists **");
+                  GOTO fin;
+               END;
+             IF last_d_image.Length > Rlength
+                THEN tail(n);
+             synpointer.Sub( Pstart - offset_size, offset_size) := r.syn_;
+             lookup := n;
+             GOTO fin;
+         END;
+      
+      u :- r.syn_;
+      IF u = undefined 
+      THEN
+      BEGIN ! create one more overflow record modify synonym pointer ;
+         INTEGER newloc;
+      
+         INSPECT DB_File DO
+            BEGIN
+               IF readonly THEN
+                  BEGIN
+                     err_readonly;
+                     GOTO fin;
+                  END;
+               Locate(n);
+               Inimage;
+               newloc := nextfree;
+               r.syn_.Putint(newloc);
+               Image.Sub( pstart - offset_size, offset_size) := r.syn_;
+               Locate(n);
+               Outimage;
+               lookup := newloc;
+            END;
+      END ELSE
+         BEGIN
+            n := u.Getint;
+            GOTO nextsym;
+         END;
+fin:  
+   END of lookup;
+         
+   
+   ! ---------------------------------------------- ;
+   REF (record) PROCEDURE getrec(rgetpos);
+   NAME rgetpos;
+   INTEGER rgetpos;
+   !-----------------------------------------------------
+   rgetpos is location for a record which is read as a
+   whole and interpreted by the LOAD procedure of the
+   record refr.
+   NONE is returned if the record is empty or has been
+   marked as deleted.
+   -----------------------------------------------------;
+   BEGIN
+      TEXT link, s; 
+      REF(record) r;
+      BOOLEAN get_syn;
+      
+      IF DBtrace THEN outVV( ">>>GETREC ", rgetpos);
+      
+      DB_File.Locate(rgetpos);
+      IF not DB_File.Endfile THEN
+         BEGIN
+            get_syn := TRUE;
+            
+            WHILE get_syn DO
+               BEGIN
+                  DB_File.Inimage;
+                  s :- DB_File.Image.Strip;
+                  
+                  IF (s.Length < pstart)
+                  THEN get_syn := FALSE
+                  ELSE
+                     BEGIN
+                        link :- Copy(s.Sub(pstart - offset_size, offset_size));
+
+                        IF (s.Sub( 1, 1) <> "-") OR (link = undefined)
+                        THEN get_syn := FALSE
+                        ELSE
+                           BEGIN
+                              prev_syn := rgetpos;
+                              rgetpos := link.Getint;
+                              DB_File.Locate( rgetpos);
+                           END;
+                     END;
+               END  - WHILE - ;
+                  
+            IF (s.Length >= pstart) AND THEN (s.Sub( 1, 1) <> "-")
+            THEN 
+            BEGIN
+               IF s.Length < Rlength 
+               THEN last_d_image :- s :- s.Sub( pstart, s.Length - pst1) 
+               ELSE s :- loadrecord(s);
+
+               r :- refr.load(s);
+               INSPECT r DO
+                  BEGIN 
+                     r.syn_ :- link;
+                     r.dbskey := rgetpos;
+                  END;
+            
+               getrec :- r;
+            END;
+         END;
+   END of getrec;
+   
+   
+   REF (record) PROCEDURE get( rkey, rtype);
+   VALUE rkey, rtype;
+   TEXT  rkey ,rtype;
+   !----------------------------------------------------
+   Load a record with given key and type.
+   Compute pseudo-adress, see if key is same as
+   searched, if not follow chain of synonym records
+   until found, or if not found return NONE.
+   ----------------------------------------------------;
+   BEGIN
+      REF(record) r;
+      TEXT u;
+      INTEGER n;
+               
+      nr_get := nr_get + 1;
+      prev_syn := 0;
+      r__s :- IF r__spec == NONE
+              THEN getrecordspec( rtype)
+              ELSE r__spec;
+      IF r__s == NONE
+      THEN outline2( "ERROR: undefined record type: ", rtype)
+      ELSE
+         BEGIN
+            refr :- r__s.prototype;
+            n := dbadr( rkey, r__s.size, r__s.base);
+
+nextsym: 
+      r :- getrec(n);
+      IF r == NONE THEN GOTO fin;
+      r.dbskey := n;
+      IF rkey = r.getkey THEN
+         BEGIN
+            get :- r;
+            GOTO fin;
+         END;
+      u :- r.syn_;
+      IF u = undefined
+      THEN get :- NONE
+      ELSE
+         BEGIN
+            prev_syn := n;
+            n := u.Getint;
+            GOTO nextsym;
+         END;
+      END;
+fin:  
+   END of get;
+   
+   
+   REF (rspec) PROCEDURE getrecordspec(rcname);
+   VALUE rcname;
+   TEXT  rcname;
+   !-----------------------------------------------------
+   Locate RSPEC object with name RCNAME in array
+   RECORDSPEC where all such objects are stored
+   when the system is initialized.
+   -----------------------------------------------------;
+   BEGIN
+      ref(rspec) rnext;
+      
+      rnext :- recordspec;
+      WHILE (rnext =/= NONE) AND THEN (rnext.rname <> rcname) DO
+         rnext :- rnext.next;
+      
+      IF (rnext =/= NONE)
+         THEN getrecordspec :- rnext;
+   END of getrecordspec;
+   
+   
+   TEXT PROCEDURE loadrecord(t);
+   TEXT t;
+   !----------------------------------------------------
+   t is first part (image) of external record if there
+   are continuations, load these recursively until
+   finally the entire logical external record is returned
+   as value.
+   The global variable LAST_D_IMAGE is also set to
+            point on this record.
+   ----------------------------------------------------;
+   BEGIN  
+      TEXT tx, ty;
+      
+      IF DBtrace 
+         THEN outLine2( ">>>LOADRECORD", t);
+      
+      nr_load := nr_load + 1;
+      IF t.Length < Rlength
+      THEN last_d_image :- t.Sub( pstart, t.Length - pst1).Strip
+      ELSE
+         BEGIN
+            tx :- t.Sub( t.Length - offset_size, offset_size);
+            DB_File.Locate( tx.GetInt);
+            tx :- Copy( t.Sub( pstart, t.Length - pstart - offset_size) );
+            DB_File.Inimage;
+            ty :- loadrecord( DB_File.Image.Strip);
+            last_d_image :- tx & ty;
+         END;
+      loadrecord :- last_d_image;
+   END of loadrecord;
+            
+            
+   PROCEDURE storerecord( start, t);
+   TEXT start, t;
+   !-----------------------------------------------------
+   File D is located to where an external logical
+   record is to start.
+   Write it , and if needed write continuation records
+   (recursively) in overflowarea and link
+   them together.
+   A continuation pointer is a number stored at the end
+   of the image, and the last character is then set to ':'.
+   -------------------------------------------------------;
+   INSPECT DB_File DO
+      BEGIN
+         INTEGER n, m, newloc;
+         TEXT tx;
+         
+         IF readonly THEN err_readonly
+         ELSE 
+            BEGIN 
+               nr_store := nr_store + 1;
+               Image.Sub( 1, pst1) := start;
+               m := Image.Length - pst1;
+               t :- t.Strip;
+               n := t.Length;
+               IF n >= m THEN
+                  BEGIN
+                     newloc := nextfree;
+                     Image.Sub(Image.Length-offset_size, offset_size).
+                               Putint(newloc);
+                     Image.Sub( Image.Length, 1) := ":";
+                     m := m - (offset_size + 1);
+                     tx :- t.Sub( 1, m);
+                  END
+               ELSE tx :- t;
+               Image.Sub( pstart, m) := tx;
+               Outimage;
+               IF n >= m THEN
+                  BEGIN
+                     Locate(newloc);
+                     storerecord( Blanks(offset_size + 1), t.Sub( m+1, n-m) );
+                  END;
+            END - of IF NOT readonly;
+      END of storerecord;
+   
+   
+   ! ---------------------------------------------- ;
+   PROCEDURE delete(r);
+   ! ---------------------------------------------- ;
+   REF (record) r;
+   
+   INSPECT r DO
+      BEGIN
+         INTEGER psave, cont;
+         TEXT sv_image;
+         
+         sv_image :- Blanks( RLength);
+         
+         psave := prev_syn;
+         delstruc( r);
+         prev_syn := psave;
+         
+         INSPECT DB_File DO
+            BEGIN
+               IF readonly THEN err_readonly
+               ELSE 
+                  BEGIN
+                     IF (prev_syn > 0) AND (syn_ <> undefined) THEN
+                        BEGIN ! modify SYN pointer to point to next record;
+                           Locate( prev_syn);
+                           InImage;
+                  
+                           Image.Sub(pstart-offset_size, offset_size) :=syn_;
+                  
+                           Locate( prev_syn);
+                           OutImage;
+                        END;
+                     
+                     Locate( dbskey);
+                     InImage;
+                     Image.Sub( 1, 1) := "-";
+                     sv_image := Image;
+                     Locate( dbskey);
+                     OutImage;
+ 
+                     ! recupere les eventuels enregistrements de continuation ;
+                     Image := sv_image;
+                     WHILE ( Image.Sub( Rlength, 1) = ":" ) DO
+                        BEGIN
+                           cont := Image.Sub( Image.Length - offset_size,
+                                              offset_size).GetInt;
+                           freelist :- NEW ilist( cont, freelist);
+                           Locate( cont);
+                           InImage;
+                        END;
+                  END - IF NOT readonly -;
+            END  - INSPECT - ;
+      END delete;
+   
+
+   ! ---------------------------------------------------- ;
+   PROCEDURE doforeach( rtyp, treat);
+   VALUE rtyp;
+   TEXT rtyp; 
+   PROCEDURE treat;
+   !-----------------------------------------------------
+   Iteration procedure used to process all records of
+   a particular type, calling an arbitrary procedure
+   TREAT for each record.
+   ------------------------------------------------------;
+   
+   BEGIN
+      REF (rspec) r;
+      INTEGER k, n, max;
+      TEXT u;
+      REF (record) p;
+      REF (ilist) s1;
+  
+      REF (ilist) PROCEDURE merge( n, y);
+      INTEGER n;
+      REF (ilist) y;
+
+      IF y == NONE
+      THEN merge :- NEW ilist( n, NONE)
+      ELSE
+         IF n <= y.num 
+         THEN merge :- NEW ilist( n, y) 
+         ELSE
+            BEGIN
+               merge :- y;
+l1:                     
+               IF y.next == NONE
+               THEN y.next :- NEW ilist (n, NONE)
+               ELSE
+                  IF n <= y.next.num
+                  THEN y.next :- NEW ilist( n, y.next)
+                  ELSE
+                     BEGIN
+                        y :- y.next; 
+                        GOTO l1; 
+                     END;
+            END  - merge - ;
+    
+      break_do := FALSE;
+      r :- getrecordspec(rtyp);
+      IF r == NONE THEN
+         BEGIN
+            outline2( "ERROR: doforeach, record type undefined ", rtyp);
+            GOTO fin;
+         END;
+      
+      max := r.base + r.size - 1;
+      FOR k := r.base STEP 1 UNTIL max DO
+         BEGIN
+            refr :- r.prototype;
+            n := k;
+            p :- getrec(n);
+            IF p =/= NONE THEN
+               BEGIN
+                  treat(p);
+                  refr :- r.prototype; 
+                  IF break_do THEN GOTO fin;
+                  u :- p.syn_;
+                  IF u <> undefined
+                     THEN s1 :- merge( u.Getint, s1);
+               END;
+         END  - du FOR - ;
+      
+      WHILE s1 =/= NONE DO
+         BEGIN
+            p :- getrec( s1.num);
+            s1 :- s1.next;
+            IF p =/= NONE THEN
+               BEGIN
+                  treat(p);
+                  refr :- r.prototype;
+                  IF break_do THEN GOTO fin;
+                  k:=scanint( p.syn_);
+                  IF k > 0 THEN s1 :- merge( k, s1);
+               END;
+         END;
+fin: 
+   END of doforeach;
+  
+
+!=================================================;
+%    ForEachKey( Type, Proc):
+%    --------------------------------------------- 
+%    Modification of DoForEach which retrieves
+%    KEYS (not records) and calls a procedure
+%    passed as parameter with each KEY
+%        ... Much faster
+%       (J.Vaucher 10 juin 1992)
+!=================================================;
+    
+   ! ---------------------------------------------------- ;
+   PROCEDURE ForEachKey( rtyp, treat);
+   VALUE rtyp;
+   TEXT rtyp; 
+   PROCEDURE treat;
+   !-----------------------------------------------------
+   Iteration procedure used to process all KEYS of a
+   particular record type, calling an arbitrary procedure
+   TREAT for each KEY.
+   ------------------------------------------------------;
+   
+   BEGIN
+      REF (rspec) r;
+      INTEGER k, max, KP;
+      TEXT u, Key;
+      REF (ilist) s1;
+  
+      !----------------------------------- ;
+       REF (ilist) PROCEDURE merge( n, y); 
+       INTEGER n;
+       REF (ilist) y;
+       !----------------------------------- ;
+       IF y == NONE THEN 
+       merge :- NEW ilist( n, NONE)
+       ELSE IF n <= y.num THEN 
+       merge :- NEW ilist( n, y) 
+       ELSE BEGIN
+               merge :- y;
+L1:            IF y.next == NONE
+               THEN y.next :- NEW ilist (n, NONE)
+               ELSE IF n <= y.next.num
+               THEN y.next :- NEW ilist( n, y.next)
+               ELSE BEGIN
+                       y :- y.next; 
+                       GOTO l1; 
+                    END;
+            END  ---------- merge ------------ ;
+    
+       ! ---------------------------------------------- ;
+       TEXT PROCEDURE getRKEY(rgetpos,KPos, refr);
+       INTEGER rgetpos, KPos;
+       REF (record) refr;
+       !-----------------------------------------------------
+       Variante de GETREC
+       -----------------------------------------------------;
+       BEGIN
+          TEXT link, s, KEY; 
+          REF(record) r;
+          BOOLEAN next_syn;
+      
+          DB_File.Locate(rgetpos);
+          IF not DB_File.Endfile THEN 
+             BEGIN
+                next_syn := TRUE;
+                
+                WHILE next_syn DO 
+                   BEGIN
+                      DB_File.Inimage;
+                      s :- DB_File.Image.Strip;
+                      nr_load := nr_load + 1;
+                  
+                      IF (s.Length < pstart)
+                      THEN next_syn := FALSE
+                      ELSE
+                         BEGIN
+                            link :- Copy(s.Sub(pstart - offset_size, offset_size));
+
+                            IF (s.Sub( 1, 1) <> "-") OR (link = undefined)
+                            THEN next_syn := FALSE
+                            ELSE BEGIN
+                                    prev_syn := rgetpos;
+                                    rgetpos := link.Getint;
+                                    DB_File.Locate( rgetpos);
+                                 END;
+                         END;
+                   END  - WHILE - ;
+                  
+                IF (s.Length >= pstart) AND THEN (s.Sub( 1, 1) <> "-")
+                   THEN BEGIN
+                           INTEGER i, p, n ;
+                    
+                           IF s.Length < ImSize 
+                           THEN s :- s.Sub( pstart, s.Length - pst1)
+                           ELSE s :- s.Sub( pstart, s.Length - 2 * pst1) ;
+                           i := 1;
+                           WHILE s.More Do Begin
+                              n := decode(s);
+                              p := s.pos;
+                              IF i=Kp THEN
+                                 BEGIN
+                                    IF p+n-1<=s.Length THEN
+                                       BEGIN
+                                          Key :- s.Sub(p,n);
+                                          goto EXIT;
+                                       END;
+                                    goto HARD_WAY;
+                                 END;
+                              i := i+1;
+                              s.setpos(p+n);
+                           END  -- while --;    
+HARD_WAY:
+                           IF s.Length < ImSize - 2 * pst1
+                           THEN last_d_image :- s 
+                           ELSE s :- loadrecord(DB_File.Image);
+                           r :- refr.load(s);
+                           Key :- r.avalues(Kp);
+EXIT:    
+                           IF link <> undefined THEN
+                              s1 :- merge( link.Getint, s1);
+                           getRKEY :- Key;
+                        END;
+             END;
+       END ------------- getRKEY ------------------------;
+   
+	break_key := FALSE;
+        r :- getrecordspec(rtyp);
+        IF r == NONE THEN
+          BEGIN
+            outline2( "ERROR: ForEachKey, record type undefined ", rtyp);
+            GOTO fin;
+          END;
+
+       KP := r.keypos;
+       max := r.base + r.size - 1;
+       FOR k := r.base STEP 1 UNTIL max DO
+          BEGIN
+             Key :- getRKEY(k, KP, r.prototype);
+             IF Key =/= notext THEN treat(Key);
+%            IF Key =/= notext THEN 
+%               new TClass(T). into(FEKeyList);
+             IF break_key THEN GOTO fin;
+          END  - du FOR - ;
+ 
+       WHILE s1 =/= NONE AND not break_key DO BEGIN
+          Key :- getRKEY( s1.num, KP, r.prototype);
+          s1 :- s1.next;
+          IF Key =/= notext THEN treat(Key);
+%         IF Key =/= notext THEN 
+%           new TClass(T). into(FEKeyList);
+       END;
+fin: 
+   END of ForeachKey;
+   
+   
+% ===========================================================
+%               UTILITIES
+% ===========================================================
+
+   ! ---------------------------------------------- ;
+   INTEGER PROCEDURE dbadr( t, bsize, base);
+   TEXT t;
+   INTEGER bsize, base;
+   !---------------------------------------------------------
+   Computing of a pseudo-adress within a database-area.
+   ---------------------------------------------------------;
+   BEGIN 
+      INTEGER N, Res;
+      
+      N := hash(t);
+      dbadr := Res := base + randint( 0, bsize - 1, N);
+      IF DBtrace THEN
+         BEGIN
+            Outtext(">>>DBADR: ");
+            OutVV( t & " -> ", Res);
+         END;
+   END of dbadr;
+  
+   ! ---------------------------------------------- ;
+   INTEGER PROCEDURE hash(t);
+   TEXT t;
+   ! ---------------------------------------------- ;
+   BEGIN
+      INTEGER N, K;
+               
+%      K := abs( minint // 8);
+      K := abs( minint // 8)-1;	  
+      t.Setpos(1); 
+      IF checkint(t) > 0 THEN N := t.Getint
+      ELSE
+		 WHILE t.More DO
+			BEGIN
+			   N := 8 * N + Rank(t.Getchar); 
+               IF N > K THEN N := mod( N, K)
+            END;
+      randint( 0, 255, N);           ! sert a faire un dernier brassage de N;
+      hash := N;
+      IF DBtrace THEN outVV( ">>>HASH: ", N);
+   END of dbadr;
+   
+   ! ---------------------------------------------- ;
+   INTEGER PROCEDURE nextfree;
+   ! ---------------------------------------------- ;
+   IF freelist == NONE THEN
+      BEGIN 
+         nextfree := oflowtop; 
+         oflowtop := oflowtop + 1; 
+      END
+   ELSE
+      BEGIN
+         nextfree := freelist.num;
+         freelist :- freelist.next;
+      END  - nextfree - ;
+   
+   
+   ! ---------------------------------------------- ;
+   TEXT PROCEDURE helpmess(t);
+   VALUE t;
+   TEXT  t;
+   ! ---------------------------------------------- ;
+   INSPECT get( t, "HELPMESS") DO
+      BEGIN
+         t :- avalues(2);
+         WHILE t.More DO
+            BEGIN
+               Outtext( scanfield( t) );
+               Outimage;
+            END;
+      END helpmess;
+   
+   
+   ! ---------------------------------------------- ;
+   INTEGER PROCEDURE next_key;
+   ! ---------------------------------------------- ;
+   BEGIN ! produce next unique number;
+      gen_key  := gen_key + 1;
+      next_key := gen_key;
+   END of next_key;
+
+   
+   ! ---------------------------------------------- ;
+   BOOLEAN PROCEDURE display_records;
+   ! ---------------------------------------------- ;
+   BEGIN
+      ref(rspec) rnext;
+      
+      Outimage;
+      outline2( "The following record types are defined:", NOTEXT);
+      Outimage;
+      rnext :- recordspec; 
+      WHILE rnext =/= NONE DO
+         BEGIN
+            Setpos(5);
+            outline2( rnext.rname, NOTEXT);
+            Setpos(15);
+            outline2( "attributes: ", rnext.avalues(7));
+            rnext :- rnext.next;
+         END;
+   END of display;
+   
+   
+   ! ---------------------------------------------- ;
+   BOOLEAN PROCEDURE disp_types;
+   ! ---------------------------------------------- ;
+   BEGIN       ! display parameters and their types for record type r;
+      INTEGER k, adim;
+   
+      outline("Attributes Available: "); 
+      adim := current_spec.adim;
+      FOR k := 1 STEP 1 UNTIL adim DO
+         BEGIN
+            Setpos(10);
+            outline2( typtext( current_spec.atypes(k) ) & "  ",
+                      current_spec.anames(k) );
+         END;
+   END of disp_types;
+
+   
+   PROCEDURE tabulate(r);
+   REF (record) r;
+   !------------------------------------------------------
+   Type for record r either its key or all datafields
+   with names and values.
+   ------------------------------------------------------;
+   IF r =/= NONE THEN 
+      BEGIN
+         IF nameonly THEN outline2( r.avalues(r.spec.keypos), NOTEXT)
+         ELSE
+            BEGIN
+               INTEGER max, k, dim_ta;
+               
+               Outtext("------------  ");
+               outline2( r.spec.rname, "  ---------------------------");
+               max := r.spec.adim;
+               FOR k := 1 STEP 1 UNTIL max DO
+                  IF ( r.avalues( k).Strip.Length > 0 ) THEN 
+                     BEGIN
+                        IF (r.spec.atypes(k) > 3) THEN 
+                           dim_ta := decode(r.avalues(k));
+                     
+                        IF ((r.spec.atypes(k) < 4) OR (dim_ta > 0)) THEN
+                           BEGIN 
+                              Outtext(r.spec.anames(k));
+                              IF Pos <= 20 THEN setpos( 20)
+                                 ELSE Setpos( (pos // 5 + 1) * 5 ); 
+                       END;
+                        IF (r.spec.atypes(k) < 4) THEN 
+                           outline2( " = ", r.avalues(k) )
+                        
+                        ELSE IF (dim_ta > 0) THEN
+                           BEGIN
+                              TEXT ARRAY ta(1 : dim_ta);
+                              INTEGER i, n, Pos;
+                           
+                              Outchar(':');
+                              Pos := r.avalues(k).Pos;
+                              n := split( r.avalues(k).Sub(Pos, 
+                                       r.avalues(k).Length- Pos +1), 
+                                       ta, dim_ta);
+                           
+                              IF (n = -1) THEN
+                                 BEGIN
+ta(dim_ta - 2) :- "**********************************************************";
+ta(dim_ta - 1) :- "* ERREUR: DEPASSEMENT DE CAPACITE DU TABLEAU D'AFFICHAGE *";
+ta(dim_ta    ) :- "**********************************************************";
+                                    n := dim_ta;
+                                 END;
+                           
+                              Outimage;
+                              FOR i := 1 STEP 1 UNTIL n DO
+                                 BEGIN
+                                    setpos(5); 
+                                    outline(ta(i));
+                                 END;
+                           END - of IF  ;
+                     END  - of IF & FOR - ;
+            END;
+      END  - of tabulate - ;
+  
+  
+% ===========================================================
+   
+% ===========================================================
+%        GESTION DU MOT DE PASSE
+% ===========================================================
+
+      ! -------------------------------------------------- ;
+      TEXT PROCEDURE crypt( t, W);
+      TEXT t;
+      INTEGER W;
+      ! --------------------------------------------------
+      Retourne le mot de passe 't' encrypte dans un 
+      text de largeur W.
+                                NA 28-05-92
+      Modifie: 15 juin 1992     
+      ! -------------------------------------------------- ;
+      BEGIN
+         INTEGER U;
+         TEXT retour;
+         
+         W := max( 1, min( W, 9));
+         crypt :- retour :- Blanks( W );
+         U := hash( T);
+         retour.PutInt( RandInt( 0, 10**W-1 , U) );      
+      END - of crypt - ;
+      
+      
+      ! -------------------------------------------------- ;
+      BOOLEAN PROCEDURE passwd_ok( file);
+      REF(Directfile) file;
+      ! --------------------------------------------------
+      Verifie l'eventuel mot de passe de la base aupres de 
+      l'utilisateur. Retourne TRUE si la verification est OK.
+                                  NA 28-05-92
+      ! -------------------------------------------------- ;
+      BEGIN
+         TEXT passwd, DB_key;
+         
+         file.Locate( 1);
+         file.InImage;
+         DB_key :- file.Image.Sub ( pos_passwd, lg_passwd);
+         
+         IF (DB_key.Strip.Length = 0)
+         THEN passwd_ok := TRUE
+         ELSE
+            BEGIN
+%              Request( "Enter Passwd", "", textinput( passwd, TRUE),
+%                        "", nohelp);
+             
+               passwd :- InPassWd("Enter Passwd: ");
+               passwd_ok := ( DB_key = crypt( passwd, lg_passwd));
+            END;
+      END  - of passwd_ok - ;
+      
+      ! -------------------------------------------------- ;
+      PROCEDURE ch_passwd( file);
+      REF(Directfile) file;
+      ! --------------------------------------------------
+      Change l'eventuel mot de passe de la base.
+                                  NA 28-05-92
+      ! -------------------------------------------------- ;
+      BEGIN
+         TEXT passwd1, passwd2;
+         IF readonly THEN err_readonly
+         ELSE IF (NOT passwd_ok( file)) THEN outline("*** Invalid Passwd")
+         ELSE
+            BEGIN
+            
+               passwd1 :- InPassWd("Enter New Passwd: ");
+               passwd2 :- InPassWd("Re-Enter New Passwd: ");
+                        
+%              Request( "Enter New Passwd",     "", textinput( passwd1, TRUE),
+%                       "", nohelp);
+%              Request( "Re-Enter New Passwd",  "", textinput( passwd2, TRUE),
+%                       "", nohelp);
+            
+               IF (passwd1 <> passwd2) THEN outline("*** Sorry")
+               ELSE
+                  BEGIN
+                     file.Locate( 1);
+                     file.InImage;
+                     file.Setpos( pos_passwd);
+                     IF (passwd1 = "") THEN file.OutText( Blanks( lg_passwd))
+                     ELSE file.OutText( crypt( passwd1, lg_passwd));
+                     file.Locate( 1);
+                     file.OutImage;
+                  END;
+            END;
+      END - of ch_passwd - ;
+
+
+
+   
+% ===========================================================
+%        INITIALISATION PROCEDURES
+% ===========================================================
+% ===========================================================
+
+   ! ---------------------------------------------- ;
+   PROCEDURE defaultparms;
+   !-----------------------------------------------------
+   Set defaultparameters(internal for system). Create
+   an RSPEC describing a recordspecification which is
+   needed to load the other recordspecifications from
+   file.
+   -----------------------------------------------------;
+   BEGIN
+      INTEGER k;
+      TEXT t, u;
+      TEXT ARRAY attrarr(1 : 12);
+      INTEGER ARRAY typarr(1 : 12);
+               
+      komma :-     "," ;    ckomma :=     ',';
+      semikolon :- ";" ;    csemikolon := ';'; 
+      em :-        "/*";
+
+      IF DBtrace
+         THEN outline2( ">>>DEFAULTPARMS", NOTEXT);
+
+      synpointer :- Blanks(pst1);
+      undefined  :- Blanks(offset_size);
+      
+      t :- Copy( DefBootRSpecFields);
+      n__spa := splitc( t, ',' , attrarr, 12);
+      
+      u :- DefBootRSpecTypes;
+      FOR k:=1 STEP 1 UNTIL n__spa DO
+         typarr(k) := u.Sub( k, 1).Getint;
+
+      spec__spec :- NEW rspec( NONE, attrarr, "RSPEC", "RNAME",
+                               2, RspecN, 1, n__spa, attrarr, typarr);
+      spec__spec.spec      :- spec__spec;
+      spec__spec.prototype :- spec__spec;
+
+   END of defaultparms;
+  
+  
+   ! ---------------------------------------------- ;
+   PROCEDURE openbase( from_file, ImagSize);
+   ! ---------------------------------------------- ;
+   VALUE from_file;
+   TEXT  from_file;
+   INTEGER ImagSize;
+   
+   BEGIN            
+      IF from_file =/= NOTEXT THEN
+         BEGIN
+            IF DBtrace THEN outline2( ">>>OPENBASE: ", from_file);
+         
+            load_file :- Copy( from_file);
+            ImSize := ImagSize;
+            
+L1: 
+            DB_File :- NEW Directfile( load_file & "." & intput(ImSize) );
+            IF readonly THEN DB_File.setaccess("Readonly")
+               ELSE DB_File.setaccess("AnyCreate");
+
+            IF ( NOT DB_File.Open(Blanks(ImSize)) )
+               THEN error( "*** Could not Open:" & DB_File.FileName );
+
+            IF (NOT passwd_ok( DB_File) )
+               THEN error( "*** Invalid Password");
+    
+            Rlength := ImSize;
+            store_buff :- Blanks( Rlength + 100);
+            defined__f := DB_File.LastLoc > 0;
+    
+            INSPECT DB_FILE DO
+               IF defined__f THEN
+                  BEGIN
+                     Locate(1);
+                     Inimage;
+                     
+                     IF (ScanInt(Image.Sub(pos_imsize, offset_size)) = ImSize)
+                     THEN
+                     BEGIN
+                        INTEGER nextfree;       ! Chainage des blocs libres ;
+                        TEXT SynFld;            ! idem                      ;
+                     
+                        ! Construction de la liste des blocs libres ;
+                        nextfree:=Image.Sub(pos_freelist, offset_size).GetInt;
+                        freelist :- NONE;
+                        SynFld :- Image.sub( 2, offset_size);
+                     
+                        WHILE (nextfree <> 0) DO
+                           BEGIN
+                              freelist :- NEW ilist(nextfree, freelist);
+                              
+                              Locate( nextfree);
+                              InImage;
+                           
+                              IF ( SynFld = undefined)
+                              THEN nextfree := 0
+                              ELSE nextfree := SynFld.GetInt;
+                           END;
+                                        
+                        LOADSPEC ;      ! Chargement des RSPECs  ;
+                    
+                     END
+                     ELSE BEGIN
+                           close;
+                           Error("*** Badly Formatted RECORD 1" );
+                        END;
+                  END
+               ELSE 
+                    Init_New_Base ;
+                   
+            oflowtop := DB_File.LastLoc + 1;
+            IF (NOT defined__f) AND (NOT emptybase)
+               THEN DB_File.Close;
+            
+         END of IF ;
+   END of openbase;
+  
+  ! ----------------------------------------------------- ;
+    Procedure Init_New_Base;
+  ! ----------------------------------------------------- ;
+    Begin
+        Text    t;
+        Integer i;
+                         
+        backslash :- "\";   cback    := '\' ;          
+        arrchar   :- "|";   carrchar := '|' ;
+            
+        t :- DB_File.Image;
+        DB_File.Locate(1);
+            t.sub( pos_genkey,  offset_size).Putint( 0);
+            t.Sub( pos_imsize,  offset_size).PutInt( RLength);
+            t.Sub( pos_freelist,offset_size).PutInt( 0);
+            
+            t.Setpos( pos_genkey + offset_size);
+            t.PutChar( Cback );
+            t.PutChar( carrchar );      
+        DB_File.Outimage;
+        
+        DB_File.Locate(2);
+        DB_File.Image := NOTEXT;
+        FOR i := 1 STEP 1 UNTIL RspecN DO
+            DB_File.Outimage;
+    end === Init_New_Base ===;
+              
+
+   ! ----------------------------------------------------- ;
+   PROCEDURE loadspec;
+   !------------------------------------------------------
+   Read OFLOWTOP and GEN_KEY from first image of data base.
+   Make sure that OFLOWTOP points to top of file.
+   Load all record-specifications.
+   They are automatically saved in array RECORDSPEC
+   when an RSPEC object is created (See above class RSPEC,
+   its procedure LOAD and its class body).
+   ------------------------------------------------------;
+   BEGIN
+      REF (record) r;
+      INTEGER k;
+      TEXT t;
+      BOOLEAN again;
+     
+      PROCEDURE spec_in(r);
+      REF (rspec) r;
+      r.prototype :- NEW record( r, r.anames);
+  
+      INSPECT DB_File DO
+         BEGIN
+            IF DBtrace THEN outline2( ">>>LOADSPEC", NOTEXT);
+      
+            Locate(1);
+            Inimage;
+            oflowtop := Max( oflowtop, LastLoc+1) ; 
+            setpos(offset_size + 1);
+            gen_key := Inint;
+            t :- Image; 
+            backslash :- Copy(t.Sub( 13, 1));
+            cback := backslash.Getchar;
+            arrchar :- Copy(t.Sub( 14, 1)); 
+            carrchar := arrchar.Getchar; 
+            
+%            ! increment to next multiple of 10;
+%            gen_key := (gen_key // 10 + 1) * 10;
+         END;
+    
+      recordspec :- spec__spec;
+      doforeach( "RSPEC", spec_in);
+    
+      INITSET ;  ! -- defini dans DBMSET -- (JV 20 mai1992) ;
+
+   END of loadspec;
+  
+   
+   PROCEDURE closebase;
+   !-------------------------------------------------------
+   Update first image which contains pointer to current
+   top of file and current number for generated data
+   base keys.
+   Close file, print statistics over calls to the most
+   frequent internal procedures.
+   -------------------------------------------------------;
+   BEGIN
+      INTEGER n;
+      REF (record) r;
+      REF (ilist) P;                ! Pour le chainage des blocs libres ;
+      TEXT SynFld;                  ! idem                              ;
+      
+      IF DBtrace THEN outline2( ">>>CLOSEBASE", NOTEXT);
+      INSPECT DB_File DO
+         BEGIN
+            IF NOT readonly THEN
+               BEGIN
+                  Locate(1);
+                  Inimage;
+                  Image.Sub( pos_overflow, offset_size).Putint(oflowtop);
+                                     ! save current unique number;
+                  Image.Sub( pos_genkey, offset_size).Putint( gen_key);
+
+                  ! Chainage des blocs libres sur disque ; 
+                  Image.Sub( pos_freelist,
+                             offset_size  ).Putint(IF freelist == NONE 
+                                                   THEN 0  ELSE freelist.num);
+                  Locate(1);
+                  Outimage;
+               
+                  P :- freelist;    
+                  SynFld :- Image.sub( 2, offset_size);
+                  
+                  WHILE P =/= NONE DO
+                     BEGIN
+                        Locate(P.num);
+                        Inimage;
+                        
+                        INSPECT P.next DO
+                           SynFld.Putint( Num)
+                        OTHERWISE
+                           SynFld := NOTEXT;
+                        
+                        Locate(P.num);
+                        OutImage;
+                        
+                        P :- P.next
+                     END - WHILE -;
+               END;
+            Close;
+         END;
+      
+      IF statist THEN 
+         BEGIN
+            OutVV( "Records created: ", nr_record);
+            OutVV( "Gets           : ", nr_get); 
+            OutVV( "Lookup         : ", nr_lookup);
+            OutVV( "Loads          : ", nr_load); 
+            OutVV( "Store          : ", nr_store);
+            OutImage;
+         END;
+   END  - of closebase - ;
+
+   
+   !--------------------------------------------------------
+   Initiate data base file: 
+   set default parameters and define internal structures,
+   open data base file
+   if it is an old database load all record-specifications.
+   --------------------------------------------------------;
+
+   IF DebugLevel > 0 THEN 
+    outline( "------------------ DBMMIN ("&VERSION&") -------------------");
+      
+   defaultparms;
+   IF load_file <> "" THEN openbase( load_file, imsize);
+   AutoClose := true;
+   
+   INNER;
+   
+   IF autoclose AND DB_File.Image =/= NOTEXT THEN closebase;
+  
+END of class dbm;

@@ -133,7 +133,6 @@ namespace Sim {
 		Tok_VIRTUAL,
 		Tok_WHEN,
 		Tok_WHILE,
-		Tok_is,
 
 		TT_Specials,
 		Tok_decimal_number,
@@ -155,5 +154,6 @@ namespace Sim {
 	bool tokenTypeIsKeyword( int );
 	bool tokenTypeIsSpecial( int );
 	TokenType tokenTypeFromString( const QByteArray& str, int* pos = 0 );
+	TokenType tokenTypeFromString( const char* str, quint32 len, int* pos = 0 );
 }
 #endif // __SIM_TOKENTYPE__

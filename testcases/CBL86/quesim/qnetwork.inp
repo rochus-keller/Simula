@@ -1,0 +1,20 @@
+1000000     expduration          ! experiment duration;
+3	        seedoper             ! operation duration;
+5	        seedb                ! branching after failure;
+7	        seedlocal            ! standard local service; 
+11	        seedlocals           ! short local service; 
+13	        seedspec             ! specialist sevice;
+17	        seedlb               ! branching after local service;
+19	        seedsb               ! branching after specialist service;
+2           machines             ! total number of machines;
+2	        machinesop           ! number of machines operational;
+1	        repairmen            ! number of local repain men;
+60          optime               ! mean exponential t.b.f.;
+60	        smean,sstd	         ! standard normal local service;
+20
+15          smeans,sstds	     ! short normal local service;
+3
+10          smin,slikely,smax    ! triangular specialist service;
+20
+40
+

@@ -1,0 +1,58 @@
+% =======================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 80
+%
+%  PURPOSE:     Test the attribute 'IsOpen' of class file.
+%
+%  METHOD:      Check the value of the attribute in one file object
+%               where the file still is open but another file object 
+%               has called close, both refering to the same file.
+%
+%  WARNING:     In some (erroneous) cases the program may loop!!!
+%
+%  NOTE:    1 - The filename given must be a legal filename.
+%
+%  WRITTEN BY:  BEH   27/08-86
+% ======================================================================
+BEGIN
+   Boolean errorFound ;
+
+   Ref(imagefile) f1, f2;
+
+   Outtext ("--- START Simula a.s. TEST 80") ;
+   Outimage ;
+   Outtext ("--- Test the attribute 'IsOpen' of class file") ;
+   Outtext (" (uses infile ""any8089"").") ;
+   Outimage ; Outimage ;
+
+   f1:- New Infile("any8089");                  !**** NOTE 1 ****;
+   f2:- New Infile("any8089");                  !**** NOTE 1 ****;
+
+   If not f1 qua Infile.open (blanks(100)) then begin
+      outtext("ERROR: File ""any8089"" cannot be opened."); outimage;
+      errorFound:=true; goto EXIT end;
+   If not f2 qua Infile.open (blanks(100)) then begin
+      outtext("WARNING: cannot open infile (f2)"); outimage end;
+
+   f1 qua Infile.Inimage;
+   While f1 qua Infile.endfile do f1 qua Infile.Inimage;
+
+   if f2.isOpen then begin
+      If not f2 qua Infile.Close then begin errorFound:=true;
+         outtext("ERROR: cannot close infile (f2)"); outimage end;
+   end;
+
+   IF f1.IsOpen THEN !OK;
+   Else begin errorFound:=true;
+      Outtext("ERROR : 'IsOpen' returns false"
+                 " but the file should be open");
+      Outimage
+   End;
+
+   If not f1 qua Infile.Close then begin errorFound:=true;
+      outtext("ERROR: cannot close infile"); outimage; end;
+
+EXIT:
+   Outtext ("--- END Simula a.s. TEST 80") ;
+   if not errorFound then Outtext (" (NO ERRORS FOUND)") ;
+   Outimage
+ END

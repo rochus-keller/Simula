@@ -1,0 +1,384 @@
+% ==============================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST  NO 5
+%
+%  PURPOSE:  To test the relops =, <, <=, >, >= AND <> (eq, lt, le, gt,
+%            ge and ne) for reals AND integers.
+%
+%  METHOD:  Use the relops on various numeric values.
+%
+%  NOTES:  - significant only if max/min constants and add/sub eps not avail:
+%         1. At lines commented with NOTE 1 : The max/min legal integer value
+%            on your implementation must be filled in as explained.
+%         2. At lines commented with NOTE 2 : The max/min legal short integer
+%            value on your implementation must be filled in as explained.
+%         3. At lines commented with NOTE 3 : The max/min legal real value
+%            on your implemetation must be filled in as explained.
+%         4. At lines commented with NOTE 4 : The max/min legal real value
+%            with dobble precition must be filled in as explained.
+%
+%  WRITTEN BY:  THE  14/10-83
+% ==============================================================================
+BEGIN
+BOOLEAN            found_error;       ! Set to true when errors are;
+                                       ! found.                     ;
+INTEGER            i1;                ! To be compared by the relops;
+INTEGER            i2;                ! To be compared by the relops;
+SHORT INTEGER      s1;                ! To be compared by the relops;
+SHORT INTEGER      s2;                ! To be compared by the relops;
+REAL               r1;                ! To be compared by the relops;
+REAL               r2;                ! To be compared by the relops;
+LONG REAL          l1;                ! To be compared by the relops;
+LONG REAL          l2;                ! To be compared by the relops;
+
+INTEGER            maxpint;           ! To contain max pos int value;
+INTEGER            maxnint;           ! To contain max neg int value;
+SHORT INTEGER      maxpshort;         ! To contain max pos short int;
+SHORT INTEGER      maxnshort;         ! To contain max neg short int;
+REAL               maxpreal;          ! To contain max pos real val.;
+REAL               minpreal;          ! To contain min pos real val.;
+REAL               maxnreal;          ! To contain max neg real val.;
+REAL               minnreal;          ! To contain min neg real val.;
+LONG REAL          maxplreal;         ! To contain max pos long real ;
+LONG REAL          minplreal;         ! To contain min pos long real ;
+LONG REAL          maxnlreal;         ! To contain max neg long real ;
+LONG REAL          minnlreal;         ! To contain min neg long real ;
+
+procedure err(t); text t;
+begin sysout.setpos(1);
+      outtext("*** ERROR: in test "); outtext(t); outimage;
+      found_error:=true;
+end;
+
+Outtext ("--- START Simula a.s TEST 5");
+Outimage;
+Outtext ("--- Test arithm. relations");
+Outimage; Outimage;
+
+                                       !********* NOTE 1 ************;
+maxpint :=  maxint;                   ! Fill in max positiv AND    ;
+maxnint :=  minint;                   ! negative integer value.    ;
+                                       !********* NOTE 2 ************;
+maxpshort :=  32767;                  ! Fill in max positive AND   ;
+maxnshort := -32768;                  ! negative short integer value;
+                                       !********* NOTE 3 ************;
+maxpreal :=  maxreal;                 ! Fill in max AND min positive;
+minpreal :=  addepsilon(0.0);         ! AND negative real value with;
+maxnreal :=  minreal;                 ! real precision.             ;
+minnreal :=  subepsilon(0.0);
+                                       !********* NOTE 4 ************;
+maxplreal :=  maxlongreal;             ! Fill in max AND min positive;
+minplreal :=  addepsilon(0.0&&0);      ! AND negative real value with;
+maxnlreal :=  minlongreal;             ! long real precision.       ;
+minnlreal :=  subepsilon(0.0&&0);
+                                       !*****************************;
+                                       ! Test relops on integers.   ;
+                                       !*****************************;
+IF         i1 EQ 0  AND NOT i1 <  i2
+   AND     i1 <= i2 AND NOT i1 >  i2
+   AND      0 >= i2 AND NOT i1 <> i2  THEN
+ELSE  err("INT.1 (comparing INTEGERs)");
+
+i1 := 50;  ! i2 = 0;
+
+IF     NOT i1 = i2  AND NOT i1 LT  0
+   AND NOT 99 <= i2 AND     i1 >  i2
+   AND     i1 >= i2 AND     i1 <> i2  THEN
+ELSE  err("INT.2 (comparing INTEGERs)");
+
+i1 := i2; ! = 0;   i2 := 100;
+
+IF     NOT i1 = i2  AND     i1 <  i2
+   AND     i1 LE  1 AND NOT  0 >  i2
+   AND NOT i1 >= i2 AND     i1 <> i2  THEN
+ELSE  err("INT.3 (comparing INTEGERs)");
+
+i1 := i2; ! = 100;
+
+IF         i1 = i2  AND NOT i1 < 100
+   AND     i1 <= i2 AND NOT i1 GT i2
+   AND    100 >= i2 AND NOT i1 <> i2  THEN
+ELSE  err("INT.4 (comparing INTEGERs)");
+
+i2 := maxpint;  ! i1 = 100 ;
+
+IF     NOT i1 =  i2 AND     i1 <  101
+   AND      1 <= i2 AND NOT i1 >  i2
+   AND NOT i1 GE i2 AND     i1 <> i2  THEN
+ELSE  err("INT.5 (comparing INTEGERs)");
+
+i2 := 50;  ! i1 = 100;
+
+IF     NOT i1 =  49 AND NOT i1 <  i2
+   AND NOT i1 <= i2 AND     i1 >  3
+   AND     i1 >= i2 AND     i1 NE i2  THEN
+ELSE  err("INT.6 (comparing INTEGERs)");
+
+i2 := -1;  ! i1 = 100;
+
+IF     NOT i1 EQ -18 AND NOT i1 <  i2
+   AND NOT i1 <= i2  AND      1 >  i2
+   AND     i1 >= i2  AND     i1 <> i2  THEN
+ELSE  err("INT.7 (comparing INTEGERs)");
+
+i1 := -33;  i2 :=   1;
+
+IF     NOT i1 = i2   AND     i1 LT i2
+   AND     i1 <= i2  AND NOT i1 >  i2
+   AND NOT -3 >= i2  AND     i1 <> 55  THEN
+ELSE  err("INT.8 (comparing INTEGERs)");
+
+i1 :=  0;   i2 := -10;
+
+IF     NOT  0 =  i2 AND NOT i1 <  -23
+   AND NOT i1 LE i2 AND     i1 >  i2
+   AND     i1 >= i2 AND     i1 <> i2  THEN
+ELSE  err("INT.9 (comparing INTEGERs)");
+
+i2 := i1;  ! = 0;   i1 := -1003;
+
+IF     NOT i1 = i2  AND     i1 <   0
+   AND     i1 <= i2 AND NOT -4 GT i2
+   AND NOT i1 >= i2 AND     i1 <> i2  THEN
+ELSE  err("INT.10 (comparing INTEGERs)");
+
+i2 := i1;  ! = -1003;
+
+IF         i1 =  i2 AND NOT i1 <  -1003
+   AND     i1 <= i2 AND NOT i1 >  i2
+   AND     i1 GE i2 AND NOT i1 <> i2  THEN
+ELSE  err("INT.11 (comparing INTEGERs)");
+
+i2 := -2000;  ! i1 = -1003;
+
+IF     NOT i1 =  -3200 AND NOT i1 <  i2
+   AND NOT i1 <= i2    AND     i1 >  i2
+   AND     -1 >= i2    AND     i1 NE i2  THEN
+ELSE  err("INT.12 (comparing INTEGERs)");
+
+                                       !*****************************;
+                                       ! Test relops on short       ;
+                                       ! integers AND between short ;
+                                       ! AND "normal" integers.     ;
+                                       !*****************************;
+s1 := 68; ! s2 := 0;
+
+IF     NOT s1 =  s2    AND NOT s1 <  s2
+   AND     s1 <= 100   AND NOT  0 >  s2
+   AND     s1 >= s2    AND     s1 <> s2   THEN
+ELSE  err("SINT.1 (comparing SHORT INTEGERs)");
+
+s1 := 10;   s2 :=maxnshort;  ! i2 = -2000, i1 = -1003;
+
+IF     NOT 68 =  s2    AND NOT s1 <  s2
+   AND NOT i2 <= s2    AND     s1 >  s2
+   AND     s1 >= s2    AND NOT s1 <> 10   THEN
+ELSE  err("SINT.2 (comparing SHORT INTEGERs)");
+
+s1 := -5;   s2 := -800;  ! i2 = -2000, i1 = -1003;
+
+IF     NOT s1 =  s2    AND NOT s1 <  s2
+   AND     s1 <= -5    AND     s1 >  s2
+   AND     s1 >= s2    AND     s1 <> s2   THEN
+ELSE  err("SINT.3 (comparing SHORT INTEGERs)");
+                                       !*****************************;
+                                       ! Test relops on reals.      ;
+                                       !*****************************;
+
+IF                 r1  = 0.0000&00  AND NOT        0.0 <  r2
+   AND             r1 <= r2         AND NOT         r1  > r2
+   AND             r1 >= r2         AND NOT         r1 <> r2  THEN
+ELSE  err("REAL.1 (comparing REALs)");
+
+r1 := minpreal;  ! r2 = 0;
+
+IF                 r2  = 0&0        AND NOT         r1 <  r2
+   AND NOT         r1 <= r2         AND             r1  > r2
+   AND             r1 >= r2         AND             r1 <> r2  THEN
+ELSE  err("REAL.2 (comparing REALs)");
+
+r1 := 0.00;  r2 := 3.4567&7;
+
+IF                 r1  = r1         AND             r1 <  8.8&1
+   AND             r1 <= r2         AND NOT         r1  > r2
+   AND NOT        0&1 >= r2         AND             r1 <> r2  THEN
+ELSE  err("REAL.3 (comparing REALs)");
+
+r2 := r1;  ! = 0.0;
+
+IF                 r1  = r2         AND NOT         r1 <  r2
+   AND             r2 <= r1         AND NOT         r1  > r2
+   AND             r1 >= r2         AND NOT         r2 <> r1  THEN
+ELSE  err("REAL.4 (comparing REALs)");
+
+r2 := 3.4568&7;  ! r1 = 0.0;
+
+IF                 r2  = r2         AND             r1 <  r2
+   AND             r1 <= r2         AND NOT         r1  > r2
+   AND NOT         r1 >= 34.568&6   AND             r1 <> r2  THEN
+ELSE  err("REAL.5 (comparing REALs)");
+
+r1 := 20;  r2 := 20&10;
+
+IF                 r1  = r1         AND             r1 <  r2
+   AND           1&-1 <= r2         AND NOT         r1  > r2
+   AND NOT         r1 >= r2         AND             r1 <> r2  THEN
+ELSE  err("REAL.6 (comparing REALs)");
+
+r1 := maxnreal;   r2 := minpreal;
+
+IF                 r1  = r1         AND             r1 <  r2
+   AND         -.1&00 <= r2         AND NOT         r1  > .00002&0
+   AND NOT         r1 >= r2         AND             r1 <> r2  THEN
+ELSE  err("REAL.7 (comparing REALs)");
+
+r1 := maxpreal;   r2 := -222222&-8;
+
+IF                 r2  = r2         AND NOT 2.3456&+01 <  r2
+   AND NOT         r1 <= r2         AND             r1  > -1.1&0
+   AND             r1 >= r2         AND             r1 <> r2  THEN
+ELSE  err("REAL.8 (comparing REALs)");
+
+r1 := 0;  r2 := -58.9;
+
+IF                 r1  = -0.0000&-6 AND NOT       0&00 <  r2
+   AND NOT         r1 <= r2         AND             r1  > r2
+   AND             r1 >= r2         AND             r1 <> r2  THEN
+ELSE  err("REAL.9 (comparing REALs)");
+
+r1 := -58.9;   ! r2 = -58.9;
+
+IF                 r1  = r2         AND NOT         r2 <  r1
+   AND             r1 <= r2         AND NOT         r1  > r2
+   AND             r2 >= r1         AND NOT         r1 <> r2  THEN
+ELSE  err("REAL.10 (comparing REALs)");
+
+r1 := maxnreal;! r2 = -58.9;
+
+IF                 r2  = r2         AND             r1 <  r2
+   AND             r1 <= -22&-2     AND NOT         r1  > r2
+   AND NOT         r1 >= r2         AND             r1 <> r2  THEN
+ELSE  err("REAL.11 (comparing REALs)");
+                                       !*****************************;
+                                       ! Test relops on long reals. ;
+                                       !*****************************;
+
+IF                 l1  = l2         AND NOT         l1 <  l2
+   AND           0&&0 <= l2         AND NOT         l1  > l2
+   AND             l1 >= 0.0&&7     AND NOT         l1 <> l2  THEN
+ELSE  err("LONG.1 (comparing LONG REALs)");
+
+l1 := maxplreal;   l2 := 28&&04;
+
+IF                 l1  = l1         AND NOT   28.1&&04 <  l2
+   AND NOT         l1 <= l2         AND             l1  > l2
+   AND             l1 >= l2         AND             l1 <> l2  THEN
+ELSE  err("LONG.2 (comparing LONG REALs)");
+
+l1 := minnlreal;   l2 := 0;
+
+IF                 l1  = l1         AND             l1 <  l2
+   AND             l1 <= l2         AND NOT         l1  > l2
+   AND NOT         l1 >= l2         AND             l1 <> l2  THEN
+ELSE  err("LONG.3 (comparing LONG REALs)");
+                                       !*****************************;
+                                       ! Test relops between reals  ;
+                                       ! AND long reals.            ;
+                                       !*****************************;
+% r1 = maxnreal, r2 = -58.9, l1 = minnlreal, l2 = 0;
+
+IF                 l2  = 0&1        AND             r1 <  l2
+   AND NOT         l1 <= r2         AND NOT         r1  > l1
+   AND NOT         r1 >= 2&&10      AND NOT         r2 <> r2  THEN
+ELSE  err("RL.1 (comparing REAL and LONG REAL)");
+                                       !*****************************;
+                                       ! Test relops between reals  ;
+                                       ! AND integers.              ;
+                                       !*****************************;
+% i2 = -2000, i1 = -1003, r1 = maxnreal, r2 = -58.9
+
+IF                 i2  = i2         AND NOT         i1 <  r1
+   AND NOT         r2 <= i2         AND             i2  > r1
+   AND NOT         r1 >= -100000    AND             r2 <> i1  THEN
+ELSE  err("RI.1 (comparing REAL and INTEGER)");
+                                       !*****************************;
+                                       ! Test relops between integers;
+                                       ! AND long reals.            ;
+                                       !*****************************;
+% i2 = -2000, i1 = -1003, l1 = minnlreal, l2 = 0;
+
+IF                 i2  = i2         AND NOT         l1 <  i1
+   AND NOT         l2 <= i2         AND NOT         l1  > 1
+   AND NOT         i1 >= l2         AND             l2 <> i1  THEN
+ELSE  err("IL.1 (comparing INTEGER and LONG REAL)");
+                                       !*****************************;
+                                       ! Test relops between reals  ;
+                                       ! AND short integers.        ;
+                                       !*****************************;
+% s1 = -5,  s2 = -800, r1 = maxnreal, r2 = -58.9, l1 = minnlreal, l2 = 0;
+
+IF                 s2  = s2         AND NOT         s1 <  r1
+   AND             r1 <= s2         AND             r2  > s2
+   AND NOT         r2 >= s1         AND NOT         r1 <> r1  THEN
+ELSE  err("SR.1 (comparing SHORT INTEGER and REAL)");
+                                       !*****************************;
+                                       ! Test relops between short  ;
+                                       ! integers AND long reals.   ;
+                                       !*****************************;
+% s1 = -5,  s2 = -800, r1 = maxnreal, r2 = -58.9, l1 = minnlreal, l2 = 0;
+
+IF                 l1  = l1         AND NOT         l2 <  s1
+   AND             s2 <= l2         AND             l1  > s2
+   AND NOT         l1 >= 69         AND             s2 <> -8.1&&2 THEN
+ELSE  err("SL.1 (comparing SHORT INTEGER and LONG REAL)");
+
+                                       !******************************;
+                                       ! the following tests may give ;
+                                       ! run time errors because of   ;
+                                       ! overflow in test - this is a ;
+                                       ! serious error!!!             ;
+                                       !******************************;
+i1 := maxnint; i2 := maxpint;
+
+outtext("*** ERROR: OVERFLOW in test MAX.1 (COMPARING maxint AND minint)");
+IF     NOT i1 =  i2   AND     -2222 <  i2
+   and     i1 =  i1   and   i2 =  i2
+   AND     i1 <= i2 AND NOT i1 >  -1
+   AND NOT i1 >= i2 AND     i1 <> i2
+   and NOT i2 =  i1   AND     -2222 >  i1
+   AND     i2 >= i1 AND NOT i2 <  -1
+   AND NOT i2 <= i1 AND     i2 <> i1  THEN
+           begin inspect sysout do begin image:=notext; setpos(1) end end
+ELSE  err("MAX.1 (comparing INTEGERs)");
+
+r1 := maxnreal; r2 := maxpreal;
+
+outtext("*** ERROR: OVERFLOW in test MAX.2 (COMPARING maxreal AND minreal)");
+IF     NOT r1 =  r2   AND     -2222 <  r2
+   and     r1 =  r1   and   r2 =  r2
+   AND     r1 <= r2 AND NOT r1 >  -1
+   AND NOT r1 >= r2 AND     r1 <> r2
+   and NOT r2 =  r1   AND     -2222 >  r1
+   AND     r2 >= r1 AND NOT r2 <  -1
+   AND NOT r2 <= r1 AND     r2 <> r1  THEN
+           begin inspect sysout do begin image:=notext; setpos(1) end end
+ELSE  err("MAX.2 (comparing REALs)");
+
+l1 := maxnlreal; l2 := maxplreal;
+
+outtext("*** ERROR: OVERFLOW in test MAX.3 (COMPARING max- AND minlongreal)");
+IF     NOT l1 =  l2   AND     -2222 <  l2
+   and     l1 =  l1   and   l2 =  l2
+   AND     l1 <= l2 AND NOT l1 >  -1
+   AND NOT l1 >= l2 AND     l1 <> l2
+   and NOT l2 =  l1   AND     -2222 >  l1
+   AND     l2 >= l1 AND NOT l2 <  -1
+   AND NOT l2 <= l1 AND     l2 <> l1  THEN
+           begin inspect sysout do begin image:=notext; setpos(1) end end
+ELSE  err("MAX.3 (comparing LONG REALs)");
+
+IF found_error THEN  ELSE
+   begin Outtext ("--- NO ERRORS FOUND IN THIS TEST"); Outimage; end;
+outtext ("--- END Simula a.s. TEST 5");
+outimage
+
+END of program

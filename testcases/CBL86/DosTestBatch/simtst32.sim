@@ -1,0 +1,154 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 32
+%
+%  PURPOSE:     Simple test of formal procedures.
+%
+%  WRITTEN BY:  BEH   22/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   CLASS A ;
+   BEGIN
+      INTEGER ia ;
+      INTEGER PROCEDURE ip ;ip := 12 ;
+   END of class A ;
+
+   A CLASS B ;
+   BEGIN
+      INTEGER ib ;
+   END of class B ;
+
+   B CLASS C ;
+   BEGIN
+      INTEGER ic ;
+   END of class C ;
+
+   CLASS X ; ;
+
+   REF (A)            gra ;
+   REF (A)            ra ;
+   REF (B)            rb ;
+   REF (C)            rc ;
+   INTEGER            gi ;
+   REAL               gr ;
+   CHARACTER          gch ;
+   BOOLEAN            gbool ;
+   TEXT               gtext ;
+
+   INTEGER PROCEDURE ip ;  ip := 11 ;
+
+   REAL PROCEDURE rp ; ;
+
+   PROCEDURE Ap (i, r, bool, ch, ra, t) ;
+                       INTEGER     i ;
+                       REAL        r ;
+                       BOOLEAN     bool ;
+                       CHARACTER   ch ;
+                       REF (A)     ra ;
+                       TEXT        t ;
+   BEGIN
+      gi := i ;
+      gr := r ;
+      gbool := bool ;
+      gch := ch ;
+      gra :- ra ;
+      gtext :- t
+   END of procedure Ap ;
+
+   REF (A) PROCEDURE Rap ;  Rap :- new A ;
+
+   PROCEDURE P (F) ;  PROCEDURE F ;
+   BEGIN
+      F (1, 1.2, TRUE, 'c', NONE, NOTEXT) ;
+
+      if     gi = 1
+         and gr = 1.2
+         and gbool
+         and gch = 'c'
+         and gra == none
+         and gtext = notext then
+      else
+      begin
+         Outtext ("*** ERROR : Value of global variables (1).") ;
+         Outimage ;
+         Outtext ("            Erroneus values : gi = ") ;
+         Outint (gi, 5) ;
+         Outimage ;
+         Outtext ("                              gr = ") ;
+         Outreal (gr, 5, 12) ;
+         Outimage ;
+         Outtext ("                           gbool = ") ;
+         Outtext (if gbool then "true" else "false") ;
+         Outimage ;
+         Outtext ("                             gch = ") ;
+         Outchar (gch) ;
+         Outimage ;
+         Outtext ("                             gra == ") ;
+         Outtext (if gra == none then "notext" else
+                  if gra is A then "object of A" else
+                  if gra is B then "object of B" else
+                                   "object of C") ;
+         Outimage ;
+         Outtext ("                           gtext = ") ;
+         Outtext (if gtext = notext then "notext" else gtext) ;
+         Outimage ; Outimage ;
+         found_error := true
+      end ;
+
+      F (ip, ip + 1, false, if TRUE then 't' else 'f', Rap, copy ("abc")) ;
+
+      if     gi = 11
+         and gr = 12
+         and not gbool
+         and gch = 't'
+         and gra =/= none
+         and gtext = "abc" then
+      else
+      begin
+         Outtext ("*** ERROR : Value of global variables (1).") ;
+         Outimage ;
+         Outtext ("            Erroneus values : gi = ") ;
+         Outint (gi, 5) ;
+         Outimage ;
+         Outtext ("                              gr = ") ;
+         Outreal (gr, 5, 12) ;
+         Outimage ;
+         Outtext ("                           gbool = ") ;
+         Outtext (if gbool then "true" else "false") ;
+         Outimage ;
+         Outtext ("                             gch = ") ;
+         Outchar (gch) ;
+         Outimage ;
+         Outtext ("                             gra == ") ;
+         Outtext (if gra == none then "notext" else
+                  if gra is A then "object of A" else
+                  if gra is B then "object of B" else
+                                   "object of C") ;
+         Outimage ;
+         Outtext ("                           gtext = ") ;
+         Outtext (if gtext = notext then "notext" else gtext) ;
+         Outimage ; Outimage ;
+         found_error := true
+      end ;
+
+   END of procedure P ;
+
+   Outtext ("--- START Simula a.s. TEST 32");
+   Outimage ;
+   Outtext ("--- Simple test of formal procedures");
+   Outimage; Outimage;
+
+   P (ap) ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 32") ;
+   Outimage
+
+END of program

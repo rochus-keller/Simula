@@ -1,0 +1,273 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 22
+%
+%  PURPOSE:     Test for-loops with various for-list elements
+%
+%  METHOD:      Count number of times loops are iterated.
+%
+%  REWRITTEN BY:  BEH   15/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   class c;
+   begin ref(c)next; end c;
+
+   integer i,j,n;
+   ref(c)cp;
+
+   Outtext ("--- START Simula a.s. TEST 22") ;
+   Outimage ;
+   Outtext ("--- Test for-loops with various for-list elements.") ;
+   Outimage ; Outimage ;
+
+   n := 1 ;
+
+   for i:= 1 step 1 until 2 do            ! Fast For ;
+   begin
+      if i <> n then
+      begin
+         Outtext ("*** ERROR : Fast For (1).") ;
+         Outimage ;
+         Outtext ("            Erroneus values : ") ;
+         Outint (i,3) ; Outint (n,3) ;
+         Outimage ;
+         found_error := true
+      end ;
+      n:=n+1;
+   end ;
+
+   if i <> n then
+   begin
+      Outtext ("*** ERROR : Fast For (2).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outint (i, 3) ;
+      Outint (n, 3) ;
+       Outimage ;
+      found_error := true
+   end ;
+
+   n := 1 ;
+
+   for i:= 1 step 1 until j+2 do          ! Single Step Element ;
+   begin
+      if i <> n then
+      begin
+         Outtext ("*** ERROR : Single Step Element (3).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outint (i, 3) ;
+         Outint (n, 3) ;
+         Outimage ;
+         found_error := true
+      end ;
+      n:=n+1;
+   end ;
+
+   if i <> n then
+   begin
+      Outtext ("*** ERROR :Single Step Element (4).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outint (i, 3) ;
+      Outint (n, 3) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   n := 1 ;
+
+   for i:= 1 step 1 until 2, j do         ! Complex For ;
+   begin
+      if    i <> n and n < 3
+         or n = 3 and i <> j then
+      begin
+         Outtext ("*** ERROR : Complex For (5).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outint (i, 3) ;
+         Outint (n, 3) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+      n:=n+1;
+   end ;
+
+   if i <> j then
+   begin
+      Outtext ("*** ERROR : Complex For (6).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outint (i, 3) ;
+      Outint (n, 3) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   n := 1 ;
+
+   for i:= 1 while i>j do                 ! Single While Element ;
+   begin
+      if i <> n  or  n > 1 then
+      begin
+         Outtext ("*** ERROR : Single While Element (7).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outint (i, 3) ;
+         Outint (n, 3) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+      n:=n+1;
+      j:=2;
+   end;
+
+   if i <> 1 or n > 2 then
+   begin
+      Outtext ("*** ERROR : Singel While Element (8).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outint (i, 3) ;
+      Outint (n, 3) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   n := 1 ;
+
+   for i:= 1 while i>j, 4 do               ! Complex For ;
+   begin
+      if i <> 4 or n > 1 then
+      begin
+         Outtext ("*** ERROR : Complex For (9).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outint (i, 3) ;
+         Outint (n, 3) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+      n:=n+1;
+   end;
+
+   if i <> 4 or n > 2 then
+   begin
+      Outtext ("*** ERROR : Complex For (10).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outint (i, 3) ;
+      Outint (n, 3) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   n := 1 ;
+
+   for cp:-new c, cp.next while cp=/=none do        ! Complex For ;
+   begin
+      integer i;
+
+      if n <> 1 or i <> 0 then
+      begin
+         Outtext ("*** ERROR : Complex For (11).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outint (i, 3) ;
+         Outint (n, 3) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+      n:=n+1;
+   end;
+
+   if n <> 2 then
+   begin
+      Outtext ("*** ERROR : Complex For (12).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outint (i, 3) ;
+      Outint (n, 3) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   n := 1 ;
+
+   for cp:-new c, cp.next while cp=/=none, new c.next do   ! Complex For ;
+   begin
+      integer n1 ;
+
+      if cp == none and n = 1 or cp =/= none and n = 2 then
+      begin
+         Outtext ("*** ERROR : Complex For (13).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outint (i, 3) ;
+         Outint (n, 3) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+      n1 := 1 ;
+
+      for i:= 1 while i>j,4 do                             ! Complex For ;
+      begin
+         if i <> 4 or n1 <> 1 then
+         begin
+            Outtext ("*** ERROR : Complex For (14).") ;
+            Outimage ;
+            Outtext ("            Erroneus values :") ;
+            Outint (i, 3) ;
+            Outint (n, 3) ;
+            Outimage ;
+            found_error := true
+         end ;
+
+         n1:=n1+1;
+      end;
+
+      if i <> 4 or n1 <> 2 then
+      begin
+         Outtext ("*** ERROR : Complex For (15).") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outint (i, 3) ;
+         Outint (n, 3) ;
+         Outimage ;
+         found_error := true
+      end ;
+
+      n:=n+1;
+   end;
+
+   if n <> 3 or cp =/= none then
+   begin
+      Outtext ("*** ERROR : Complex For (16).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :") ;
+      Outint (n, 3) ;
+      Outtext (if cp == none then " cp == none" else " cp =/= none") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 22") ;
+   Outimage
+ END

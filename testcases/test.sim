@@ -1,0 +1,5 @@
+Process Class PCrossing(lights);
+    ref(PLight) array lights;     
+begin
+	c :=  a  AND -3;
+end;

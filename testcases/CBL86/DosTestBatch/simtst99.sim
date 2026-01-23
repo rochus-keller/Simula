@@ -1,0 +1,57 @@
+begin  integer i,j;  integer array modres,remres(-4:4,-3:3);
+       boolean errfound;
+       real x,y; long real lx,ly; text t,tx,ty,tlx,tly;
+
+       procedure error(func,i,j,res); text func; integer i,j,res;
+       begin outtext("*** ERROR: "); outtext(func);
+             outchar('('); outint(i,2); outchar(','); outint(j,2);
+             outtext(") evaluates to "); outint(res,2);
+             outtext("  -  correct result is ");
+             outint(if func="mod" then modres(i,j) else remres(i,j),2);
+             outimage; errfound:=true;
+       end;
+
+       procedure rerror(func,x,y,res); text func,x,y,res;
+       begin outtext("*** ERROR: "); outtext(func);
+             outchar('('); outtext(x); outchar(','); outtext(y);
+             outtext(") evaluates to "); outtext(res);
+             outimage; errfound:=true;
+       end;
+
+       outtext("--- START Simula a.s TEST 99");
+       outtext("--- Test mod, rem, min, max.");
+       outimage;
+       modres( 4, 3):= 1;  remres( 4, 3):= 1;
+       modres( 4,-3):=-2;  remres( 4,-3):= 1;
+       modres(-4, 3):= 2;  remres(-4, 3):=-1;
+       modres(-4,-3):=-1;  remres(-4,-3):=-1;
+
+       for i:=4,-4 do for j:=3,-3 do begin
+           if mod(i,j)<>modres(i,j) then error("mod",i,j,mod(i,j));
+           if rem(i,j)<>remres(i,j) then error("rem",i,j,rem(i,j));
+       end;
+
+       x:=minreal+1; y:=maxreal-1; lx:=minlongreal+1; ly:=maxlongreal-1;
+       t:-blanks(20);
+       tx:-blanks(20);  tx.putreal(x,10);
+       ty:-blanks(20);  ty.putreal(y,10);
+       tlx:-blanks(20); tlx.putreal(lx,10);
+       tly:-blanks(20); tly.putreal(ly,10);
+       t.putreal(min(x,y),10); if t<>tx then rerror("min",tx,ty,t);
+       t.putreal(min(y,x),10); if t<>tx then rerror("min",ty,tx,t);
+       t.putreal(max(x,y),10); if t<>ty then rerror("max",tx,ty,t);
+       t.putreal(max(y,x),10); if t<>ty then rerror("max",ty,tx,t);
+       t.putreal(min(lx,ly),10); if t<>tlx then rerror("min",tlx,tly,t);
+       t.putreal(min(ly,lx),10); if t<>tlx then rerror("min",tly,tlx,t);
+       t.putreal(max(lx,ly),10); if t<>tly then rerror("max",tlx,tly,t);
+       t.putreal(max(ly,lx),10); if t<>tly then rerror("max",tly,tlx,t);
+
+       if y<x then begin outtext("*** ERROR: y<x!!!"); outimage;
+             errfound:=true end;
+       if ly<lx then begin outtext("*** ERROR: ly<lx!!!");  outimage;
+             errfound:=true end;
+
+       if not errfound then outtext("--- NO ERRORS FOUND IN THIS TEST");
+       outimage;
+       outtext("--- END Simula a.s. TEST 99");
+end;

@@ -1,0 +1,634 @@
+% ====================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 30
+%
+%  PURPOSE:     Test name parameters - value type, text, object
+%               reference type, and arrays of these types.
+%
+%  WRITTEN BY:  BEH   21/07-86
+% ===================================================================
+BEGIN
+   Boolean found_error ;
+
+   procedure testvalue (bt, ct, jt, rt, tt, rat, rbt,
+                        bv, cv, jv, rv, tv, rav, rbv, errnr) ;
+      name bt, ct, jt, rt, tt, rat, rbt ;
+      BOOLEAN    bt, bv ;
+      CHARACTER  ct, cv ;
+      INTEGER    jt, jv ;
+      REAL       rt, rv ;
+      TEXT       tt, tv ;
+      REF (A)    rat, rav ;
+      REF (B)    rbt, rbv ;
+      integer errnr ;
+   begin
+      if     bt eqv bv
+         and ct = cv
+         and jt = jv
+         and rt = rv
+         and tt = tv
+         and rat.t = rav.t
+         and rbt.t = rbv.t then
+      else
+      begin
+         Outtext ("*** ERROR : Value of variables (") ;
+         Outint (errnr, if errnr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus values :") ;
+         Outtext (if bt then " true " else " false ") ;
+         Outchar (ct) ;
+         Outint (jt, 4) ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outreal (rt, 5, 12) ;
+         Outtext ("   ") ;
+         Outtext (tt) ;
+         Outtext ("   ") ;
+         Outtext (rat.t) ;
+         Outtext ("   ") ;
+         Outtext (rbt.t) ;
+         Outimage ;
+         found_error := true
+      end
+   end pros. testvalue ;
+
+   procedure testreference (tt, rat, rbt, tv, rav, rbv, errnr) ;
+      text tt, tv ;
+      ref (A) rat, rav ;
+      ref (B) rbt, rbv ;
+      integer errnr ;
+   begin
+      if     tt == tv
+         and rat == rav
+         and rbt == rbv then
+      else
+      begin
+         Outtext ("*** ERROR : Reference (") ;
+         Outint (errnr, if errnr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus values : ") ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (tt) ;
+         Outtext ("   ") ;
+         Outtext (rat.t) ;
+         Outtext ("   ") ;
+         Outtext (rbt.t) ;
+         Outimage ;
+         found_error := true
+      end ;
+   end pros. testreference ;
+
+
+   procedure test1arrayvalue (b, c, i, r, t, ra, rb,
+                              bv, cv, iv, rv, tv, rav, rbv, errnr) ;
+      name b, c, i, r, t, ra, rb ;
+
+      Boolean array   b ;  Boolean   bv ;
+      character array c ;  character cv ;
+      integer array   i ;  integer   iv ;
+      real array      r ;  real      rv ;
+      text array      t ;  text      tv ;
+      ref (A) array  ra ;  ref (A)  rav ;
+      ref (B) array  rb ;  ref (B)  rbv ;
+      integer errnr ;
+   begin
+      if     b (0) eqv bv
+         and c (0) = cv
+         and i (0) = iv
+         and r (0) = rv
+         and ra (0).t = rav.t
+         and rb (0).t = rbv.t then
+      else
+      begin
+         Outtext ("*** ERROR : Array values (") ;
+         Outint (errnr, if errnr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus values : ") ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (if b (0) then "true " else "false ") ;
+         Outchar (c (0)) ;
+         Outint (i (0), 6) ;
+         Outreal (r (0), 5, 12) ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (t (0)) ;
+         Outtext ("   ") ;
+         Outtext (ra (0).t) ;
+         Outtext ("   ") ;
+         Outtext (rb (0).t) ;
+         Outimage ;
+         found_error := true
+      end
+   end pros. test1arrayvalue ;
+
+
+   procedure test1arrayreference (tt, rat, rbt, tv, rav, rbv, errnr) ;
+      name tt, rat, rbt ;
+      text array tt, tv ;
+      ref (A) array rat, rav ;
+      ref (B) array rbt, rbv ;
+      integer errnr ;
+   begin
+      if     tt (0) == tv (0)
+         and rat (0) == rav (0)
+         and rbt (0) == rbv (0) then
+      else
+      begin
+         Outtext ("*** ERROR : Reference (") ;
+         Outint (errnr, if errnr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus values : ") ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (tt (0)) ;
+         Outtext ("   ") ;
+         Outtext (rat (0).t) ;
+         Outtext ("   ") ;
+         Outtext (rbt (0).t) ;
+         Outimage ;
+         found_error := true
+      end ;
+   end pros. test1arrayreference ;
+
+
+   procedure test2arrayvalue (b, c, i, r, t, ra, rb,
+                              bv, cv, iv, rv, tv, rav, rbv, errnr) ;
+      name b, c, i, r, t, ra, rb ;
+
+      Boolean array   b, bv ;
+      character array c, cv ;
+      integer array   i, iv ;
+      real array      r, rv ;
+      text array      t, tv ;
+      ref (A) array  ra,rav ;
+      ref (B) array  rb,rbv ;
+      integer errnr ;
+   begin
+      if     b (0,0) eqv bv (0,0) and b (0,1) eqv bv (0,1)
+         and c (0,0) = cv (0,0) and c (0,1) = cv (0,1)
+         and i (0,0) = iv (0,0) and i (0,1) = iv (0,1)
+         and r (0,0) = rv (0,0) and r (0,1) = rv (0,1)
+         and ra (0,0).t = rav (0,0).t and ra (0,1).t = rav (0,1).t
+         and rb (0,0).t = rbv (0,0).t and rb (0,1).t = rbv (0,1).t then
+      else
+      begin
+         Outtext ("*** ERROR : Array values (") ;
+         Outint (errnr, if errnr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus values : ") ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (if b (0,0) then "true " else "false ") ;
+         Outchar (c (0,0)) ;
+         Outint (i (0,0), 6) ;
+         Outreal (r (0,0), 5, 12) ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (t (0,0)) ;
+         Outtext ("   ") ;
+         Outtext (ra (0,0).t) ;
+         Outtext ("   ") ;
+         Outtext (rb (0,0).t) ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (if b (0,1) then "true " else "false ") ;
+         Outchar (c (0,1)) ;
+         Outint (i (0,1), 6) ;
+         Outreal (r (0,1), 5, 12) ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (t (0,1)) ;
+         Outtext ("   ") ;
+         Outtext (ra (0,1).t) ;
+         Outtext ("   ") ;
+         Outtext (rb (0,1).t) ;
+         Outimage ;
+          found_error := true
+      end
+   end pros. test2arrayvalue ;
+
+
+   procedure test2arrayreference (t, ra, rb, tv, rav, rbv, errnr) ;
+      name t, ra, rb ;
+
+      text array      t, tv ;
+      ref (A) array  ra,rav ;
+      ref (B) array  rb,rbv ;
+      integer errnr ;
+   begin
+      if     t  (0,0)   == tv  (0,0)   and t  (0,1)   == tv  (0,1)
+         and ra (0,0).t == rav (0,0).t and ra (0,1).t == rav (0,1).t
+         and rb (0,0).t == rbv (0,0).t and rb (0,1).t == rbv (0,1).t then
+      else
+      begin
+         Outtext ("*** ERROR : Array reference (") ;
+         Outint (errnr, if errnr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus values : ") ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (t (0,0)) ;
+         Outtext ("   ") ;
+         Outtext (ra (0,0).t) ;
+         Outtext ("   ") ;
+         Outtext (rb (0,0).t) ;
+         Outimage ;
+         Outtext ("            ") ;
+         Outtext (t (0,1)) ;
+         Outtext ("   ") ;
+         Outtext (ra (0,1).t) ;
+         Outtext ("   ") ;
+         Outtext (rb (0,1).t) ;
+         Outimage ;
+          found_error := true
+      end
+   end pros. test2arrayreference ;
+
+
+
+   PROCEDURE P (bf, cf, jf, rf, tf, raf, rbf) ;
+                  NAME       bf, cf, jf, rf, tf, raf, rbf ;
+                  BOOLEAN    bf ;
+                  CHARACTER  cf ;
+                  INTEGER    jf ;
+                  REAL       rf ;
+                  TEXT       tf ;
+                  REF (A)    raf ;
+                  REF (B)    rbf ;
+   BEGIN
+                                                 ! NOW ALTER SOME VALUES       ;
+      bf := FALSE ;
+      cf := 'X' ;
+      jf := 99 ;
+      rf := 99.0 ;
+      tf := "tf" ;
+      raf.t := "raf" ;
+      rbf.t := "rbf" ;
+
+      testvalue (bv, cv, iv, rv, tv, rav, rbv, false, 'X', 99, 99.0, tf,
+                 raf, rbf, 1) ;
+
+      tf :- COPY ("REFCD BY tf") ;
+      raf :- NEW A ("REFCD BY raf") ;
+      rbf :- NEW B ("REFCD BY rbf") ;
+
+      testreference (tv, rav, rbv, tf, raf, rbf, 2) ;
+
+   END of procedure P ;
+
+
+PROCEDURE Q (bfa1, cfa1, ifa1, rfa1, tfa1, rafa1, rbfa1) ;
+                  NAME            bfa1, cfa1, ifa1, rfa1, tfa1, rafa1, rbfa1 ;
+                  BOOLEAN   ARRAY bfa1 ;
+                  CHARACTER ARRAY cfa1 ;
+                  INTEGER   ARRAY ifa1 ;
+                  REAL      ARRAY rfa1 ;
+                  TEXT      ARRAY tfa1 ;
+                  REF (A)   ARRAY rafa1 ;
+                  REF (B)   ARRAY rbfa1 ;
+   BEGIN
+                                                 ! FIRST ALTER ARRAY CONTENTS  ;
+                                                 ! ONLY                        ;
+      bfa1 (0) := FALSE ;
+      cfa1 (0) := 'X' ;
+      ifa1 (0) := 99 ;
+      rfa1 (0) := 99.0 ;
+      tfa1 (0) := "tfa" ;
+      rafa1 (0).t := "rafa1 (0)" ;
+      rbfa1 (0).t := "rbfa (0)" ;
+
+      test1arrayvalue (bva1, cva1, iva1, rva1, tva1, rava1, rbva1,
+                    false, 'X', 99, 99.0, tfa1 (0), rafa1 (0), rbfa1 (0), 3) ;
+
+      tfa1 (0) :- tv ;
+      rafa1 (0) :- rav ;
+      rbfa1 (0) :- rbv ;
+
+      test1arrayreference (tva1, rava1, rbva1, tfa1, rafa1, rbfa1, 4) ;
+
+   END of procedure Q ;
+
+
+   PROCEDURE R (bfa2, cfa2, ifa2, rfa2, tfa2, rafa2, rbfa2) ;
+                  NAME            bfa2, cfa2, ifa2, rfa2, tfa2, rafa2, rbfa2 ;
+                  BOOLEAN   ARRAY bfa2 ;
+                  CHARACTER ARRAY cfa2 ;
+                  INTEGER   ARRAY ifa2 ;
+                  REAL      ARRAY rfa2 ;
+                  TEXT      ARRAY tfa2 ;
+                  REF (A)   ARRAY rafa2 ;
+                  REF (B)   ARRAY rbfa2 ;
+   BEGIN
+      integer i2 ;                               ! FIRST ALTER ARRAY CONTENTS  ;
+                                                 ! ONLY                        ;
+      i2 := 0 ;
+
+      WHILE i2 <= 1 DO
+      BEGIN
+         bfa2 (0, i2) :=  NOT bfa2 (0, i2) ;
+         cfa2 (0, i2) := 'X' ;
+         ifa2 (0, i2) := 99 ;
+         rfa2 (0, i2) := 99.0 ;
+         tfa2 (0, i2) := "(0,n)";
+         rafa2 (0, i2).t := "rafa2 (0,n)" ;
+         rbfa2 (0, i2).t := "rbfa2 (0,n)" ;
+         i2 := i2 + 1
+      END ;
+
+      test2arrayvalue (bva2, cva2, iva2, rva2, tva2, rava2, rbva2,
+                       bfa2, cfa2, ifa2, rfa2, tfa2, rafa2, rbfa2, 5) ;
+
+
+      tfa2 (0, 0) :- tv ;
+      rafa2 (0, 0) :- rav ;
+      rbfa2 (0, 0) :- rbv ;
+
+      test2arrayreference (tva2, rava2, rbva2, tfa2, rafa2, rbfa2, 6) ;
+
+   END of procedure R ;
+
+
+
+   PROCEDURE P2 (bf, cf, jf, rf, tf, raf, rbf) ;
+                  NAME       bf, cf, jf, rf, tf, raf, rbf ;
+                  BOOLEAN    bf ;
+                  CHARACTER  cf ;
+                  INTEGER    jf ;
+                  REAL       rf ;
+                  TEXT       tf ;
+                  REF (A)    raf ;
+                  REF (B)    rbf ;
+   BEGIN
+                                                 ! NOW ALTER SOME VALUES       ;
+      bf := FALSE ;
+      cf := 'X' ;
+      jf := 99 ;
+      rf := 99.0 ;
+      tf := "tf" ;
+      raf.t := "raf" ;
+      rbf.t := "rbf" ;
+
+      testvalue (rav.bv, rav.cv, rav.iv, rav.rv, rav.tv, rav.rav, rav.rbv,
+                 false, 'X', 99, 99.0, tf, raf, rbf, 1) ;
+
+      tf :- COPY ("REFCD BY tf") ;
+      raf :- NEW A ("REFCD BY raf") ;
+      rbf :- NEW B ("REFCD BY rbf") ;
+
+      testreference (rav.tv, rav.rav, rav.rbv, tf, raf, rbf, 2) ;
+
+   END of procedure P2 ;
+
+
+PROCEDURE Q2 (bfa1, cfa1, ifa1, rfa1, tfa1, rafa1, rbfa1) ;
+                  NAME            bfa1, cfa1, ifa1, rfa1, tfa1, rafa1, rbfa1 ;
+                  BOOLEAN   ARRAY bfa1 ;
+                  CHARACTER ARRAY cfa1 ;
+                  INTEGER   ARRAY ifa1 ;
+                  REAL      ARRAY rfa1 ;
+                  TEXT      ARRAY tfa1 ;
+                  REF (A)   ARRAY rafa1 ;
+                  REF (B)   ARRAY rbfa1 ;
+   BEGIN
+                                                 ! FIRST ALTER ARRAY CONTENTS  ;
+                                                 ! ONLY                        ;
+      bfa1 (0) := FALSE ;
+      cfa1 (0) := 'X' ;
+      ifa1 (0) := 99 ;
+      rfa1 (0) := 99.0 ;
+      tfa1 (0) := "tfa" ;
+      rafa1 (0).t := "rafa1 (0)" ;
+      rbfa1 (0).t := "rbfa (0)" ;
+
+      test1arrayvalue (rav.bva1, rav.cva1, rav.iva1, rav.rva1, rav.tva1,
+                       rav.rava1, rav.rbva1, false, 'X', 99, 99.0, tfa1 (0),
+                       rafa1 (0), rbfa1 (0), 3) ;
+
+      tfa1 (0) :- tv ;
+      rafa1 (0) :- rav ;
+      rbfa1 (0) :- rbv ;
+
+      test1arrayreference (rav.tva1, rav.rava1, rav.rbva1,
+                           tfa1, rafa1, rbfa1, 4) ;
+
+   END of procedure Q2 ;
+
+
+   PROCEDURE R2 (bfa2, cfa2, ifa2, rfa2, tfa2, rafa2, rbfa2) ;
+                  NAME            bfa2, cfa2, ifa2, rfa2, tfa2, rafa2, rbfa2 ;
+                  BOOLEAN   ARRAY bfa2 ;
+                  CHARACTER ARRAY cfa2 ;
+                  INTEGER   ARRAY ifa2 ;
+                  REAL      ARRAY rfa2 ;
+                  TEXT      ARRAY tfa2 ;
+                  REF (A)   ARRAY rafa2 ;
+                  REF (B)   ARRAY rbfa2 ;
+   BEGIN
+      integer i2 ;                               ! FIRST ALTER ARRAY CONTENTS  ;
+                                                 ! ONLY                        ;
+      i2 := 0 ;
+
+      WHILE i2 <= 1 DO
+      BEGIN
+         bfa2 (0, i2) :=  NOT bfa2 (0, i2) ;
+         cfa2 (0, i2) := 'X' ;
+         ifa2 (0, i2) := 99 ;
+         rfa2 (0, i2) := 99.0 ;
+         tfa2 (0, i2) := "(0,n)";
+         rafa2 (0, i2).t := "rafa2 (0,n)" ;
+         rbfa2 (0, i2).t := "rbfa2 (0,n)" ;
+         i2 := i2 + 1
+      END ;
+
+      test2arrayvalue (rav.bva2, rav.cva2, rav.iva2, rav.rva2, rav.tva2,
+                       rav.rava2, rav.rbva2,
+                       bfa2, cfa2, ifa2, rfa2, tfa2, rafa2, rbfa2, 5) ;
+
+
+      tfa2 (0, 0) :- tv ;
+      rafa2 (0, 0) :- rav ;
+      rbfa2 (0, 0) :- rbv ;
+
+      test2arrayreference (rav.tva2, rav.rava2, rav.rbva2,
+                           tfa2, rafa2, rbfa2, 6) ;
+
+   END of procedure R ;
+
+
+
+CLASS A (t) ;   VALUE t ;   TEXT t ;
+   BEGIN
+
+   PROCEDURE Setvariables ;
+      BEGIN
+      integer i2 ;
+
+      bv := TRUE ;
+      cv := '*' ;
+      iv := 2 ;
+      rv := 3.0 ;
+      tv :- COPY ("tv") ;
+      rav :-  NEW A ("rav") ;
+      rbv :- NEW B ("rbv") ;
+      bva1 (0) := FALSE ;
+      cva1 (0) := '&' ;
+      iva1 (0) := 6 ;
+      rva1 (0) := 7.0 ;
+      tva1 (0) :- COPY (" (0)") ;
+      rava1 (0) :- NEW A ("rava1 (0)") ;
+      rbva1 (0) :- NEW B ("rbva1 (0)") ;
+      i2 := 0 ;
+
+      WHILE i2 <= 1 DO
+         BEGIN
+         bva2 (0, i2) := i2 = 0 ;
+         cva2 (0, i2) := ':' ;
+         iva2 (0, i2) := i2 + 10 ;
+         rva2 (0, i2) := i2 + 11 ;
+
+         IF i2=0
+         THEN
+            BEGIN
+            tva2 (0, 0) :- COPY (" (0, 0)") ;
+            rava2 (0, 0) :- NEW A ("rava2 (0, 0)") ;
+            rbva2 (0, 0) :- NEW B ("rbva2 (0, 0)")
+            END
+         ELSE
+            BEGIN
+            tva2 (0, 1) :- COPY (" (0, 1)") ;
+            rava2 (0, 1) :- NEW A ("rava2 (0, 1)") ;
+            rbva2 (0, 1) :- NEW B ("rbva2 (0, 1)")
+            END ;
+         i2 := i2 + 1
+         END
+      END of procedure Setvariables ;
+
+   BOOLEAN         bv ;
+   CHARACTER       cv ;
+   INTEGER         iv ;
+   REAL            rv ;
+   TEXT            tv ;
+   REF (A)         rav ;
+   REF (B)         rbv ;
+   BOOLEAN   ARRAY bva1 (0:0),  bva2 (0:0, 0:1) ;
+   CHARACTER ARRAY cva1 (0:0),  cva2 (0:0, 0:1) ;
+   INTEGER   ARRAY iva1 (0:0),  iva2 (0:0, 0:1) ;
+   REAL      ARRAY rva1 (0:0),  rva2 (0:0, 0:1) ;
+   TEXT      ARRAY tva1 (0:0),  tva2 (0:0, 0:1) ;
+   REF (A)   ARRAY rava1 (0:0), rava2 (0:0, 0:1) ;
+   REF (B)   ARRAY rbva1 (0:0), rbva2 (0:0, 0:1) ;
+
+   END of class A ;
+
+
+
+A CLASS B ;;
+
+
+
+PROCEDURE Setvariables ;
+   BEGIN
+   integer i2 ;
+
+   bv := TRUE ;
+   cv := '*' ;
+   iv := 2 ;
+   rv := 3.0 ;
+   tv :- COPY ("tv") ;
+   rav :-  NEW A ("rav") ;
+   rbv :- NEW B ("rbv") ;
+   bva1 (0) := FALSE ;
+   cva1 (0) := '&' ;
+   iva1 (0) := 6 ;
+   rva1 (0) := 7.0 ;
+   tva1 (0) :- COPY (" (0)") ;
+   rava1 (0) :- NEW A ("rava1 (0)") ;
+   rbva1 (0) :- NEW B ("rbva1 (0)") ;
+   i2 := 0 ;
+
+   WHILE i2<=1 DO
+      BEGIN
+      bva2 (0, i2) := i2=0 ;
+      cva2 (0, i2) := ':' ;
+      iva2 (0, i2) := i2 + 10 ;
+      rva2 (0, i2) := i2 + 11 ;
+
+      IF i2 = 0
+      THEN
+         BEGIN
+         tva2 (0, 0) :- COPY (" (0, 0)") ;
+         rava2 (0, 0) :- NEW A ("rava2 (0, 0)") ;
+         rbva2 (0, 0) :- NEW B ("rbva2 (0, 0)")
+         END
+      ELSE
+         BEGIN
+         tva2 (0, 1) :- COPY (" (0, 1)") ;
+         rava2 (0, 1) :- NEW A ("rava2 (0, 1)") ;
+         rbva2 (0, 1) :- NEW B ("rbva2 (0, 1)")
+         END ;
+      i2 := i2+1
+      END
+   END of procedure Setvariables ;
+
+
+   BOOLEAN         bv ;
+   CHARACTER       cv ;
+   INTEGER         iv ;
+   REAL            rv ;
+   TEXT            tv ;
+   REF (A)         rav ;
+   REF (B)         rbv ;
+   BOOLEAN   ARRAY bva1 (0:0),  bva2 (0:0, 0:1) ;
+   CHARACTER ARRAY cva1 (0:0),  cva2 (0:0, 0:1) ;
+   INTEGER   ARRAY iva1 (0:0),  iva2 (0:0, 0:1) ;
+   REAL      ARRAY rva1 (0:0),  rva2 (0:0, 0:1) ;
+   TEXT      ARRAY tva1 (0:0),  tva2 (0:0, 0:1) ;
+   REF (A)   ARRAY rava1 (0:0), rava2 (0:0, 0:1) ;
+   REF (B)   ARRAY rbva1 (0:0), rbva2 (0:0, 0:1) ;
+
+
+   Outtext ("--- START Simula a.s. TEST 30") ;
+   Outimage ;
+   Outtext ("--- Test transmission by name - value types, text, object") ;
+   Outimage ;
+   Outtext ("--- reference type and arrays of these types.") ;
+   Outimage ; Outimage ;
+
+   Setvariables ;
+
+   P (bv, cv, iv, rv, tv, rav, rbv) ;
+
+   Q (bva1, cva1, iva1, rva1, tva1, rava1, rbva1) ;
+
+   R (bva2, cva2, iva2, rva2, tva2, rava2, rbva2) ;
+
+
+   rav.Setvariables ;
+
+   P2 (rav.bv, rav.cv, rav.iv, rav.rv, rav.tv, rav.rav, rav.rbv) ;
+
+   Q2 (rav.bva1, rav.cva1, rav.iva1, rav.rva1, rav.tva1,
+       rav.rava1, rav.rbva1) ;
+
+   R2 (rav.bva2, rav.cva2, rav.iva2, rav.rva2, rav.tva2,
+       rav.rava2, rav.rbva2) ;
+
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 30") ;
+   Outimage
+ END

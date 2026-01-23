@@ -1,0 +1,279 @@
+%	UTILITIES.SIM
+%
+%	Ce module a ete ecrit par Bjorn Kirkerud, Institut d'informatique
+%             universite d'Oslo
+%
+%  Il remplace les modules: 
+% 
+%    texttools.sim,
+%    wordtools.sim   og
+%    promptools.sim
+%	                         ... Note de J. Vaucher (nov.95)
+% ==============================================================================
+%
+% Nov. 1997: 
+%       - Added dependence on CLASS TextUtil (With the universal INT_AS_TEXT )
+%       - Removed WORDTOOLS 
+%       - removed Norwegian ASK_FOR versions
+% ==============================================================================
+%
+%
+%
+% Fra texttools.sim:
+% =================
+%
+%   text procedure int_as_text(int); integer int;
+%     int_as_text :- <Et tekstobjekt som inneholder sifrene i 
+%                     tallet int (med fortegn dersom int < 0)>;
+%
+%   text procedure int_as_text_fix(int, w); integer int, w;
+%     int_as_text_fix :- <Et tekstobjekt med lengde abs(w) med sifrene i int.
+%                         Dersom w = 0, brukes int_as_text. 
+%                         Dersom w > 0, plasseres sifrene høyre-justert, 
+%                         venstre-justert om w < 0.
+%                         Dersom abs(w) for lite, fylles objektet med *'er>;
+%
+%   text procedure real_as_text(r, dig); real r; integer dig;
+%     realint_as_text :- <Et tekstobjekt som inneholder en tekstlig
+%                         representasjon av tallet r, med dig siffer
+%                         etter desimal-punktum>;
+%
+%   text procedure real_as_text_fix(r, dig, w); real r; integer dig, w;
+%     real_as_text_fix :- <Et tekstobjekt med lengde abs(w) med en tekstlig
+%                          representasjon av tallet r (dig siffer etter 
+%                          desimal-punktum). 
+%                          Tekstobjektet fylles med *'er om abs(w) for lite>;
+%
+%   text procedure char_as_text(char); character char;
+%     char_as_text :- <Et tekstobjekt som inneholder tegnet c>;
+%
+%   text procedure frontstrip(t); text t;
+%     frontstrip :- <En tekst som inneholder tegnene i t,
+%                    bortsett fra eventuelle blanke først i t>;
+%
+%
+%   text procedure fix_place(t, w); text t; integer w;
+%     fix_place :- if w = 0 then t
+%                  else <Et nytt tekstobjekt med lengde abs(w).
+%                        Dersom t.length > abs(w) fylles objektet med *'er,
+%                        ellers kopieres t inni objektet, høyre-justert
+%                        dersom w > 0, venstre-justert om w < 0>;
+%
+%   Boolean procedure ok_int(t); text t;
+%     ok_int := <t slik at t.getint ikke vil feile>;
+%
+%   Boolean procedure ok_real(t); text t;
+%     ok_real := <t slik at t.getreal ikke vil feile>;
+%
+%   procedure outline(t); text t;
+%     <Skriver en linje med teksten t;
+%
+%
+% Fra Promptools:
+% =================
+%
+%                                                           
+%    integer   procedure ask_for_int( prompt); text prompt;    
+%    real      procedure ask_for_real(prompt); text prompt;      
+%    character procedure ask_for_char(prompt); text prompt; 
+%    Boolean   procedure ask_for_bool(prompt); text prompt;   
+%    text      procedure ask_for_text(prompt); text prompt;      
+%
+%
+% Et eksempel på bruk av noen av prosedyrene i denne modulen:
+% ===========================================================
+%
+%    begin
+%      
+%      external class utilities;
+%      
+%      text t, s;
+%      
+%      while true do
+%      begin
+%        t :- ask_for_text("t> ");
+%        outline(t & ": " 
+%                  & (if ok_int(t) then " ok int" else " no int")
+%                  & (if ok_real(t) then " ok real" else " no real"));
+%        if ok_int(t) then
+%          outline("  iv: " & int_as_text(t.getint));
+%        if ok_real(t) then
+%          outline("  wr: " & real_as_text(t.getreal, 2));
+%        s :- FirstSepItemIn(t, '*');
+%        while t.more or s =/= notext do
+%          begin
+%            outtext("!" & s); s :- NextSepItemIn(t, '*');
+%          end;
+%        outtext("!"); outimage;
+%      end;
+%    
+%    end;
+%
+% =====================================================================
+ 
+
+EXTERNAL CLASS TextUtil;
+
+class utilities;
+  begin integer version = 1; end;
+
+
+    
+% *****************************************************
+% *                                                   *
+% *             Fra texttools.sim:                    *    
+% *                                                   *
+% *****************************************************
+
+%  text procedure int_as_text(int); integer int;
+%    begin text t;
+%      t :- blanks(12);
+%      t.putint(int);
+%      int_as_text :- frontstrip(t);
+%    end;
+
+  text procedure int_as_text_fix(int, w); integer int, w;
+    int_as_text_fix :- fix_place(int_as_text(int), w);
+
+  text procedure real_as_text(r, dig); real r; integer dig;
+    begin text t;
+      t :- blanks(12+dig);
+      t.putfix(r, dig);
+      real_as_text :- frontstrip(t);
+    end real_as_text;
+
+  text procedure real_as_text_fix(r, dig, w); real r; integer dig, w;
+    real_as_text_fix :- fix_place(real_as_text(r, dig), w);
+
+  text procedure char_as_text(char); character char;
+    begin text t;
+      t :- blanks(1);
+      t.putchar(char);
+      char_as_text :- t;
+    end;
+
+  text procedure fix_place(t, w); text t; integer w;
+    if w = 0 then fix_place :- t else
+    begin text i; integer aw, p;
+      aw := abs(w);
+      i :- blanks(aw);
+      if t.length <= aw 
+        then i.sub(if w < 0 then 1 else aw - t.length + 1, t.length) := t
+        else for p := 1 step 1 until aw do i.putchar('*');
+      fix_place :- i;
+    end;
+    
+  Boolean procedure ok_real(t); text t;
+    if t == notext or else t.strip == notext 
+      then ok_real := false
+      else begin character c; Boolean point_read;
+          point_read := false;
+          t.setpos(1);
+          c := t.getchar; 
+          while c = ' ' do c := t.getchar;
+          if (c = '+' or c = '-') and t.more 
+            then c := t.getchar;
+          if c = '.' then 
+            begin point_read := true; c := t.getchar end;
+          if not digit(c) then ok_real := false
+          else begin
+              while digit(c) and t.more do c := t.getchar;
+              ok_real := digit(c)  or else
+                         (c ne '.') or else
+                         (c = '.' and then not point_read
+                          and then t.more and then digit(t.getchar));
+            end;
+        end;
+
+  Boolean procedure ok_int(t); text t;
+    if t == notext or else t.strip == notext 
+      then ok_int := false
+      else begin character c;
+          t.setpos(1);
+          c := t.getchar; 
+          while c = ' ' do c := t.getchar;
+          if (c = '+' or c = '-') and t.more 
+            then c := t.getchar;
+          ok_int := digit(c);
+        end;
+
+
+    
+
+% *****************************************************
+% *                                                   *
+% *             From promptools.sim:                   *    
+% *                                                   *
+% *****************************************************
+
+
+  integer procedure ask_for_int(prompt); text prompt;
+    begin character c; integer tegn;
+      ask_and_wait_for_input(prompt);
+      c := inchar; while c = ' ' do c := inchar;
+      tegn := if c = '-' then -1 else +1;
+      if c = '-' or c = '+' then c := inchar;
+      if not digit(c) 
+        then begin 
+            outline("Illegal character in integer: '" &
+                    char_as_text(c) & "'. Try once more!");
+            ask_for_int := ask_for_int(prompt);
+          end
+        else begin
+            sysin.setpos(sysin.pos - 1); 
+            ask_for_int := tegn*inint;
+          end;
+    end;
+
+  real procedure ask_for_real(prompt); text prompt;
+    begin character c; integer tegn;
+      ask_and_wait_for_input(prompt);
+      c := inchar; while c = ' ' do c := inchar;
+      tegn := if c = '-' then -1 else +1;
+      if c = '-' or c = '+' then c := inchar;
+      if not (digit(c) or c = '.') 
+        then begin 
+            outline("Illegal character in number: '" &
+                    char_as_text(c) & "'. Try once more!");
+            ask_for_real := ask_for_real(prompt);
+          end
+        else begin
+            sysin.setpos(sysin.pos - 1); 
+            ask_for_real := tegn*inreal;
+          end;
+    end;
+  
+  character procedure ask_for_char(prompt); text prompt;
+    begin character c;
+      ask_and_wait_for_input(prompt);
+      c := inchar; while c = ' ' and sysin.more do c := inchar;
+      ask_for_char := c;
+    end;
+
+
+  Boolean procedure ask_for_bool(prompt); text prompt;
+    begin character c;
+      ask_and_wait_for_input(prompt);
+      c := inchar; while c = ' ' and sysin.more do c := inchar;
+      ask_for_bool := not(c = 'n' or c = 'N');
+    end;
+  
+  
+
+  text procedure ask_for_text(prompt); text prompt;
+    begin
+      ask_and_wait_for_input(prompt);
+      ask_for_text :- intext(80).strip;
+    end;
+  
+
+% Utility procedure
+
+  procedure ask_and_wait_for_input(prompt); text prompt;
+    begin outtext(prompt); breakoutimage; inimage end;
+
+
+
+
+
+

@@ -1,0 +1,97 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 78
+%
+%  PURPOSE:     Test the text procedure filename of class file.
+%
+%  DEPENDS ON:  Random drawing.
+%
+%  NOTE:    1 - At lines marked with "NOTE 1", the characters which are allowed
+%               in a filename (except letters and digit) should be filled in.
+%
+%           2 - At line marked with "NOTE 2" the maximum length of a filename
+%               should be filled in.
+%
+%  WRITTEN BY:  BEH   27/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Character array C (1:45);
+
+   Integer i, maxlength, u;
+
+   Procedure Test;
+   Begin Integer i; Ref(file) xf; Text filnavn;
+
+         filnavn:- Blanks(maxlength);
+         i:= Randint(1,26,u);
+         while i<=maxlength and i>0 do
+         Begin filnavn.putchar(C(i));
+               i:= Randint(-5,45,u);
+         End;
+
+         if i<2  then xf:- New Infile(filnavn) else
+         if i<9  then xf:- New Outfile(filnavn) else
+         if i<16 then xf:- New Directfile(filnavn) else
+         if i<23 then xf:- New Inbytefile(filnavn) else
+         if i<30 then xf:- New Outbytefile(filnavn) else
+         if i<37 then xf:- New Directbytefile(filnavn) else
+                      xf:- New Printfile(filnavn);
+
+         if xf.filename <> filnavn then
+         Begin Outtext("*** ERROR : Attribute filename of class file.");
+               Outimage;
+               Outtext("           Value of actual parameter and attribute:");
+               Outimage;
+               Outtext("             ");
+               Outtext(filnavn);
+               Outtext ("  ");
+               Outtext(xf.filename);
+               Outimage;
+               found_error:= true
+         End;
+   End pros. Test;
+
+
+   Outtext ("--- START Simula a.s. TEST 78") ;
+   Outimage ;
+   Outtext ("--- Test the attribute 'filename' of class file.") ;
+   Outimage ; Outimage ;
+
+   C(1):= 'A'; C(2):= 'B'; C(3):= 'C';
+   C(4):= 'D'; C(5):= 'E'; C(6):= 'F';
+   C(7):= 'G'; C(8):= 'H'; C(9):= 'I';
+   C(10):= 'J'; C(11):= 'K'; C(12):= 'L';
+   C(13):= 'M'; C(14):= 'N'; C(15):= 'O';
+   C(16):= 'P'; C(17):= 'Q'; C(18):= 'R';
+   C(19):= 'S'; C(20):= 'T'; C(21):= 'U';
+   C(22):= 'V'; C(23):= 'W'; C(24):= 'X';
+   C(25):= 'Y'; C(26):= 'Z'; C(27):= '0';
+   C(28):= '1'; C(29):= '2'; C(30):= '3';
+   C(31):= '4'; C(32):= '5'; C(33):= '6';
+   C(34):= '7'; C(35):= '8'; C(36):= '9';
+   C(37):= '-';                                 !**** NOTE 1 ****;
+   C(38):= 'B';                                 !**** NOTE 1 ****;
+   C(39):= 'C';                                 !**** NOTE 1 ****;
+   C(40):= 'D';                                 !**** NOTE 1 ****;
+   C(41):= 'E';                                 !**** NOTE 1 ****;
+   C(42):= 'F';                                 !**** NOTE 1 ****;
+   C(43):= 'G';                                 !**** NOTE 1 ****;
+   C(44):= 'H';                                 !**** NOTE 1 ****;
+   C(45):= 'I';                                 !**** NOTE 1 ****;
+
+   maxlength:= 20;                              !**** NOTE 2 ****;
+   u:= 54323;
+
+   For i:= 1 step 1 until 50 do Test;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 78") ;
+   Outimage
+ END

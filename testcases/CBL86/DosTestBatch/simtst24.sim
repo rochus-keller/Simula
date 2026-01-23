@@ -1,0 +1,448 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 24
+%
+%  PURPOSE:     Test conditional statements with more complex Boolean
+%               expressions.
+%
+%  WRITTEN BY:  BEH   17/07-86
+% ==============================================================================
+BEGIN
+   BOOLEAN            b1 ;                       ! To be used in the various   ;
+   BOOLEAN            b2 ;                       ! boolean expressions.        ;
+   BOOLEAN            b3 ;                       !            "                ;
+   BOOLEAN            b4 ;                       !            "                ;
+   BOOLEAN            b5 ;                       !            "                ;
+   BOOLEAN            b6 ;                       !            "                ;
+
+   BOOLEAN            found_error ;              ! Set to true when errors are ;
+                                                 ! found.                      ;
+
+   outtext ("--- START Simula a.s. TEST 24") ;
+   outimage ;
+   outtext ("--- Test conditional statements.") ;
+   outimage ; Outimage;
+                                                 !*****************************;
+   b1 := TRUE ;                                  ! b1-b3 have the value true   ;
+   b2 := IF b1 THEN b1 ELSE FALSE ;              ! and b4-b6 have the value    ;
+   b3 := IF b2 THEN b1 ELSE FALSE ;              ! false during the whole test.;
+                                                 !*****************************;
+
+                                                 !*****************************;
+                                                 ! Check that all variables    ;
+                                                 ! have correct value.         ;
+                                                 !*****************************;
+   IF b1 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (1).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+   IF b2 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (2).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+   IF b3 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (3).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+   IF b4 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (4).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+   IF b5 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (5).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+   IF b6 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (6).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b1 AND b2 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (7).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+
+   IF b1 AND b4 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (8).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+
+   IF b6 AND b3 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (9).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+
+   IF b4 AND b5 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (10).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b1 OR b2 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (11).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b1 OR b4 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (12).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b6 OR b3 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (13).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b4 OR b5 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (14).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF NOT b1 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (15).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF NOT b6 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (16).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b1 IMP b2 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (17).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b1 IMP b4 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (18).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b6 IMP b3 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (19).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b4 IMP b5 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (20).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b1 EQV b2 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (21).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b1 EQV b4 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (22).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b6 EQV b3 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (23).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b4 EQV b5 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (24).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b1 and then b2 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (25).") ;
+      outimage ;
+      found_error := true
+      END ;
+
+
+   if b1 and then b6 then
+   begin
+      outtext ("*** ERROR : Conditional statement (26).") ;
+      outimage ;
+      found_error := true
+   end ;
+
+
+   if b4 and then b2 then
+   begin
+      outtext ("*** ERROR : Conditional statement (27).") ;
+      outimage;
+      found_error := true
+   end;
+
+
+   if b5 and then b6 then
+   begin
+      outtext ("*** ERROR : Conditional statement (28).") ;
+      outimage ;
+      found_error := true
+   end ;
+
+
+
+   if b1 or else b2 then
+   else
+   begin
+      outtext ("*** ERROR : Conditional statement (29).") ;
+      outimage ;
+      found_error := true
+   end ;
+
+
+   if b3 or else b6 then
+   else
+   begin
+      outtext ("*** ERROR : Conditional statement (30).") ;
+      outimage ;
+      found_error := true
+   end ;
+
+
+   if b4 or else b2 then
+   else
+   begin
+      outtext ("*** ERROR : Conditional statement (31).") ;
+      outimage ;
+      found_error := true
+   end ;
+
+
+   if b6 or else b5 then
+   begin
+      outtext ("*** ERROR : Conditional statement (32).") ;
+      outimage ;
+      found_error := true
+   end ;
+
+
+
+   IF b1 AND b2 OR b3 AND b4 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (33).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF NOT b1 OR b2 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (34).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF NOT b6 AND b5 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (35).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+
+   IF b4 EQV b5 IMP b1 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (36).") ;
+      outimage ;
+      found_error := TRUE
+   END ;
+
+   IF b1 AND b5 EQV b6 OR b1 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (37).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+
+   IF NOT (NOT (NOT (NOT (NOT (NOT (NOT b6)))))) THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (38).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF b1 IMP b2 IMP b3 IMP b4 THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (39).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF (b4 AND b1 EQV b5 OR b6) IMP b1 AND NOT b6 THEN
+   ELSE
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (40).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF IF b1 THEN
+      (IF b6 THEN
+          b1
+       ELSE
+          IF b1 THEN
+             b6
+          ELSE
+             b1) ELSE
+      b1
+           THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (41).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   IF IF b1 THEN b2 ELSE b5 AND THEN b6 THEN  !***OK***;
+   else BEGIN
+      outtext ("*** ERROR : Conditional statement (42).") ;
+      outimage ;
+      found_error := TRUE
+   END ;
+
+
+   IF NOT b1 EQV b2 AND b3 IMP (IF IF b1 THEN b1 ELSE b6 THEN
+                                b1 AND b2 OR b1 AND b6 IMP b2
+                             ELSE
+                                b1 EQV NOT (b1 AND b2 IMP b2))
+            THEN
+      BEGIN
+      outtext ("*** ERROR : Conditional statement (43).") ;
+      outimage ;
+      found_error := TRUE
+      END ;
+
+
+   if b4 or else b2 and b6 then
+   begin
+      outtext ("*** ERROR : Conditional statement (44).") ;
+      outimage ;
+      found_error := true
+   end ;
+
+
+   if b3 and then not b2 or else b6 imp b5 then
+   else
+   begin
+      outtext ("*** ERROR : Conditional statement (45).") ;
+      outimage ;
+      found_error := true
+   end ;
+
+
+   if b2 or else not b6 imp b2 and b2 eqv not b5 then
+   else
+   begin
+      outtext ("*** ERROR : Conditional statement (46).") ;
+      outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+      BEGIN
+      outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      outimage
+      END ;
+
+   outtext ("--- END Simula a.s. TEST 24") ;
+   outimage
+
+END of program

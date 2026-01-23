@@ -1,0 +1,369 @@
+% =======================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 64
+%
+%  PURPOSE:     Test parameter transmission by value to classes.
+%
+%  WRITTEN BY:  BEH   06/08-86
+% ======================================================================
+Begin
+   Boolean found_error;
+
+   text array lines, facit (1:20);
+   integer lnr;
+
+   procedure SaveLine;
+   begin
+      lnr := lnr + 1;
+      lines (lnr) :- copy (sysout.image.strip);
+      sysout.image.setpos (1);
+      sysout.image := notext
+   end;
+
+   procedure Checklines (n, enr);
+      integer n, enr;
+   begin
+      Boolean OK;
+      integer i;
+
+      OK := true;
+
+      for i := 1 step 1 until n do
+      if facit (i) <> lines (i) then OK := false;
+
+      if not OK then
+      begin
+         Outtext ("*** ERROR : Value of attributes (");
+         Outint (enr, if enr < 10 then 1 else 2);
+         Outtext (").");
+         Outimage;
+         Outtext ("            Erroneus values : ");
+         Outimage;
+         for i := 1 step 1 until n do
+         begin
+            Outtext ("            ");
+            Outchar ('"');
+            Outtext (lines (i));
+            Outchar ('"');
+            Outimage;
+         end;
+         Outimage;
+         found_error := true
+      end;
+   end pros. checklines;
+
+   procedure ClearLines;
+   begin
+      integer i;
+
+      for i := 1 step 1 until 20 do
+         facit (i) :- lines (i) :- notext;
+
+      lnr := 0;
+   end  pros. clearlines;
+
+
+   Class A1 (b);  Boolean b;
+   Begin
+      Character     c;
+      Integer       i;
+      Real          r;
+      Text          t;
+
+      Outtext ("  A1 before Inner");
+      SaveLine;
+      b := true;
+      i := 2;
+      r := 3;
+      c := '*';
+      t :- Copy ("t in A1");
+
+      If b then Outtext ("  true  ") else Outtext ("  false ");
+      Outchar (c);
+      Outint (i, 4);
+      Outreal (r, 5, 12);
+      Outchar (' ');
+      Outtext (t);
+      SaveLine;
+
+      Inner;
+
+      Outtext ("  A1 after  Inner");
+      SaveLine;
+   End of class A1;
+
+   A1 Class A12 (c, i, r, t);  VALUE         t;
+                                Character     c;
+                                Integer       i;
+                                Real          r;
+                                Text          t;
+   Begin
+      Boolean b;
+      Outtext ("  enter A12");
+      SaveLine;
+
+      If b then Outtext ("  true  ") else Outtext ("  false ");
+      Outchar (c);
+      Outint (i, 4);
+      Outreal (r, 5, 12);
+      Outchar (' ');
+      Outtext (t);
+      SaveLine;
+
+      Outtext ("  exit A12");
+      SaveLine;
+   End of class A12;
+
+   A1 Class A13 (bv, cv , iv, rv);  VALUE           bv, cv , iv, rv;
+                                     Boolean   ARRAY bv;
+                                     Character ARRAY cv ;
+                                     Integer   ARRAY iv;
+                                     Real      ARRAY rv;
+   Begin
+      Integer    i;
+
+      While  i <= 2  do
+      Begin
+         If bv(i) then Outtext("  true  ") else Outtext("  false ");
+         Outchar (cv (i));
+         Outint (iv (i), 4);
+         Outreal (rv (i), 5, 12);
+         SaveLine;
+
+         i := i + 1
+      End;
+
+   End of class A13;
+
+   Class A14 (bv, cv , iv, rv);   VALUE           bv, cv , iv, rv;
+                                   Boolean   ARRAY bv;
+                                   Character ARRAY cv ;
+                                   Integer   ARRAY iv;
+                                   Real      ARRAY rv;
+   Begin
+      Integer    i, j;
+
+      While  i <= 2  do
+      Begin
+         j := 0;
+
+         While  j <= 3  do
+         Begin
+            If bv (i,j) then Outtext("  true  ")
+            else Outtext("  false ");
+            Outchar (cv (i, j));
+            Outint (iv (i, j), 4);
+            Outreal (rv (i, j), 5, 12);
+            SaveLine;
+
+            j := j + 1
+         End;
+
+         i := i + 1;
+      End
+
+   End of class A14;
+
+   Boolean         bv;
+   Character       cv;
+   Integer         iv, s1, s2, sum;
+   Real            rv;
+   Text            tv, txt;
+
+   Boolean   ARRAY bav1 (0:2), bav2 (0:2, 0:3);
+   Character ARRAY cav1 (0:2), cav2 (0:2, 0:3);
+   Integer   ARRAY iav1 (0:2), iav2 (0:2, 0:3);
+   Real      ARRAY rav1 (0:2), rav2 (0:2, 0:3);
+   Text      ARRAY tav1 (0:2), tav2 (0:2, 0:3);
+
+   REF (A1)  ra1;
+   REF (A12) ra12;
+   REF (A13) ra13;
+   REF (A14) ra14;
+
+   Outtext ("--- START Simula a.s. TEST 64");
+   Outimage;
+   Outtext ("--- Test parameter transmission by value to classes.");
+   Outimage; Outimage;
+
+   ra1 :- New A1 (false);
+
+   facit (1) :- "  A1 before Inner";
+   facit (2) :- "  true  *   2  3.0000&+00 t in A1";
+   facit (3) :- "  A1 after  Inner";
+
+   CheckLines (3, 1);
+
+   If ra1.B then Outtext ("  true  ") else Outtext ("  false  ");
+   Outchar (ra1.c);
+   Outint (ra1.i, 4);
+   Outreal (ra1.r, 5, 12);
+   Outchar (' ');
+   Outtext (ra1.t);
+   SaveLine;
+
+   facit (4) :- facit (2);
+
+   Checklines (4, 2);
+
+   ClearLines;
+
+   ra12 :- New A12 (false, '+', 35.555, 12, "stringparm");
+
+   facit (1) :- "  A1 before Inner";
+   facit (2) :- "  true  *   2  3.0000&+00 t in A1";
+   facit (3) :- "  enter A12";
+   facit (4) :- "  false +  36  1.2000&+01 stringparm";
+   facit (5) :- "  exit A12";
+   facit (6) :- "  A1 after  Inner";
+
+   CheckLines (6, 3);
+
+   ClearLines;
+
+   bv := true;
+   cv  := '=';
+   iv := 2;
+   rv := 22;
+   tv :- Copy ("OK");
+
+   ra12 :- new A12 (bv, cv, iv, rv, tv);
+
+   facit (1) :- "  A1 before Inner";
+   facit (2) :- "  true  *   2  3.0000&+00 t in A1";
+   facit (3) :- "  enter A12";
+   facit (4) :- "  false =   2  2.2000&+01 OK";
+   facit (5) :- "  exit A12";
+   facit (6) :- "  A1 after  Inner";
+
+   Checklines (6, 4);
+
+   if ra12.b then Outtext ("  true  ") else Outtext ("  false ");
+   Outchar (ra12.c);
+   Outint (ra12.i, 4);
+   Outreal (ra12.r, 5, 12);
+   Outchar (' ');
+   Outtext (ra12.t);
+   SaveLine;
+
+   facit (7) :- facit (4);
+
+   Checklines (7, 5);
+
+   Clearlines;
+
+   ra12 :- New A12 (iv + 2.222 NE rv**iv,
+                 If ra1.b then ra12.c else  ('N'),
+                 - (ra12.i + (1 + (ra12.r - (1 - (ra12.r - ra12.i))))),
+                 (ra1.i*(ra1.r*(ra1.r + 1.0))),
+                 If ra1.b EQV ra12.b then ra1.t else tv);
+
+   facit (1) :- "  A1 before Inner";
+   facit (2) :- "  true  *   2  3.0000&+00 t in A1";
+   facit (3) :- "  enter A12";
+   facit (4) :- "  false = -44  2.4000&+01 OK";
+   facit (5) :- "  exit A12";
+   facit (6) :- "  A1 after  Inner";
+
+   Checklines (6, 6);
+
+   Clearlines;
+
+   While  s1 <= 2  do
+   Begin
+      bav1 (s1) := (s1//2)*2=s1;
+      cav1 (s1) := '1';
+      iav1 (s1) := s1;
+      rav1 (s1) := s1;
+      txt :- Copy (" ( )");
+      txt.SUB (1, 1).PUTinT (s1);
+      tav1 (s1) :- txt;
+      s2 := 0;
+
+      While  s2 <= 3  do
+      Begin
+         sum := s1 + s2;
+         bav2 (s1, s2) := (sum//2)*2 = sum;
+         cav2 (s1, s2) := '2';
+         iav2 (s1, s2) := sum;
+         rav2 (s1, s2) := sum;
+         txt :- Copy (" ( ,  )");
+         txt.SUB (1, 1).PUTinT (s1);
+         txt.SUB (3, 1).PUTinT (s2);
+         tav2 (s1, s2) :- txt;
+         s2 := s2 + 1
+      End;
+
+      s1 := s1 + 1
+   End;
+
+   ra13 :- New A13 (false, bav1, cav1, iav1, rav1);
+
+   facit (1) :- "  A1 before Inner";
+   facit (2) :- "  true  *   2  3.0000&+00 t in A1";
+   facit (3) :- "  true  1   0  0.0000&+00";
+   facit (4) :- "  false 1   1  1.0000&+00";
+   facit (5) :- "  true  1   2  2.0000&+00";
+   facit (6) :- "  A1 after  Inner";
+
+   Checklines (6, 7);
+
+   If ra13.bv (0) then Outtext ("  true  ") else Outtext ("  false ");
+   Outchar (ra13.cv (2));
+   Outint (ra13.iv (ra13.iv (0)*ra13.rv (ra13.iv (2))), 4);
+   Outreal (ra13.rv (1), 5, 12);
+   SaveLine;
+
+   facit (7) :- "  true  1   0  1.0000&+00";
+
+   Checklines (7, 8);
+
+   Clearlines;
+
+   ra14 :- New A14 (bav2, cav2, iav2, rav2);
+
+   facit (1)  :- "  true  2   0  0.0000&+00";
+   facit (2)  :- "  false 2   1  1.0000&+00";
+   facit (3)  :- "  true  2   2  2.0000&+00";
+   facit (4)  :- "  false 2   3  3.0000&+00";
+   facit (5)  :- "  false 2   1  1.0000&+00";
+   facit (6)  :- "  true  2   2  2.0000&+00";
+   facit (7)  :- "  false 2   3  3.0000&+00";
+   facit (8)  :- "  true  2   4  4.0000&+00";
+   facit (9)  :- "  true  2   2  2.0000&+00";
+   facit (10) :- "  false 2   3  3.0000&+00";
+   facit (11) :- "  true  2   4  4.0000&+00";
+   facit (12) :- "  false 2   5  5.0000&+00";
+
+   Checklines (12, 9);
+
+   if ra14.bv (0, 2)  then Outtext ("  true  ")
+   else Outtext ("  false ");
+   Outchar (ra14.cv (ra14.rv (ra14.iv (0, 2), 0), ra14.iv (2, 0)));
+   Outint ((if ra14.bv (ra14.iv (0, ra14.iv (0, 1)), 0)
+        then
+           ra14.iv (2, 2)
+        else
+           ra14.rv (0, 3)), 4);
+
+   Outint (ra14.iv(ra14.iv(0,1)+(ra14.iv(0,1)-(ra14.iv(1,0)-
+           (ra14.iv(1,0)))),3),4);
+   Outreal (ra14.iv(1,3),ra14.iv(2,3),ra14.rv(2,3) +
+            ra14.iv(2,3) + ra14.rv(2,0));
+   Outreal (ra14.rv(If ra14.bv(0,3) then 0.0 else 1.0,2)**ra14.iv(1,1),
+            5,12);
+   SaveLine;
+
+   facit (13) :- "  true  2   3   5  4.0000&+00  9.0000&+00";
+
+   Checklines (13, 10);
+
+   If found_error then
+   else
+   Begin
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   End;
+
+   Outtext ("--- END Simula a.s. TEST 64");
+   Outimage
+ End

@@ -1,0 +1,40 @@
+%<pre>  cgiget.sim
+%
+%   Simple SIMULA CGI program which echoes what is sent from a WEB page
+%
+%   (J. Vaucher, 2 avril 197)
+%
+%  To test, 
+%    - compile with UNIX library (or Lund equivalent), 
+%    - call executable  program: "cgiget.cgi" and place in your HTML
+%           directory
+%    - invoke it from WEB page as URL like:
+%                http://www.<your_site>/<path>/cgiget.cgi?a=b
+%
+%   The program below uses the UNIX Diro library which gives access to 
+%   ENVIRONMENT variables with calls like "env(VAR)". It is used to get
+%   the WEB query from the QUERY_STRING variable
+%
+
+begin
+	
+   external class unix;
+	
+   Text T;
+	
+   T :- env("QUERY_STRING");
+	
+   outtext("Content-Type: text/html"); outimage;outimage;
+   outtext("<html>"); outimage;
+   outtext("<head><title>CGI Output</title></head>"); outimage;
+   outtext("<body>") ; outimage;
+   
+   	outtext("<h1>Hello, world.</h1>"); outimage;
+   	outtext("You sent: " & T & "///"); outimage;
+   
+   outtext("</body>"); outimage;
+   outtext("</html>"); outimage;
+
+end
+%</pre>
+	

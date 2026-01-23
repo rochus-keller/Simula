@@ -1,0 +1,11 @@
+Begin
+  Procedure RightText(T, N); Text T; Integer N;
+  Begin
+    Integer i;
+     For i:=1 step 1 until N-T.Length do OutText(" ");
+     OutText(T)
+  End of RighText;
+
+  RightText("Short",30); OutImage;
+  RightText("And the long one",30);
+End of Program;

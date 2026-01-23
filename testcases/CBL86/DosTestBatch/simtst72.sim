@@ -1,0 +1,63 @@
+% ===============================================   Main   program =============
+%  PROGRAM Name:   Simula a.s. - SIMULA TEST NO 72
+%
+%  PURPOSE:     Test of formal procedures.
+%
+%  WRITTEN BY:  BEH   25/08-86
+% ==============================================================================
+Begin
+
+   Ref(A) x, v;
+
+   Class A;
+   Begin Ref(A) Procedure Z;
+         Begin P(x);
+               Z:- v:- New A;
+         End;
+
+         Integer  i;
+
+         i:=5;
+   End;
+
+   Procedure P(y); Name y; Ref(A)y;
+   Begin Q(y.i) End;
+
+   Procedure Q(ii); Name ii; Integer ii;
+   Begin ii:=ii+2 End;
+
+   Outtext("--- START Simula a.s. TEST 72") ;
+   Outimage ;
+   Outtext("--- Test of formal procedures.") ;
+   Outimage ; Outimage ;
+
+   x:- New A;
+   P(x.Z);
+
+
+   IF x.i = 9 and v.i = 5 THEN
+   Begin
+      Outtext("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   End Else
+   Begin
+      Outtext ("*** ERROR : Procedure calls.") ;
+      Outimage ;
+      Outtext ("            Erroneus values: x.i = ") ;
+      if x =/= none then
+         Outint (x.i, 5)
+      else
+         Outtext (" object none") ;
+      Outimage ;
+      Outtext ("                             v.i = ") ;
+      if v =/= none then
+         Outint (v.i, 5)
+      else
+         Outtext (" object none") ;
+      Outimage ;
+      Outimage
+   End;
+
+   Outtext("--- END Simula a.s. TEST 72") ;
+   Outimage
+ End

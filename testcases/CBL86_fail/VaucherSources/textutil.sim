@@ -1,0 +1,269 @@
+% ***************************************************************
+%	TEXTUTIL: Basic Text Handling Utilities  v.1.3
+%
+%	Jean Vaucher
+%	Mar 1998:	added GetToken 
+%	Fev 1998:	changement de GetWord 
+%	Dec 1997:	Removed Menu to menu.sim
+%
+% To use: 
+%   1) add "external class textutil;" to your program
+%   2) at U.Montreal, compile with -diro option, i.e.:
+%         $ sim -diro pgm.sim
+
+% ***************************************************************
+%      BASIC TEXT HANDLING PROCEDURES
+% ---------------------------------------------------------------
+%	- front( t )      -> t
+%	- rest( t )       -> t
+%	- from( t,i)      -> t
+%	- tsub( t,pos,len)-> t
+%	- frontstrip( t ) -> t
+%	- trim( t )       -> t        = frontstrip(T.strip)
+%
+%  - int_as_text(I)   -> T : converts integer to minimum size TEXT
+%  - outline(t):		   : outtext(T) & outimage
+
+% ***************************************************************
+%       Search  UTILITIES
+% ---------------------------------------------------------------
+%  - search(T,Wd)   -> i : Returns position of Wd in T 
+%  - scanto(T,C)    -> T : Find substring delimited by C
+%  - indexOf(C,T)   -> i : Returns position of C in T
+%  - getWord(T)     -> T : Returns the next "word" in T
+%  - getToken(T)    -> T : Returns the next Token in T
+% ***************************************************************
+
+
+% XXXXXXXXXXXXXXXXXXXXX
+	CLASS TextUtil;;
+% XXXXXXXXXXXXXXXXXXXXX
+
+! ----------------------------------------------------------- ;
+   TEXT Procedure FRONT(t);
+   TEXT t;
+! ----------------------------------------------------------- 
+   returns a reference to the front of T up to POS-1
+! ----------------------------------------------------------- ;
+   	Front :- T.sub(1,T.pos-1);
+   
+! ----------------------------------------------------------- ;
+   TEXT Procedure REST(t);
+   TEXT t;
+! ----------------------------------------------------------- 
+   returns a reference to part T from POS to the end
+! ----------------------------------------------------------- ;
+   	Rest :- T.sub(T.pos, T.length-T.pos+1);
+   
+
+! ----------------------------------------------------------- ;
+   TEXT PROCEDURE FROM( t, i);
+   TEXT t;
+   INTEGER i;
+! ----------------------------------------------------------- 
+   returns a reference to the end part of T starting at
+   POS = i.
+! ----------------------------------------------------------- ;
+
+   IF i <= t.length THEN
+	  from :- IF i <= 0 THEN t ELSE t.sub( i, t.Length - i + 1);
+
+! -------------------------------------------------------- ;
+   TEXT PROCEDURE tsub( t, p, l);
+   TEXT t;
+   INTEGER p, l;
+! -------------------------------------------------------- ;
+!  Safe version of SUB. In cases where t.sub(p,l) would have 
+   caused a run time error, NOTEXT is returned.
+   ----------------------------------------------------------;
+
+   IF p >= 1 AND l >= 0 AND p + l <= t.length + 1
+	  THEN  tsub:- t.sub( p, l);
+
+! ----------------------------------------------------------- ;
+   TEXT PROCEDURE frontstrip(t);
+   TEXT t;
+! ----------------------------------------------------------- 
+   returns a reference to the longest subtext of T starting
+   with the first non-blank character.
+ ----------------------------------------------------------- ;
+  if t =/= notext AND THEN t.strip =/= notext  
+  then begin 
+      t.setpos(1);  while t.getchar = ' ' do  ! -- ZIP -- ;  ;
+      frontstrip :- t.sub(t.pos-1, t.length-t.pos+2);
+  end;
+
+
+Text Procedure Trim(T); Text T;
+   Trim :- frontstrip(T.strip);
+         
+! ----------------------------------------------------------- ;
+    text procedure int_as_text(int); integer int;
+! ----------------------------------------------------------- ;
+    begin text t;
+          integer i,val,n,Len;
+          
+      Len := if int >= 0 then 1 else 2 ; 
+      val := abs(int)//10;
+      while val>0 do begin 
+          Len := Len+1; val := val//10 
+      end;
+      
+      int_as_text :- t :- blanks(Len);
+      t.putint(int);
+    end;
+
+! ----------------------------------------------------------- ;
+   PROCEDURE outline(t);      TEXT t;
+! ----------------------------------------------------------- ;
+   BEGIN
+	  OutText(t);  OutImage;
+   END of outline ;
+   
+   
+% ***************************************************************
+% ***************************************************************
+%       Search  UTILITIES
+% ***************************************************************
+% ***************************************************************
+
+! ----------------------------------------------------------- ;
+   integer procedure SEARCH ( Master, STRING);
+   Name Master;
+   TEXT Master, STRING;
+! ----------------------------------------------------------- ;
+!  
+   Searches for the string STRING in the text MASTER.  Search
+   starts at POS and returns the position of the first occurence 
+   of STRING.  If no STRING is found then the result is Zero.
+   
+   Master.pos = master.length+1  if STRING is not found
+   Master.pos = foundPOS+1       if STRING is     found
+   ------------------------------------------------------------;
+   BEGIN Integer MaxPos, Len;  Text T;
+
+      T      :- Master;
+      Len    := STRING.length;
+      MaxPos := T.length - Len + 1;
+	  WHILE T.pos <= MaxPos DO
+         IF T.sub(T.pos, STRING.length) = STRING
+         Then Begin
+             search := T.pos;
+             T.getchar ;
+             goto EXIT;
+         End
+         Else T.getchar;    ! == master.Setpos(master.pos + 1);
+
+      T.setpos(0);
+EXIT:
+      Master.setpos(T.pos);
+   END of search;
+
+
+! ----------------------------------------------------------- ;
+   TEXT PROCEDURE scanto(tt,c);
+! ----------------------------------------------------------- ;
+   NAME tt; 
+   TEXT tt;
+   CHARACTER c;
+!
+	Returns the a portion of the text in TT (starting at POS)
+    and delimited by the character C ( or until the end of text).  
+	The delimiter C is not included in the returned text.  
+	POS is set just past the delimiter.
+Uses:
+	- FROM
+   ----------------------------------------------------------- ;
+   BEGIN
+	  TEXT t;
+	  INTEGER p;
+	  
+	  t:- tt;
+	  p:= t.pos;
+	  WHILE t.more DO
+		 IF t.getchar = c THEN
+			BEGIN
+			   scanto:- t.sub(p,t.pos-p-1);
+			   goto out;
+			END;
+	  scanto:- from(t,p);
+out:  
+	  tt.setpos(t.pos);
+   END of scanto;
+ 
+! ----------------------------------------------------------- ;
+  Integer PROCEDURE indexOf( C, t );
+     Character C;
+     Text t;
+! ----------------------------------------------------------- ;
+!   returns the position of C in T (or Zero is absent)        ;
+! ----------------------------------------------------------- ;
+BEGIN
+   T.Setpos( 1 );
+   WHILE T.more DO
+      IF C = T.getchar THEN BEGIN
+         indexOf := T.pos-1;
+         Goto EXIT;
+      END;
+
+   Exit:
+END;
+
+
+! =================================================	 ;
+	text procedure getword (T); Name T; text T;
+! -------------------------------------------------	 ;
+!	Retourne la prochaine sequence d'alphanumeriques ; 
+!	dans un texte						;		
+! -------------------------------------------------	 ; 
+	begin
+		integer i,j,len;
+		character C;
+		
+		C := ' ';
+		while T.more and not alphanum(C)
+			do C := T.getchar;
+		IF NOT alphanum(C) then getWord :- notext 
+		else begin
+			i := T.pos-1;
+			while T.more and alphanum(C) 
+				do C := T.getchar;
+			len := IF alphanum(C) 
+			            THEN T.Pos-i 
+						ELSE T.Pos-i-1;
+			getWord :- copy(T.sub(i,len));
+		end
+	end	*** GetWord ***;
+
+Boolean procedure alphanum(C); character C;
+	alphanum := letter(C) or else digit(C);
+
+! =================================================	 ;
+	text procedure getToken (T); Name T; text T;
+! -------------------------------------------------	 ;
+!	Retourne la prochaine sequence de caracteres     ;
+!   non-blancs                                       ; 
+! -------------------------------------------------	 ; 
+	begin
+		integer i,j,len;
+		character C;
+		
+		C := ' ';
+		while T.more and C <= ' '
+			do C := T.getchar;
+		IF C <= ' ' then getToken :- notext 
+		else begin
+			i := T.pos-1;
+			while T.more and C > ' ' 
+				do C := T.getchar;
+			len := IF C > ' '  
+			            THEN T.Pos-i 
+						ELSE T.Pos-i-1;
+			getToken :- copy(T.sub(i,len));
+		end
+	end	*** GetToken ***;
+
+
+	
+
+

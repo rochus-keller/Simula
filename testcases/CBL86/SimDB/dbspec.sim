@@ -1,0 +1,855 @@
+% ----------------------------------------------------------------------
+%	                          DBSPEC.SIM
+%
+%	MODIFIE:
+%       Version 1.3     31 juillet 1992     Normand Masse
+%                        - les OPTIONS LIST et PASSWD ont ete ajoutees
+%                          au menu principal:
+%                          list   : affiche les specs existants
+%                          passwd : change le mot de passe
+%
+%       Version 1.2     30 juillet 1992     Normand Masse
+%                        - store_new_record appele apres chaque
+%                          operation (au lieu de seulement dans exit), 
+%                          apres chaque operation, on sauve les records
+%                          on recharge les tables de RSPEC de la base.
+%                          De cette facon les tables sont toujours correctes
+%
+%		Version 1.1		29 juillet 1992		Normand Masse
+%						- Entete d'execution: numero de version affiche
+%                       - Modifications pour version 1992
+%                         - saferequest remplace par request
+%                         - fonction safestore ajoute a store_new_spec
+%                           permet de bien alloue de l'espace a la fin
+%                            de la base pour les nouveaux types de record
+%                            (i.e. ajoute des lignes blanches :NOTEXT)
+%                         - avalues(9) retire: pas utilise dans version 1992
+%                         - delimiteur '^' change a '|' pour ARRCHAR
+%                         - position de dimension de la base changee:
+%                           avant: de 15 a 19 (5 positions) dans rec 1
+%                           apres: de 15 a 20 (6 positions) dans rec 1
+%                         - element HASH_METHOD retire du rec 1: pas utilise
+%
+%       Version 1.0     28 juillet 1992     Normand Masse
+%                       - Version 1982 recuperee
+% ----------------------------------------------------------------------
+BEGIN
+   
+   COMMENT ------------------------- DBSPEC ----------------------------
+   
+   PURPOSE: CREATION AND ALTERATION OF A DATA BASE SCHEMA.
+   AUTHOR:  JEAN-FRANCOIS LAMY
+            DEPARTEMENT D'INFORMATIQUE ET RECHERCHE OPERATIONNELLE
+            UNIVERSITE DE MONTREAL
+            SEPTEMBER 1982
+   DESCRIPTION: THE USER CREATES A SCHEMA BY DEFINING RECORD TYPES
+         (EDITING FACILITIES OF CLASS EDIT ARE USED), AND BY DEFINING SETS.
+         A NEW RECORD TYPE CAN BE CREATED FROM SCRATCH OR OBTAINED BY
+         DERIVATING IT FROM ANOTHER ONE PREVIOUSLY DEFINED. THE USER
+         MAY ALSO APPEND FIELDS TO OR RENAME AN EXISTING TYPE.
+
+         IT IS POSSIBLE TO ADD NEW TYPES AND FIELDS AFTER THE INITIAL
+         CREATION. WHEN A TYPE IS RENAMED. ALL SET SPECIFIATIONS ARE
+         UPDATED ACCORDINGLY.
+   
+   ---------------------------------------------------------------------;
+   
+   EXTERNAL CLASS SAFEIO, DBMMIN, EDIT;
+   
+   EDIT("", 0, FALSE )
+   BEGIN
+	  TEXT VERSION =" version 1.3 ";	! Texte en entete d'execution ;
+
+   !  --------------------------------------------------------------
+	  STRUCTURE TO HANDLE RECORD SPECIFICATIONS WITH MORE EASE
+	  THAN WITH A SINGLY LINKED LIST;
+	  
+	  LINK CLASS SPECIF( NAME_, STORED, SPEC);
+		  TEXT NAME_;
+		  BOOLEAN STORED;
+		  REF(RSPEC) SPEC;
+		  ;
+	  
+	   !  --------------------------------------------------------------
+		  NAME_    TYPE NAME.
+		  STORED   TRUE IF SPEC IS PHYSICALLY STORED IN DATA BASE.
+		  SPEC     TYPE SPECIFICATION.
+		  ;
+	  
+	  REF(SPECIF) SPECIF_PT;
+	  
+	  REF(HEAD) DEFINED_SPECIFS;
+	  
+	  COMMENT
+	  CONTAINS ALL DEFINED SPECIFICATIONS.  NEWLY DEFINES SPECIFICATIONS
+	  ARE NOT ADDED TO RECORDSPEC LIST, ONLY TO DEFINED_SPECIFS.
+	  ;
+	  
+	  INTEGER KMAX_NB_COMMANDS, COMMAND_INDEX;
+	  
+	  COMMENT
+	  KMAX_NB_COMMANDS   NUMBER OF COMMANDS DEFINED.
+	  COMMAND_INDEX      INDEX OF COMMAND IN COMMAND_TABLE.
+	  ;
+	  
+	  TEXT ARRAY COMMAND_TABLE(1:7);
+	  COMMENT CONTAINS ALL COMMANDS DEFINED;
+	  
+	  SWITCH COMMAND_SWITCH := CREATE, DERIVATE, ALTER, SET, LIST, PASS, QUIT;
+	  
+	  COMMENT   COMMANDS DEFINED
+	  ADD       CREATION OF A NEW RSPEC FROM SCRATCH.
+	  DERIVATE  A NEW RSPEC IS CRATED, BASED ON ONE ALREADY DEFINES.
+	            OLD RSPEC REMAINS UNCHANGED.
+	  ALTER     AN OLD RSPEC IS MODIFIED BY APPENDING FIELDS OR IS
+	            RENAMED.  RECORDS ALREADY PRESENT CAN STILL BE READ,
+	            BUT CONTAIN NO INFORMATION FOR THE NEWLY APPENDED FIELDS.
+	            ALL SETS IN WHICH A TYPE IS IMPLICATED ARE UPDATED TO
+	            REFLECT A CHANGE IN NAME.
+	  SET       A NEW SET SPECIFICATION IS CREATED FROM SCRATCH.
+	  LIST      GIVE THE LIST OF RECORD DEFINED IN THE DATABASE.
+	  PASSWD    CHANGE THE DATABASE PASSWORD.
+	  QUIT      CLOSE DATA BASE AND TERMINATE PROGRAM.
+	  ;
+	  
+	  INTEGER SIZE;
+	  COMMENT
+	  SIZE   SIZE OF HASHING AREA FOR CURRENT RSPEC.
+	  ;
+	  
+	  BOOLEAN DONE, OK;
+	  COMMENT
+	  DONE    TRUE IF USER HAS TYPED "QUIT".
+	  OK      TRUE IF LAST COMMAND FROM USER HAS BEEN RECOGNIZED.
+	  ;
+	  
+	  REF(MAP) NO_CONVERSION;
+	  COMMENT
+	  NO_CONVERSION  DUMMY.  EDIT_SPEC IS ONLY CALLED IN MODES THAT
+	                 DO NOT PRODUCE A CONVERSION TABLE.
+	  ;
+	  
+	  COMMENT $P DBSPEC: INITIALIZATION;
+	  
+	  PROCEDURE SET_UP;
+	  
+	  COMMENT -----------------------------------------------------
+	  OBTAIN DATA BASE NAME AND IMAGE SIZE AND OPEN IT. IF NOT
+	  PREVIOUSLY DEFINED, ASK USER FOR DETAILS CONCERNING CHOICE OF
+	  INTERNAL DELIMITING AND SIZES OF PREDEFINED AREAS.
+	  -------------------------------------------------------------;
+	  
+	  BEGIN
+		 TEXT DB_NAME;
+		 INTEGER DB_IM_SIZE;
+		 
+%		 LINESPERPAGE(100000);
+		 LINESPERPAGE(-1);
+		 REQUEST("Data base file name ", "tmp",
+		             TEXTINPUT(DB_NAME, TRUE), "", HELP(
+		             "Enter name of data base to be created or modified"));
+		 REQUEST("Image size ", "78",
+		             INTINPUT(DB_IM_SIZE, DB_IM_SIZE>30),
+		             "Must be > 30", NOHELP );
+		 OUTIMAGE;
+		 
+		 EMPTYBASE := TRUE;
+		 OPENBASE( DB_NAME, DB_IM_SIZE );
+		 
+		 IF DEFINED__F THEN
+			BEGIN
+			   OUTLINE("=== A PREVIOUSLY DEFINED SCHEMA IS BEING EDITED ===");
+			   LOAD_SPECIFS;
+			END
+		 ELSE
+			BEGIN
+			   DEFINED_SPECIFS :- NEW HEAD;
+%			   OFLOWTOP := 10;
+%			   DELIMITERS;
+			   PREDEFINED_TYPES;
+			   OUTIMAGE;
+			END;
+		 DEFINE_COMMANDS;
+	  END OF SET_UP;
+
+	  
+PROCEDURE DELIMITERS;
+	  !-----------------------------------------------------------
+	  ASK USER ABOUT WHICH CHARACTERS TO USE INTERNALLY AS SEPARATORS
+	  BETWEEN FIELDS AND BETWEEN ARRAY ELEMENTS.  STORE THESE INFOR-
+	  MATIONS AND OTHER PERTINENT VALUES IN THE FIRST SIMULA RECORD 
+	  OF THE DATA BASE.
+	  ------------------------------------------------------------;
+	  
+	  BEGIN
+		 BOOLEAN DEFAULT;
+		 
+		 backslash :- "\"; 	 cback    := '\' ;			
+		 arrchar   :- "|";   carrchar := '|' ;
+	
+		 INSPECT DB_FILE DO
+			BEGIN
+			   COMMENT
+			   FIRST RECORD OF DATA BASE CONTAINS INFORMATION DESCRIBING
+			   INTERNAL ORGANIZATION, FORMATTED AS FOLLOWS:
+			   ;
+			   
+			   LOCATE(1);
+			   IMAGE.SUB(1,6).PUTINT(OFLOWTOP);
+			   IMAGE.SUB(7,6).PUTINT(GEN_KEY);
+			   IMAGE.SUB(13,1) := BACKSLASH;
+			   IMAGE.SUB(14,1) := ARRCHAR;
+
+% Position de la dimension de la base de 15 a 20 inclusivement version 1992
+%			   IMAGE.SUB(15,5).PUTINT(RLENGTH);
+               IMAGE.SUB(15,6).PUTINT(RLENGTH);
+
+			   OUTIMAGE;
+			END;
+	  END OF DELIMITERS;
+	  
+	  PROCEDURE PREDEFINED_TYPES;
+	  
+	  COMMENT ----------------------------------------------------------
+	  INITIALIZATION OF ALL PREDEFINED TYPES (EXCLUDING RSPEC, WHICH
+	  IS CREATED AUTOMATICALLY WHEN OPENING A DATA BASE).
+	  ------------------------------------------------------------------;
+	  
+	  BEGIN
+		 BOOLEAN DEFAULT;
+		 REF(RSPEC) RNEXT;
+		 
+		 REQUEST("Default sizes for predefined type ", "YES",
+		    BOOLINPUT(DEFAULT), "", HELP(
+		    "Enter no if you wish to go through the types one by one"));
+		 
+		 DEFINE("SETSPEC", "NAME,OWNER,MEMBERS,REMARK,MULTI_OWNER",
+		        5,"3,3,3,3,3", DEFAULT, 11, "Set definitions");
+		 DEFINE("STRUKTUR", "NAME,OSETS,MSETS",3,"3,3,3",DEFAULT, 23,
+		        "One is used for each record implicated in a relation");
+		 DEFINE("HELPMESS", "MNAME,MESS",2,"3,3",DEFAULT, 23,
+		        "Help messages (used by fetch and application programs)");
+!		 DEFINE("INDEXFILE", "NAME,ANTAL,TYP,COND,REMARK,INDEX", 7, 
+		        "3,1,3,3,3,3,4", DEFAULT, 11, 
+		        "Used in fetch to preserve results of requests");
+!		 DEFINE("TABLE", "NAME,FIELDS,COLUMNS,SUMS,REMARK", 5, "3,3,3,3,3",
+		        DEFAULT, 11, "Output format definitions for fetch");
+!		 DEFINE("CPROC", "NAME,BODY,DESCR", 3, "3,3,3", DEFAULT, 11,
+		        "Used to conserve a sequence of commands in fetch");
+		 
+		 COMMENT
+		 INCLUDE SETSPEC DEFINITION IN SIMDBM'S RECORDSPEC STACK.
+		 THIS IS NECESSARY SINCE DOFOREACH IS CALLED ON SETSPEC
+		 OBJECTS IN PROCEDURE ALTER_SPEC.
+		 ;
+		 RNEXT :- RECORDSPEC;
+		 RECORDSPEC :- SEARCH_SPECIF("SETSPEC").SPEC;
+		 RECORDSPEC.NEXT :- RNEXT;
+		 
+	  END OF PREDEFINED_TYPES;
+	  
+
+	  PROCEDURE DEFINE_COMMANDS;
+	  
+	  COMMENT -------------------------------------------------------------
+	  INITIALIZE TABLE CONTAINING ALL VALID COMMAND NAMES.
+	  ---------------------------------------------------------------------;
+	  
+	  BEGIN
+		 KMAX_NB_COMMANDS := 7;
+		 COMMAND_TABLE(1) :- COPY("CREATE");
+		 COMMAND_TABLE(2) :- COPY("DERIVATE");
+		 COMMAND_TABLE(3) :- COPY("ALTER");
+		 COMMAND_TABLE(4) :- COPY("SET");
+		 command_table(5) :- Copy("LIST");
+		 command_table(6) :- Copy("PASSWD");
+		 COMMAND_TABLE(7) :- COPY("QUIT");
+	  END OF DEFINE_COMMANDS;
+
+	  COMMENT $P   DBSPEC: HANDLING OF THE LIST OF TYPE SPECIFICATIONS;
+	  
+	  
+	  PROCEDURE LOAD_SPECIFS;
+	  
+	  COMMENT -------------------------------------------------------------
+	  INSERT ALL RSPEC DEFINED AT THE TIME OF THE OPENING OF THE DATA BASE
+	  IN THE DEFINED SPECIFS LIST.  DEFINED_SPECIFS IS DOUBLY LINKED FOR
+	  MORE FLEXIBILITY THAN THE RECORDSPEC LIST CREATED BY SIMDBM.
+	  ---------------------------------------------------------------------;
+	  BEGIN
+		 REF(RSPEC) PT_SPEC;
+		 DEFINED_SPECIFS :- NEW HEAD;
+		 PT_SPEC :- RECORDSPEC;
+         WHILE PT_SPEC =/= NONE DO
+			BEGIN
+			   NEW SPECIF(PT_SPEC.RNAME, TRUE, PT_SPEC).INTO(DEFINED_SPECIFS);
+			   PT_SPEC :- PT_SPEC.NEXT;
+			END;
+	  END OF LOAD_SPECIFS;
+
+	  REF(SPECIF) PROCEDURE SEARCH_SPECIF (T);
+	  VALUE T;
+	  TEXT T;
+	  BEGIN
+		 REF(SPECIF) SPECIF_PT;
+		 SPECIF_PT :- DEFINED_SPECIFS.FIRST;
+         WHILE SPECIF_PT =/= NONE DO
+			BEGIN
+	           IF SPECIF_PT.NAME_ = T THEN
+				  GOTO QUIT;
+			   SPECIF_PT :- SPECIF_PT.SUC;
+			END;
+QUIT:	 
+		 SEARCH_SPECIF :- SPECIF_PT;
+	  END OF SEARCH SPECIF;
+
+	  PROCEDURE STORE_NEW_SPECIFS;
+	  
+	  COMMENT -----------------------------------------------------------
+	  ALL SPECIFICATIONS THAT HAVE BEEN CREATED OR MODIFIED ARE STORED.
+	  THIS IS DONE IN A SINGLE PASS, AT THE END, TO AVOID PROBLEMS
+	  SUCH AS THE RSPEC BEING STORED OVER IT'S ASSOCIATED PRIMARY AREA.
+	  THIS APPROACH LEADS TO A MUCH SIMPLIFIED MANAGEMENT OF OFLOWTOP.
+	  -------------------------------------------------------------------;
+	  BEGIN
+		 REF(SPECIF) S;
+		 
+	PROCEDURE safeStore;
+	! --------------------------------------------------
+		 Cette PROCEDURE alloue correctement de l'espace a la fin
+		 de la base de donnees afin d'ajouter des nouvelles specs
+		 (insere des ligne NOTEXT a la fin)
+	---------------------------------------------------;
+	BEGIN
+	   INTEGER i;
+	   
+	   DB_File.image := notext;
+	   DB_file.Locate(s.spec.base);
+	   FOR i := 1 STEP 1 UNTIL s.spec.size DO
+		  DB_File.Outimage;			
+	   s.spec.store;
+	END -- safeStore -- ;
+		 
+		 S :- DEFINED_SPECIFS.FIRST;
+		 WHILE S =/= NONE DO
+			BEGIN
+			   IF NOT S.STORED THEN 
+% Modification du store pour reserver de l'espace quand un nouvel element
+% Ici les elements qu'on store sont des nouveaux elements (store_new_spec)
+%				  S.SPEC.STORE;
+			      safestore;
+			   S :- S.SUC;
+			END;
+	  END OF STORE_NEW_SPECIFS;
+
+
+	  COMMENT $P   DBSPEC: CREATION OF A RSPEC FOR A PREDEFINED TYPE;
+! ---------------------------------------------------------------;	  
+	  PROCEDURE DEFINE (SNAME, SATTRIBUTES, NB_ATTRIBUTES,
+	                    STYPES, ALL_DEFAULT, DEFAULT_SIZE, HELP_MSG);
+! ---------------------------------------------------------------;	  
+	  VALUE SNAME, SATTRIBUTES, STYPES, HELP_MSG;
+	  TEXT SNAME, SATTRIBUTES, STYPES, HELP_MSG;
+	  BOOLEAN ALL_DEFAULT;
+	  INTEGER NB_ATTRIBUTES, DEFAULT_SIZE;
+	  
+	  COMMENT ----------------------------------------------------------
+	  CREATION OF A PREDEFINED TYPE.  RSPEC IS ADDED TO DEFINED SPECIFS,
+	  BUT NOT STORED IMMEDIATELY, TO FACILITATE MANAGING OF OFLOWTOP.
+	  ------------------------------------------------------------------;
+	  BEGIN
+		 TEXT ARRAY AVALUES(1:N__SPA), ANAMES(1:NB_ATTRIBUTES),
+		            AREMARKS(1:NB_ATTRIBUTES);
+		 COMMENT
+		 AVALUES   ALL INFORMATION IN A SIMDBM RECORD IS STORED
+		           AS TEXT STRINGS.  AVALUES HAS ONE TEXT STRING FOR
+		           EACH ATTRIBUTE OF A RSPEC, AND IS USED TO
+		           CREATE THE ARRAY IN THE RECORD OBJECT ASSOCIATED
+		           WITH EACH RSPEC.
+		           THE SAME INFORMATION AS AVALUES(7) IN A MORE
+		           ACCESSIBLE FORM (ONE ELEMENT PER NAME).
+		 ;
+
+		 INTEGER ARRAY ATYPES(1:NB_ATTRIBUTES);
+		 COMMENT
+		 ATYPES    SAME INFO. AS IN AVALUES(8), BUT SPLIT UP AND
+		           CONVERTED TO INTEGER INSTEAD OF TEXT.
+		 ;
+		 
+		 REF(RSPEC) SPEC;
+		 BOOLEAN EXCLUDED;
+		 INTEGER SIZE;
+
+		 BOOLEAN PROCEDURE DISPLAY_HELP(MSG);
+		 TEXT MSG;
+		 BEGIN
+			OUTLINE(MSG);
+			HELP_SIZE;
+		 END OF DISPLAY HELP;
+		 
+         IF NOT ALL_DEFAULT THEN
+		    REQUEST(SNAME,INTPUT(DEFAULT_SIZE),
+               SIZE_INPUT(SIZE,EXCLUDED), "", DISPLAY_HELP(HELP_MSG))
+		 ELSE
+		    SIZE := DEFAULT_SIZE;
+		 
+         IF NOT EXCLUDED THEN
+			BEGIN
+			   INTEGER I, N;
+			   
+			   COMMENT
+			   CREATE RSPEC PART BY PART;
+			   
+			   N := SPLITC( SATTRIBUTES, CKOMMA, ANAMES, NB_ATTRIBUTES);
+			   N := SPLITC( STYPES, CKOMMA, AREMARKS, NB_ATTRIBUTES);
+			   FOR I := 1 STEP 1 UNTIL N DO
+				  BEGIN
+					 ATYPES(I) := AREMARKS(I).GETINT;
+					 AREMARKS(I) :- NOTEXT;
+				  END;
+
+			   AVALUES(1) :- SNAME;
+			   AVALUES(2) :- ANAMES(1);
+			   AVALUES(3) :- INTPUT( OFLOWTOP);
+			   AVALUES(4) :- INTPUT( SIZE);
+			   AVALUES(5) :- INTPUT( 1);
+			   AVALUES(6) :- INTPUT( NB_ATTRIBUTES);
+			   AVALUES(7) :- SATTRIBUTES;
+			   AVALUES(8) :- STYPES;
+			   
+			   SPEC :- NEW RSPEC(SPEC__SPEC, AVALUES, SNAME, AVALUES(2),
+			                     OFLOWTOP, SIZE, 1, NB_ATTRIBUTES, ANAMES, 
+			                     ATYPES );
+			   ALLOCATE_SPACE (SPEC, SIZE);
+    		   SPEC.PROTOTYPE:- SPEC ;
+
+%	           SPEC.PROTOTYPE:- NEW RECORD(SPEC, spec.ANAMES);
+%			   NEW SPECIF(SNAME,FALSE,SPEC).INTO(DEFINED_SPECIFS);
+
+			   NEW SPECIF(SNAME,TRUE,SPEC).INTO(DEFINED_SPECIFS);
+			END;
+	  END OF DEFINE;
+
+	  
+	  COMMENT $P   DBSPEC: SPACE ALLOCATION ;
+	  
+! -------------------------------------------------- ;
+	  PROCEDURE ALLOCATE_SPACE (SPEC, SIZE);
+! -------------------------------------------------- ;
+		  REF(RSPEC) SPEC;
+		  INTEGER SIZE;
+	  BEGIN
+		 SPEC.BASE := OFLOWTOP;
+		 SPEC.SIZE := SIZE;
+		 SPEC.AVALUES(3) :- INTPUT(OFLOWTOP);
+		 SPEC.AVALUES(4) :- INTPUT(SIZE);
+		 NewRspecStore(SPEC, SIZE);
+	  END OF ALLOCATE_SPACE;
+
+
+
+	  BOOLEAN PROCEDURE SIZE_INPUT(SIZE, EXCLUDED);
+	  NAME SIZE, EXCLUDED;
+	  INTEGER SIZE;
+	  BOOLEAN EXCLUDED;
+	  COMMENT -----------------------------------------------------------
+	  READ IN A SIZE FOR A PRIMARY AREA.  ENTERING "O" OR ANY
+	  ABREVIATION OF "OMIT" SETS PARAMETER EXCLUDED TO TRUE.
+	  -------------------------------------------------------------------;
+	  
+	  BEGIN
+		 TEXT COMMAND, OMIT;
+		 
+		 SIZE_INPUT := TRUE;
+         OMIT :- COPY("OMIT");
+		 COMMAND :- COPY(FRONTSTRIP(SYSIN.IMAGE.STRIP));
+	     IF CHECKINT(COMMAND) = 1 THEN
+			BEGIN
+			   SIZE := COMMAND.GETINT;
+			   EXCLUDED := SIZE = 0;
+			END
+	     ELSE IF TSUB(OMIT, 1, COMMAND.LENGTH) = COMMAND THEN
+		    EXCLUDED:= TRUE
+		 ELSE
+			BEGIN
+			   OUTLINE("Integer value or ""OMIT"" expected");
+			   SIZE_INPUT := FALSE;
+			END;
+    END OF SIZE_INPUT;
+	  
+	  COMMENT $P   DBSPEC: MISCELANEOUS HELP PROCEDURES;
+	  
+	  BOOLEAN PROCEDURE HELP_SIZE;
+	  
+	  COMMENT ----------------------------------------------------------
+	  HELP GIVEN WHEN A SIZE FOR A PRIMARY AREA IS REQUESTED.
+	  ------------------------------------------------------------------;
+	  BEGIN
+		 OUTLINE("Enter approximate number of records you expect to need");
+		 OUTLINE("or ""OMIT"" to ignore definition");
+	  END OF HELP_SIZE;
+
+	  BOOLEAN PROCEDURE HELP_NEW_TYPE;
+	  
+	  COMMENT ----------------------------------------------------------
+	  HELP GIVEN WHEN A NAME FOR A NEW TYPE DEFINITION IS REQUESTED.
+	  ------------------------------------------------------------------;
+	  BEGIN
+		 OUTLINE("Enter a name to identify the record type being defined");
+		 OUTLINE("there must not be another type with the same name.");
+	  END OF HELP NEW TYPE;
+
+	  BOOLEAN PROCEDURE HELP_COMMAND;
+	  
+	  COMMENT ----------------------------------------------------------
+	  HELP GIVEN WHEN THE USER IS ASKED FOR A DBSPEC COMMAND
+	  (OUTERMOST LEVEL).
+	  ------------------------------------------------------------------;
+	  
+	  BEGIN
+		 TEXT TAB;
+		 TAB :- COPY("             ");
+		 OUTIMAGE;
+		 OUTLINE("=============== COMMANDS DEFINED ===============");
+		 OUTIMAGE;
+		 OutImage;		 
+		 OUTLINE("  CREATE     A new record type specification is created");
+		 OUTTEXT(TAB);
+		 OUTLINE("from scratch.");
+		 OutImage;
+		 OUTLINE("  DERIVATE   A new record type specification is created.");
+		 OUTTEXT(TAB);
+		 OUTLINE("Instead of starting at zero as with create,");
+		 OUTTEXT(TAB);
+		 OUTLINE("the new specification is derived from another");
+		 OUTTEXT(TAB);
+		 OUTLINE("one previously defined. The old specification");
+		 OUTTEXT(TAB);
+		 OUTLINE("remains unchanged.");
+		 OutImage;		 
+		 OUTLINE("  ALTER      An old specification is changed by appending");
+		 OUTTEXT(TAB);
+		 OUTLINE("fields, changing it's name, or both.  Records");
+		 OUTTEXT(TAB);
+		 OUTLINE("already in the data base remain accessible, but");
+		 OUTTEXT(TAB);
+		 OUTLINE("simply contain no information in the new fields.");
+		 OutImage;		 
+		 OUTLINE("  SET        A new set specification is created from");
+		 OUTTEXT(TAB);
+		 OUTLINE("scratch");
+		 OutImage;		 
+		 outline("  LIST       List all the existing record type");
+		 OUTTEXT(TAB);
+		 outline("specifications from the database.");
+		 OutImage;		 
+		 outline("  PASSWD     Change the database password.");
+		 OutImage;		 
+		 OUTLINE("  QUIT       Terminate program");
+		 OUTIMAGE;
+		 OutImage;		 
+		 OUTLINE("Record and set specifications can only be deleted by");
+		 OUTLINE("omitting them when dumping the data base.");
+		 OUTIMAGE;
+	  END OF HELP_COMMAND;
+
+	  COMMENT $P   DBSPEC: CREATION OF A SET DEFINITION;
+	  
+	  PROCEDURE CREATE_SETSPEC;
+	  
+	  COMMENT --------------------------------------------------------
+	  CREATE A SETSPEC OBJECT FOR A SET AND STORE IT.
+	  (GET SET NAME, TYPES OF OWNERS AND MEMBERS. ASK IF THE SET
+	  REPRESENTS A M:N RELATION)
+	  ----------------------------------------------------------------;
+	  
+	  BEGIN
+		 TEXT ARRAY AVALUES(1:5);
+		 BOOLEAN MULTI_OWNER;
+		 TEXT SET_NAME, OWNER, MEMBER;
+		 
+		 REQUEST("Name of set ", "",
+		    TEXTINPUT(SET_NAME, GET(SET_NAME, "SETSPEC") == NONE),
+		    CONC(SET_NAME, " Already defined"), HELP(
+		    "Enter a name to identify the set being defined"));
+		 REQUEST("Owner type ", "",
+		    TEXTINPUT(OWNER, SEARCH_SPECIF(OWNER) =/= NONE),
+		    CONC("Undefined type: ", OWNER), HELP(
+		    "Enter name of type to which owners will belong"));
+		 REQUEST("Member type ", "",
+		    TEXTINPUT(MEMBER, SEARCH_SPECIF(MEMBER) =/= NONE),
+		    CONC("Undefined type. ", MEMBER), HELP(
+		    "Enter name of type to wich members will belong"));
+		 REQUEST("Multiple owners allowed ", "YES",
+		    BOOLINPUT(MULTI_OWNER), "", HELP(
+		    "Answer YES if the relation is M:N"));
+		 
+		 AVALUES(1) :- SET_NAME;
+		 AVALUES(2) :- OWNER;
+		 AVALUES(3) :- MEMBER;
+		 AVALUES(5) :- IF MULTI_OWNER
+		                  THEN COPY("Y")
+		               ELSE NOTEXT;
+		 
+		 NEW RECORD(SEARCH_SPECIF("SETSPEC").SPEC, AVALUES).STORE;
+	  END OF CREATE_SETSPEC;
+	  
+	  
+	  COMMENT $P   DBSPEC: INTERFACE WITH EDITING FACILITIES;
+	  
+	  PROCEDURE CREATE_SPEC;
+	  
+	  COMMENT ----------------------------------------------------------
+	  CREATION OF A RSPEC OBJECT FROM SCRATCH.
+	  ------------------------------------------------------------------;
+	  
+	  BEGIN
+		 TEXT TYPE_NAME;
+		 REF(RSPEC) NEW_RSPEC;
+		 BOOLEAN EXCLUDED;
+		 INTEGER SIZE;
+
+		 REQUEST("Type name ", "",
+		    TEXTINPUT(TYPE_NAME, SEARCH_SPECIF(TYPE_NAME) == NONE),
+		    "Name already defined", HELP_NEW_TYPE);
+		 NEW_RSPEC :- EDIT_SPEC( NONE, NONE, TYPE_NAME,
+		                         CREATION, NO_CONVERSION);
+		 REQUEST(CONC("Area size for ",CONC(TYPE_NAME, " ")), "",
+		    SIZE_INPUT(SIZE, EXCLUDED), "", HELP_SIZE);
+
+         IF EXCLUDED THEN OUTLINE2( TYPE_NAME, " IGNORED")
+		 ELSE
+			BEGIN
+			   ALLOCATE_SPACE(NEW_RSPEC, SIZE);
+			   COMMENT DEBUG% DISPLAY_RECORD( NEW_RSPEC);
+%			   NEW SPECIF(TYPE_NAME, FALSE, NEW_RSPEC).INTO(DEFINED_SPECIFS);
+			   NEW SPECIF(TYPE_NAME, True , NEW_RSPEC).INTO(DEFINED_SPECIFS);
+			END;
+	  END OF CREATE_SPEC;
+
+	  PROCEDURE DERIVATE_SPEC;
+	  
+	  COMMENT ---------------------------------------------------------
+	  CREATION OF A NEW RSPEC. INSTEAD OF STARTING FROM ZERO AS IN
+	  CREATE_SPEC, THE USER STARTS WITH THE ATTRIBUTES DEFINED IN
+	  ANOTHER RSPEC.
+	  -----------------------------------------------------------------;
+	  BEGIN
+		 TEXT CREATED_NAME, EXISTING_NAME;
+		 REF(RSPEC) CREATED_RSPEC, EXISTING_RSPEC;
+		 BOOLEAN EXCLUDED;
+		 INTEGER SIZE;
+		 
+		 BOOLEAN PROCEDURE VALID_EXISTING;
+		 BEGIN
+			REF(SPECIF) S;
+			S :- SEARCH_SPECIF(EXISTING_NAME);
+            IF S =/= NONE THEN
+			   BEGIN
+				  EXISTING_RSPEC :- S.SPEC;
+				  VALID_EXISTING := TRUE;
+			   END
+			ELSE
+			   OUTLINE2("UNDEFINED TYPE: ",EXISTING_NAME);
+		 END OF VALID_EXISTING;
+
+		 BOOLEAN PROCEDURE HELP_EXISTING;
+		 BEGIN
+			OUTLINE("Enter the name of a previously defined type specifica-");
+			OUTLINE("tion it will be used as a starting point for");
+			OUTLINE("the definition of a new type")
+		 END OF HELP_EXISTING;
+		 
+		 REQUEST("Name of type to be defined ", "",
+		    TEXTINPUT(CREATED_NAME, SEARCH_SPECIF(CREATED_NAME)==NONE),
+		    CONC(CREATED_NAME," already defined."), HELP_NEW_TYPE);
+		 REQUEST("Name of an already defined type ", "",
+		    TEXTINPUT(EXISTING_NAME, VALID_EXISTING),
+		    "", HELP_EXISTING);
+		 CREATED_RSPEC :- EDIT_SPEC(EXISTING_RSPEC, NONE, CREATED_NAME,
+		    DERIVATION, NO_CONVERSION);
+		 REQUEST(CONC("Area size for ", CONC(CREATED_NAME, " ")),
+		    "",SIZE_INPUT(SIZE, EXCLUDED),"",HELP_SIZE);
+         IF NOT EXCLUDED THEN
+			BEGIN
+			   ALLOCATE_SPACE( CREATED_RSPEC, SIZE);
+			   COMMENT DEBUG% DISPLAY_RECORD(CREATED_RSPEC);
+			
+%			   NEW SPECIF( CREATED_NAME, FALSE, CREATED_RSPEC).
+%			          INTO(DEFINED_SPECIFS);
+			   NEW SPECIF( CREATED_NAME, True, CREATED_RSPEC).
+			          INTO(DEFINED_SPECIFS);
+			END;
+	  END OF DERIVATE_SPEC;
+	  
+		 
+	  PROCEDURE ALTER_SPEC;
+	  COMMENT -----------------------------------------------------------
+	  AN OLD RSPEC IS MODIFIED EITHER BY CHANGING IT'S NAME OR BY
+	  APPENDING NEW FIELDS, OR BOTH.
+	  -------------------------------------------------------------------;
+	  
+	  BEGIN
+		 TEXT OLD_NAME, NEW_NAME;
+		 BOOLEAN NAME_CHANGE;
+		 REF(SPECIF) S;
+		 
+		 BOOLEAN PROCEDURE VALID_NEW;
+		 BEGIN
+			VALID_NEW:= TRUE;
+            IF OLD_NAME NE NEW_NAME THEN
+			   BEGIN
+				  NAME_CHANGE:= TRUE;
+                  IF SEARCH_SPECIF(NEW_NAME) =/= NONE THEN
+					 BEGIN
+						OUTLINE2(NEW_NAME, " ALREADY DEFINED");
+						VALID_NEW := FALSE;
+					 END;
+			   END;
+		 END OF VALID_NEW;
+		 
+		 BOOLEAN PROCEDURE VALID_OLD;
+		 BEGIN
+			S :- SEARCH_SPECIF(OLD_NAME);
+			IF S =/= NONE THEN VALID_OLD := TRUE
+			ELSE
+			   OUTLINE2("UNDEFINED TYPE: ", OLD_NAME);
+			   
+		 END OF VALID_OLD;
+
+		 BOOLEAN PROCEDURE HELP_NEW;
+		 BEGIN
+			OUTLINE("Enter nothing if actual name is ok.");
+			OUTLINE("Otherwise, enter a name not previously defined");
+		 END OF HELP_NEW;
+		 
+		 
+		 PROCEDURE UPDATE_SETSPEC(R);
+		 REF(RECORD) R;
+		 BEGIN
+			INTEGER I;
+			INSPECT R DO
+			   BEGIN
+				  FOR I := 2, 3 DO
+					 BEGIN
+						IF AVALUES(I) = OLD_NAME THEN
+						   AVALUES(I) :- NEW_NAME;
+					 END;
+			   END;
+			R.STORE;
+		 END OF UPDATE_SETSPEC;
+		 
+		 
+		 REQUEST("Name of type ","",
+		    TEXTINPUT(OLD_NAME, VALID_OLD), "", HELP(
+		    "Enter name of type specification you wish to alter"));
+		 REQUEST("New name ",OLD_NAME,
+		    TEXTINPUT(NEW_NAME, VALID_NEW),"" , HELP_NEW);
+		 
+         IF S.STORED THEN
+			BEGIN
+			   DELETE(S.SPEC);
+!			   FREELIST :- NONE;
+			END;
+		 
+		 S.NAME_ :- NEW_NAME;
+!		 S.STORED := FALSE;
+		 S.SPEC :- EDIT_SPEC(S.SPEC, NONE, NEW_NAME, ADDITION, NO_CONVERSION);
+		 S.Spec.Store;
+		 COMMENT DEBUG% DISPLAY_RECORD(S.SPEC);
+		 
+		 IF NAME_CHANGE THEN
+			DOFOREACH("SETSPEC", UPDATE_SETSPEC);
+		 
+	  END OF ALTER_SPEC;
+	  
+	  COMMENT $P   DBSPEC: COMMAND INPUT AND VALIDATION;
+	  
+	  BOOLEAN PROCEDURE COMMAND_INPUT (INDEX);
+	  NAME INDEX;
+	  INTEGER INDEX;
+	  
+	  COMMENT ----------------------------------------------------------
+	  READ A COMMAND FROM THE INPUT FILE AND VALIDATE IT. ISSUE
+	  A DIAGNOSTIC WHEN APPROPRIATE.
+	  ------------------------------------------------------------------;
+	  
+	  BEGIN
+		 BOOLEAN OK;
+		 TEXT COMMAND;
+		 COMMAND :- COPY(FRONTSTRIP(SYSIN.IMAGE.STRIP));
+		 OK := MENU(COMMAND, COMMAND_INDEX, COMMAND_TABLE, KMAX_NB_COMMANDS);
+		 
+		 IF NOT OK THEN
+			BEGIN
+			   IF INDEX = 0 THEN OUTLINE("ILLEGAL COMMAND. ? FOR HELP.")
+			   ELSE OUTLINE("AMBIGUOUS COMMAND. ABBREVIATION TOO SHORT.");
+			END;
+		 
+		 COMMAND_INPUT := OK;
+	  END OF COMMAND_INPUT;
+	  
+! ========================================================== ;	  
+!			DBSPEC: PROGRAM BODY     ;
+! ========================================================== ;	  
+	  
+	  outline( "------------------ DBSPEC ("&VERSION&") -------------------");
+	  OutImage;
+	  
+	  SET_UP;
+	  
+	  OutImage;
+	  help_command;
+	  
+	  WHILE NOT DONE DO
+		 BEGIN
+			OutImage;
+			REQUEST("Main (? for help) ", "", COMMAND_INPUT(COMMAND_INDEX),
+			   "", HELP_COMMAND);
+			GOTO COMMAND_SWITCH(COMMAND_INDEX);
+			
+			CREATE:
+			   CREATE_SPEC;
+			   GOTO NEXT;
+
+            DERIVATE:	   
+			   DERIVATE_SPEC;
+			   GOTO NEXT;
+			
+			ALTER:
+			   ALTER_SPEC;
+			   GOTO NEXT;
+			
+            SET:		   
+			   CREATE_SETSPEC;
+			   GOTO NEXT;
+			
+			LIST:                                 !*;
+			   display_records;
+			   GOTO NEXT;
+			
+			PASS:                                 !*;
+			   ch_passwd( DB_file);
+			   GOTO next;
+			
+			QUIT:
+			   DONE := TRUE;
+			
+            NEXT: 
+% ---------------------------------------------------------------------
+% Mise a jour des tables de la base de donnees et de dbspec
+% Ceci est necessaire puisque que l'espace 'libre' n'est pas reserve
+% dans la base.  Le store_new_specifs permet de reserver l'espace
+% necessaire pour l'enregistrement des sets definis
+% --------------------------------------------------------------------- 
+%			   store_new_specifs;       ! sauve les RSPEC nouveaux;
+
+			   loadspec;                ! reset de la liste des RSPEC;
+			   load_specifs;            ! recharge les RSPEC;
+		 END;
+	  
+% retire LE store_new_specifs, puisque deja fait apres chaque operation	  
+!	  STORE_NEW_SPECIFS;
+
+   END
+END OF DBSPEC;

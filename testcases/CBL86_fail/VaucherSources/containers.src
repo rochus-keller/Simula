@@ -1,0 +1,2197 @@
+% **********************************************************************
+%
+%          C O N T A I N E R S . S I M     ( v.6.4 - fev. 1998 )
+%
+% **********************************************************************x
+%   - J. Vaucher  (initial version June 1995)
+% **********************************************************************
+
+% **********************************************************************
+%                           OVERVIEW
+% **********************************************************************
+%
+%   This package implements traditional data structures such as 
+%        QUEUES, STACKS and DICTIONARIES for ELEMENT objects.
+%
+%   - Inspired by Bjorn Kirkerud's SETTOOLS.sim (bjornk@ifi.uio.no).
+%   - CONTAINERS retains one of Kirkerud's design objectives, namely that:
+%
+%  *** An element may be in any number of containers simultaneously.
+%      This is not the case in the SIMSET lists of common base SIMULA.
+%   
+% **********************************************************************
+%                         REQUIREMENTS
+% **********************************************************************
+%
+%   Constituent objects must be of a sub-class of ELEMENT.  This ensures
+%   that the objects have a certain number of necessary/useful 
+%   properties, i.e: they have a KEY attribute and a DISPLAY operation.
+%  
+% *************************************************************************
+%        IMPLEMENTED CONTAINERS:
+% *************************************************************************
+%
+%   - Queue:
+%   - Priority_Queue
+%   - Dictionary:
+%   - Stack:
+%   - Table:
+%
+%   Also:   Heap              (type of Priority_Queue)
+%           simple_dictionary (type of Dictionary)
+%           Sequence          (type of Queue)
+%
+% ----------------------------------------------------------------------
+% Recent Updates: Feb & Jan 1998  (JV)
+%
+% - Removed EQUALS:
+% - Changed semantics of PRECEDES:
+%
+%	1) PRECEDES now takes two ELEMENTS as parameters (not 2 KEYs)
+%        this means that quite different precedence functions can 
+%        be implemented (including order based on any attributes of
+%        an element.  DEFAULT is stil on KEY according to 'ascending'
+%        and 'numeric'
+%   2) PRECEDES is used for order in only PRIORITY QUEUES. IN containers
+%      which deal with KEYS (i.e. simple dictionary), order is by increasing
+%      KEY values.    
+%
+%   - added wrapper classes for pedagogical experiments:
+%     - Int_object (I)  
+%     - Real_object(R) 
+%     - Text_object(T)  
+%     - Char_object(C) 
+%
+% April 1977
+% ----------
+%  - changed from GETINT to GETREAL for numeric ordering
+%  - patched bug in resizing HashTables
+%
+% Jan 1997  (JV)
+% ---------------
+%   - Changed several names (Java Influence) 
+%       - set     -> dictionary 
+%       - asText  -> toString
+%   - Integrated default implementation  ("simple" containers) into
+%       "abstract" classes to ease use and reduce errors. i.e.
+%       ref(queue) Q; Q :- new queue;   now works!
+
+% - added ITERATOR: a special 'container' designed to ease the programming
+%   of LOOPS to process all the elements of  a container. { ITERATORS are
+%   similar to JAVA 'enumerations' }
+%
+
+% - Allowed more variety in the ORDER of elements in a CONTAINER
+%   - Added NUMERIC & ASCENDING 'order' attributes 
+%   - Added redefinable function PRECEDES which determines order
+%     based on the 'order' attribute. The functions are used for all
+%     comparisons between KEYS (and which use the NUMERIC
+% ----------------------------------------------------------------------
+
+%   For a container, C, 'C.elements' returns an iterator, which is a 'list' of 
+%   all the elements in C.  Successive calls to "C.NextElement" return these 
+%   elements one by one.  "C.more" returns FALSE when all the elements have 
+%   been accessed.  The iterator can be reset to point to the first element 
+%   via the RESET operation.  The example below show the use of an ITERATOR:
+%
+%   ref(iterator) Loop; ref(container) C,CC;
+%
+%       Loop :- C.elements;
+%       while Loop.more 
+%           do Process1( Loop.nextElement );
+%       Loop.reset;
+%       while Loop.more 
+%           do Process2( Loop.nextElement );
+%
+%   This is equivalent to:
+%
+%       CC :- C.copy;
+%       while not CC.empty do Process1(CC.pop);
+%       CC :- C.copy;
+%       while not CC.empty do Process2(CC.pop);
+
+
+
+% **********************************************************************
+%                         OPERATIONS
+% **********************************************************************
+%  All containers:
+% ----------------
+%
+% Display operations:
+%
+%    C.display:     Does pretty print of all elements in container C,
+%                      (recursively if some elements are containers)
+%    C.toString:     Returns a text with the keys of the first (30)
+%                      elements in C
+% Enquiry operations:
+%
+%    C.size:        Gives the number of elements in C
+%    C.empty:       Tests if container C is empty
+%    C.clear:       Removes all elements from the container C
+%
+% Adding, removing & accessing member elements:
+%
+%    C.insert(E):   Adds E to C
+%    E.into(C)      = C.insert(E)
+%    C.remove(E):   Removes E from C
+%    C.pop:         Removes one element from C and returns a pointer to it
+%    C.first:       The element that would be returned by POP
+%
+% Mass-transfer operations:
+%
+%    C.copy:        Gives copy of container C
+%    C.copies(C2):  ASSIGNMENT "operator". Makes C contain the 
+%                     same elements as C2
+%    C.gains(C2):   All elements of C2 are removed from C2 and added to C
+%
+% MAP/LOOP operators:
+%
+%    C.for_each(P): For each element E in C, calls P(E)
+%    C.elements     Returns an ITERATOR object for C
+%
+%  Queue
+% ========
+%
+%   Q.length     = Q.size
+%   Q.enqueue(E) = Q.insert    - Puts E as last element of Queue Q
+%   Q.dequeue    = Q.pop       - Removes and returns first element of Q
+%
+%  Priority_queue
+% ========================
+%
+%   Same operations as Queue but POP removes the elements according to 
+%       the defined ORDER relationship.  Default: increasing numeric ORDER
+%
+%  Stack
+% ========
+%
+%   - push(^E)  -> ^self       - Puts E as first element of stack S
+%   - pop       ->  ^E         - Removes and returns first element of S
+%   - top       ->  ^E         - Returns first element of S
+%
+%  Dictionary
+% ============
+%
+%   S.find (key)       -> ^E   - Finds the Element with KEY = 'key'
+%   S.remove_key (Key) -> ^E   - Removes (and returns) the Element
+%                                with KEY = 'key', NOP if not found
+%   S.find_or_insert(Key,newE)->^E  
+%            - Returns the Element with Key if it exists otherwise
+%              adds newE to the set and returns it. 
+%            Note: NewE is a NAME parameter which is executed only if the
+%              Key is not found;  typical use is:
+%
+%             E :- S.find_or_insert(Key, new myElement(Key));
+%                       
+%   Table
+% =========
+%
+% A "table" is basically an array where the components are retrieved via 
+%         INDEXING (here GET & SET)
+%
+% To this we add specific functionality such as:
+%
+%   - binary search for ordered data
+%   - sorting, ordering  
+%   - shifting/deletion of elements
+%   - resizing as needed 
+%   T.set(Nth,E)         -> self
+%   T.get(Nth)           -> E
+%   T.Sort               -> self
+%   T.Order( Bool proc)  -> self
+%   T.search(Key)        -> int
+%   T.binarySearch(Key)  -> int 
+%         This requires the container to have been 'SORT'ed 
+
+%   T.insert_places(pos,n) -> self
+%            - Shifts elements[pos..size] up by N places
+%              
+%   T.remove_entries(pos,n) -> self
+%            - removes N consecutive entries starting at POS
+%
+% ORDER vs SORT:    
+% -------------
+%   - SORT operation put the elements in 'normal' order based on increasing KEY 
+%     values (PRECEDES is not used). 
+%
+%   - ORDER sorts the elements according to a 'precedence' function  given
+%     as a parameter.  This function takes Two ELEMENTS as parameters and
+%     returns TRUE if the First parameters 'precedes' the second. 
+%     Note that PRECEDES can be used as the 'precedence' function to get
+%     descending or numeric ordering
+%   
+% 
+% INDEXING: 
+%   Index values are checked to ensure correct access.
+%
+%   - T.get(n):  allowable values of "n": [1..NE] 
+%                 where NE is the number of elements in T
+%
+%   - T.put(n,E):  allowable values of "n": [1..NE+1] 
+%         This allows a table to be filled sequentially, ex:
+%
+%          for i := 1 step 1 until <max> do 
+%              T.put(i, <some element> )
+%   
+%  There are two other ways to add positions to a TABLE:
+%   - T.insert(E) : E is added at position NE+1 and NE is incremented
+%   - T.insert_places(pos,n): NE is incremented by "n"
+%
+% **********************************************************************
+%                         ORDER OF ELEMENTS
+% **********************************************************************
+% In some containers, order is important: mainly in PRIORITY_QUEUES but 
+% also in tables where elements can be SORTED and the BINARY_Search 
+% requires the elements to be sorted.
+%
+% For priority QUEUES, KEY comparisons is based on local PRECEDES functions,  
+% The default implementation of these is based on 2 attributes
+% of containers: NUMERIC & ASCENDING. The defaut values are ASCENDING for 
+% all containers and NUMERIC for priority queues (and alphabetic for the 
+% others).  
+%
+%   ALPHABETIC means that 'text' comparison is done between keys, i.e.:
+%       if Key1 > Key2 then ....
+%   NUMERIC means that we use GETINT to extract the integer values:
+%       if Key1.getint > Key2.getint then ....
+%
+%   Here is how, the following 3 keys would be ordered: '100' '22 99' '33'
+%
+%   Ascending Numeric    
+%      T        T     :  '22 99',  '33', '100' ... because 22 < 33 < 100
+%      T        F     :  '100', '22 99', '33'  ... because '1' < '2' < '3'
+%      F        T     :  '100', '33', '22 99'
+%      F        F     :  '33',  '22 99', '100'
+%
+% = A user can set different values for NUMERIC & ASCENDING after creation.
+%   C :- new priority_queue; C.ascending:= false;
+%
+ 
+% **********************************************************************
+%                         IMPLEMENTATION
+% **********************************************************************
+%
+% This package makes use of a simple LISP-like list structure for many of 
+% its internal lists. Following LISP tradition, list members are linked
+% by CONS cells with 2 pointers: one towards the element and the other 
+% pointing the next CONS.
+%
+%   class CONS (elem, next);
+%       ref(element) elem;
+%       ref(cons)    next;    begin ....end;
+%
+% We complement these lists with LISP_LIST objects which operate as 
+%  a "head" class for one-way lists.  These List_heads maintain pointers
+%  to both ends to allow fast insertion at both ends.  We also keep track 
+%  of the contents.  
+%
+%   class LISP_LIST; 
+%   begin
+%       integer numElements;
+%       ref(cons) head,tail;
+%   end;
+%
+% These lists are used directly for the simple_queue, simple_stack and
+% simple_set data structures.  The Hash_Set uses a array of these lists.
+%
+%
+% **********************************************************************
+
+
+External CLASS TextUtil;
+
+class CONTAINERS;
+begin
+   Text version = "v6.4";
+end;
+
+integer procedure DEFAULT_HASH(t); text t;
+begin
+  integer N, K;
+           
+  K := abs( minint // 16);      
+  t.Setpos(1); 
+  while t.More do begin
+     N := 11*N + Rank(t.Getchar);
+     IF N > K THEN N := rem( N, K);
+  end;
+  Default_Hash := N;
+end of Default_Hash;
+   
+
+
+!********************************************
+!*                                          *
+!*                 Element                  *
+!*                                          *
+!********************************************
+
+INTERFACE:
+----------
+    - type          -> text
+    - key           -> text
+    - display
+    - toString       -> text
+
+
+E.type: returns the class of E as a text 
+
+E.key:  should return a representative and unique value for the element E
+
+E.display:  Prints a representative text for the element, usually the KEY
+    
+E.toString:  Returns a representative text for the element, usually the KEY
+
+Notes:
+------
+    KEY is the most important attribute.  It is critical for all elements 
+    that will be put into SETs or dictionaries. It also serves as a 
+    representative label for output operations like DISPLAY. 
+    Furthermore, the default implementations of all the ELEMENT operators 
+    are based on KEY.
+    
+========================================================================= ;
+
+class element;
+    virtual: 
+        procedure TYPE is 
+               text procedure type;;
+        procedure KEY is 
+               text procedure key;;
+         procedure ToSTRING is 
+               text procedure toString;;
+         procedure DISPLAY is 
+               procedure display;;
+         procedure HASHCODE is 
+               integer procedure HashCode;;
+BEGIN
+
+    text procedure type;
+        type :- "Element";
+    
+    text procedure key; key :- notext;
+
+    text procedure toString; toString :- key;
+    
+    integer procedure hashCode; 
+        hashCode := Default_Hash(Key);
+    
+    procedure display;  OutLine(key);
+    
+    procedure into(C); ref(container) C;
+        if C =/= none then C.insert(this element);
+        
+    procedure OutLine(T); text T; 
+    begin   
+        outtext(T); outimage;
+    end;
+        
+    procedure S_Error(Msg); text Msg;
+        Error("*** Error in " & type & ": " & Msg);
+    
+END of element;
+
+!*******************************************************
+!*   Wrapper classes:                                  *
+!*       to allow basic types to be put in containers  *
+!*                                                     *
+!*     - Int_object (I)                                *
+!*     - Real_object(R)                                *
+!*     - Text_object(T)                                *
+!*     - Char_object(C)                                *
+!*                                                     *
+!*******************************************************  ;
+
+element class INT_OBJECT(ii); integer ii;
+hidden protected 
+	ii, Cle;
+begin
+   Text Cle; 
+   
+   Integer procedure i;  i   := ii;
+   
+   Text procedure Key;   
+   if Cle =/= notext 
+      then Key :- Cle
+      else Key :- Cle :- int_as_text(ii);
+end;
+
+element class REAL_OBJECT(Rr); real Rr;
+hidden protected 
+	Rr, Cle;
+begin
+   Text Cle;
+   
+   Real procedure R; R   := Rr;
+   
+   Text procedure Key;   
+   Begin
+       if Cle = NOTEXT then begin
+           Cle :- blanks(12); 
+           if abs(Rr) < 10000000 and abs(Rr) > .005 
+              then  Cle.putfix(Rr,3)
+              else  Cle.putreal(Rr,5);   
+       end;
+       Key :- Cle;
+   end;
+   
+end;
+   
+element class TEXT_OBJECT(Cle); Value Cle; Text Cle;
+hidden protected 
+	Cle;
+begin
+   Text procedure Key;  Key :- Cle;
+   Text procedure T;    T   :- Cle;
+end;
+   
+element class CHAR_OBJECT(Cc); character Cc;
+hidden protected 
+	Cc,Cle;
+begin
+   Text Cle;
+   Character procedure C; C   := Cc;
+
+   Text procedure Key;   
+   if Cle =/= notext 
+      then Key :- Cle
+   else begin 
+      Key :- Cle :- blanks(1);
+      Cle.putchar(Cc);
+   end;
+end;
+   
+
+
+
+!********************************************
+!*                                          *
+!*             Container:                   *
+!*                                          *
+!********************************************
+
+INTERFACE:
+----------
+    - make_empty    -> ^self
+    - empty       ->  bool
+    - size          ->  int
+    - copy          -> ^container
+    - copies(^C)    -> ^self
+    - insert (^E)   -> ^self
+    - remove (^E)   -> ^self
+    - get (int)  -> ^E
+    - first         -> ^E
+    - pop       -> ^E
+    - for_each(Proc)
+    
+Redefined:
+
+    - display
+    - toString       -> text
+    
+Inherited from ELEMENT:
+    ... possibility to be put into other containers
+
+Inherited (but not too useful):
+-------------------------------
+    - key           -> text
+    
+============================================================== ;
+
+element class Container;
+  virtual: 
+    procedure MAKE_EMPTY is
+                   ref(Container) procedure make_empty;;
+
+    procedure GET is
+               ref(element) procedure get (elnr);
+                 integer elnr;;
+                 
+    procedure COPY     is ref(Container) procedure copy;;
+    procedure CLONE    is ref(Container) procedure clone;;
+    
+    procedure COPIES   is ref(Container) procedure copies(C); 
+                                           ref(container) C;;
+    procedure GAINS  is ref(Container) procedure gains(C); 
+                                            ref(container) C;;
+    procedure INSERT   is ref(container) procedure insert(E); 
+                                             ref(Element) E;;
+    procedure REMOVE   is ref(container) 
+                            procedure remove (E); ref(Element) E;;
+                            
+    procedure POP      is ref(Element) procedure pop;;
+    
+    procedure PRECEDES is Boolean procedure Precedes(A,B); ref(Element) A,B;;
+
+BEGIN
+    ref( Data_struc) IMPLEMENTATION;
+    
+    text procedure TYPE;
+        type :- "Container";
+    
+    integer procedure SIZE;
+        size := implementation.numElements;
+              
+    boolean procedure EMPTY;
+        empty := size = 0;      
+
+    ref(Container) procedure MAKE_EMPTY;
+    begin
+        implementation.make_empty;
+        make_empty:- this container;
+    end;
+    
+    ref(Container) procedure CLEAR;
+        Clear :- make_empty;
+    
+    ref(element) procedure FIRST;
+        first :- implementation.first;
+
+    ref(container) procedure INSERT(E); ref(Element) E;
+    begin
+        if E =/= none then implementation.insert(E);
+        insert :- this Container;
+    end;
+
+    ref(Element) procedure POP;
+        pop :- implementation.pop;
+
+    ref(container) procedure REMOVE(E); ref(Element) E;
+    begin
+        if E =/= none then implementation.remove(E);
+        remove:- this container;
+    end;
+        
+    ref(Container) procedure COPY;
+    begin   ref(Container) C;
+        copy :- C :- Clone;
+        C.implementation :- implementation.copy;
+        C.numeric := numeric;
+    end;
+
+
+    ref(Container) procedure COPIES(C); ref(container) C;
+    Begin
+        Make_empty;
+        if C =/= none then C.for_each(insert);
+        copies :- this Container;
+     end;
+     
+    ref(Container) procedure GAINS(C); ref(container) C;
+    Begin
+        if C =/= none then
+        while not C.empty do
+            insert(C.pop);
+        gains :- this Container;
+     end;
+     
+    procedure FOR_EACH(p); 
+#ifdef CIM
+    procedure p is procedure p(el); ref(element) el;;
+#else
+    procedure p;
+#endif
+        implementation.for_each(P);
+    
+    Ref( ITERATOR ) procedure ELEMENTS;
+        Elements :- new iterator( this container );
+    
+    Ref(element) procedure GET (n);integer n;
+        OutLine("GET is not implemented in " & type);
+        
+    Ref(Container) procedure CLONE;
+        OutLine("CLONE is not implemented in " & type);
+        
+
+! ===== PRINTING operations  ===========;
+
+    procedure DUMP; display;
+        
+    procedure DISPLAY; pprint(1);
+        
+    procedure PPRINT(Tab); integer tab; 
+    begin
+        integer i;
+        
+        procedure pp(E); ref(element) E;
+        begin i:= i+1;
+            setpos(Tab);
+            outint(i,0); 
+            outtext(" : ");
+            inspect E 
+              when container do pprint(tab+3)
+              when element do display;
+        end;
+        
+        outimage;
+        setpos(Tab);
+        Outtext("> " & Type & " (");
+        outint(size,0);
+        outLine(" elements):"); 
+        for_each(pp);
+    end dump;
+
+    text procedure toString;
+    if empty 
+    then toString :- "{}"
+    else begin
+        integer maxDisplay = 30;
+        Integer n;
+        text    t; 
+        
+        PROCEDURE addElem ( EL ); ref(element) EL;
+        begin   
+            n := n+1;
+            if      n < maxDisplay then t :- t & EL.toString & "," 
+            else if n = maxDisplay then t :- t & "...,"
+            ;
+        end;
+         
+        t :- "{"; 
+        for_each(addElem);
+        toString :- t.sub(1,t.length-1) & "}";
+        
+    end --- toString -- ;
+
+% ==============================================================
+%        Key comparisons
+% --------------------------------------------------------------    
+    Boolean Numeric,
+            Ascending; 
+    
+    Boolean procedure Precedes(E1,E2);  Ref(Element) E1,E2;
+    	Precedes := Default_Precedence(E1,E2);
+    	
+    Boolean procedure Default_Precedence(E1,E2);  Ref(Element) E1,E2;
+    Begin
+    	Text A,B;
+    	A :- E1.Key; 
+    	B :- E2.Key;
+	    Default_Precedence := 
+	        if numeric then 
+	            (if ascending 
+	            then A.getreal < B.getreal
+	            else A.getreal > B.getreal)
+	        else
+	            (if ascending 
+	            then A < B
+	            else A > B);
+    End;
+     
+%    Boolean procedure Equals(A,B);  Text A,B;
+%    Equals := 
+%        if   numeric
+%        then A.getint = B.getint
+%        else A = B;
+% --------------------------------------------------------------    
+
+
+! ======== Synonyms and SETTOOLS equivalent definitions  ===========;
+  
+   Boolean procedure IS_EMPTY;
+      is_empty := empty;
+      
+   Boolean procedure isEmpty;
+      isEmpty := empty;
+      
+   Text procedure asText;
+      asText :- toString;
+      
+    ref(element) procedure ELEMENT_NUMBER(elnr); integer elnr;
+        element_number :- get(elnr);
+
+    ref(element) procedure FIRST_ELEMENT;
+        first_element :- first;
+        
+    ref(Container) procedure FOR_EACH_ELEMENT(p); 
+#ifdef CIM
+        procedure p is 
+        procedure p(el); ref(element) el;;
+#else
+        procedure p;
+#endif
+    begin
+        implementation.for_each(p);
+        for_each_element :- this Container;
+    end;    
+
+! ------------------------------------------------------------- ; 
+
+    Ascending := true;
+    
+END of Container;
+
+
+
+!********************************************
+!*                                          *
+!*              Queue                       *
+!*                                          *
+!********************************************
+
+INTERFACE:
+----------
+New:
+    - enqueue = insert
+    - dequeue = pop
+
+Default implementation : One-way list of CONS Cells
+========================================================== ;
+    
+
+Container CLASS Queue;
+begin
+    
+    text procedure TYPE;
+        type :- "Queue";
+    
+    ref(container) procedure ENQUEUE(E); ref(Element) E;
+        insert(E);
+    
+    ref(element) procedure DEQUEUE; 
+        dequeue :- pop;
+    
+    ref(Queue) procedure CONCATENATE(s); ref(container) s;
+      begin 
+        s.for_each(insert);
+        concatenate :- this queue;
+      end;      
+    
+    integer procedure LENGTH;  length := size;
+
+!********************************************
+%   Default implementation:
+============================================= ;
+%    ref( Lisp_list ) implementation;
+    
+    ref(Container) procedure CLONE;
+        Clone :- new Queue;
+        
+    ref(element) procedure GET(n); integer n;
+        if implementation in Lisp_list then
+        get :- implementation qua Lisp_list.get (n);
+    
+     
+    ref(Container) procedure GAINS(C); ref(container) C;
+    begin
+        if C =/= none and then C.size > 0 then 
+        begin
+            if this CONTAINER is queue 
+            and C.implementation in Lisp_list then 
+            begin 
+               ref(Lisp_list) L1,L2;
+               L1 :- implementation; 
+               L2 :- C.implementation;
+               L1.numElements := L1.numElements + L2.numElements;
+               
+               if L1.head == none then begin 
+                  L1.head :- L2.head; 
+                  L1.tail :- L2.tail;
+               end
+               else begin 
+                  L1.tail.next :- L2.head;
+                  L1.tail :- L2.tail;
+               end;
+                C.make_empty;
+            end 
+            else while not C.empty do insert(C.pop);
+        end;
+        gains :- this Container;
+     end;
+
+%   -------------------------------------
+            INNER;
+%   -------------------------------------
+    
+    if implementation == none then
+        implementation :- new Lisp_list(this container);
+    
+end of QUEUE;
+
+
+!********************************************;
+!*          priority_Queue                  *;
+!********************************************;
+
+queue CLASS priority_Queue;
+begin
+
+%    ref(O_list) implementation;
+    
+    text procedure TYPE;
+        type :- "priority_Queue";
+    
+    ref(Container) procedure CLONE;
+        Clone :- new priority_Queue;
+        
+
+    numeric := true;
+
+%   -------------------------------------
+            INNER;
+%   -------------------------------------
+    
+    if implementation == none then
+        implementation :- new O_list(this container);
+        
+end of priority_Queue;
+
+
+
+!********************************************
+!*                                          *
+!*                 Stack                    *
+!*                                          *
+!********************************************
+
+INTERFACE:
+----------
+New:
+    - push(^E)  -> ^container
+    - pop       ->  ^E
+    - top       ->  ^E
+    
+Redefined:
+    - insert   == push
+    - top      == first
+
+Default implementation:     one-way list
+=============================================== ;
+    
+
+Container CLASS Stack;
+virtual: 
+    procedure PUSH is 
+        ref(container) procedure push(E); ref(Element) E;;
+begin
+    
+    text procedure type;
+        type :- "Stack";
+    
+    ref(Container) procedure CLONE;
+        Clone :- new Stack;
+
+    ref(container) procedure INSERT(E); ref(Element) E;
+        insert :- PUSH(E);
+    
+    ref(element) procedure TOP; 
+        top :- implementation. first;
+        
+    ref(container) procedure PUSH(E); ref(element) E;
+    begin
+        implementation qua Lisp_list.push(E);
+        push   :- this container;
+    end;
+    
+    ref(element) procedure GET(n); integer n;
+        get  :- implementation qua Lisp_list.get (n);
+    
+% -------------------------------------------------
+            INNER;
+% -------------------------------------------------
+    
+    if implementation == none then   
+        implementation :- new Lisp_list(this container);
+    
+end of STACK;
+
+
+
+!********************************************
+!*                                          *
+!*          Dictionary                      *
+!*                                          *
+!********************************************
+
+INTERFACE:
+----------
+New:
+    - find (key)    -> ^E
+    - find_or_insert (Key,proc) ->  ^E
+    - remove_key   (Key)        ->  ^E
+    
+Default implementation:     HashTable (sized automatically)
+========================================================== ;
+    
+
+Container CLASS Dictionary;
+virtual: 
+    procedure CONTAINS is
+       boolean procedure contains(E);  ref(Element) E;;
+
+    procedure FIND is
+       ref(element) procedure find(key);
+         text key;;
+
+    procedure FIND_OR_INSERT is
+       ref(element) procedure find_or_insert(key,newElem);
+         name newElem;
+         text key;        
+         ref(element) newElem;;
+
+    procedure REMOVE_KEY is
+       ref(element) procedure remove_key(key);
+         text key;;
+BEGIN
+
+     text procedure TYPE;
+        type :- "Dictionary";
+    
+    ref(Container) procedure CLONE;
+        Clone :- new Dictionary;
+            
+    Boolean procedure CONTAINS(Elem); ref(element) Elem; 
+        contains := implementation qua HashArray.contains( Elem );
+
+    ref(element) procedure FIND(key); text key;
+        find :- implementation qua HashArray.find( key );
+
+
+    ref(element) procedure FIND_OR_INSERT(key,newElement); 
+        name           newElement;
+        text           key;
+        ref (element)  newElement;
+        
+        find_or_insert :- implementation qua HashArray 
+                         . find_or_insert( key,newElement );
+    
+    ref(element) procedure REMOVE_KEY(key); text key;
+        remove_key :- implementation qua HashArray.remove_key( key );
+      
+      
+    procedure Resize(N); integer N;
+        implementation qua HashArray.resize(N);
+
+% -------------------------------------------------
+%   Equivalents
+% -------------------------------------------------
+  ref(element) procedure find_element(key);TEXT key;
+      find_element :- find(key);
+
+   REF(dictionary) PROCEDURE add_element(el);REF(element) el;
+      add_element :- insert(el) QUA dictionary;
+  
+
+% -------------------------------------------------
+        INNER;
+% -------------------------------------------------
+    
+    if implementation == none then 
+        implementation :- new HashArray(this container, 5);
+
+end of -------------------  Dictionary  ------------------------;
+
+
+
+!********************************************
+!*                                          *
+!*                Table                     *
+!*                                          *
+!********************************************
+
+A "table" is basically an array where the components are
+retrieved via INDEXING (here GET & SET )
+
+- To this we add specific functionality such as:
+
+    - sorting
+    - faster binary search for sorted data
+    - shifting/deletion of elements
+    - resizing as needed 
+
+INTERFACE:
+----------
+New:
+    - set(Nth,E)    -> self
+    - get (Nth)     -> E
+    - sort
+    - search(Key)   -> int
+    - binarySearch(Key) -> int
+    - insert_places(pos,n) -> self
+            - Shifts elements[pos..size] up by N places
+              
+    - remove_entries(pos,n) -> self
+            - removes N consecutive entries starting at POS
+    
+Redefined:
+    
+  - insert(E): extends the table by one position for E
+  - pop:    returns element 1 and shifts all others down 1 
+
+========================================================== ;
+
+    
+container class TABLE (initSize); integer initSize;
+begin
+
+%    ref(Element_array) implementation;
+    
+    text procedure TYPE;
+        type :- "Table";
+    
+    ref(Container) procedure MAKE_EMPTY;
+    begin
+        implementation:- new Element_array(this container, 5);
+        make_empty:- this container;
+    end;
+    
+    ref(Container) procedure COPY;
+    begin ref(Table) C;
+        copy :- C :- new Table(-1);
+        C.initSize := initSize;
+        C.implementation :- implementation.copy;
+    end;
+
+
+    ref(element) procedure GET(nth); integer nth;
+        get :- implementation qua element_array.get(nth);
+
+    ref(container) procedure SET(nth,E); 
+                    integer      nth;
+                    ref(element)     E;
+    begin integer N;
+        N := implementation.numElements;
+        if      nth<= 0   then
+        else if nth<= N   then implementation qua element_array.A(nth) :- E
+        else if nth = N+1 then insert(E);
+        set :- this container;
+    end;
+    
+    ref(Container) procedure COPIES(C); ref(container) C;
+    Begin
+        if C =/= none then
+            implementation qua Element_array.copies(C);
+        copies :- this Container;
+    End;
+
+
+    ref(element) procedure POP;
+    if size > 0 then
+    begin
+        pop :- implementation qua element_array.A(1);
+        implementation qua element_array.remove_entries(1,1);
+    end;
+        
+        
+    ref(container) procedure INSERT_PLACES(pos,n); 
+                                   integer pos,n;
+    begin
+        implementation qua element_array.insert_places(pos,N);
+        insert_places:- this container;
+    end;
+    
+    
+    ref(container) procedure REMOVE_ENTRIES(pos,n); 
+                                    integer pos,n;
+    begin
+        implementation qua element_array.remove_entries(pos,N);
+        remove_entries:- this container;
+    end;
+    
+    ref(container) procedure SORT;
+        Sort :- implementation qua element_array.sort;
+    
+    ref(container) procedure ORDER( Precede ); 
+#ifdef CIM
+        procedure precede is 
+        Boolean procedure precede(E1,E2); ref(element) E1,E2  ;;
+#else
+        Boolean procedure    precede;
+#endif
+
+        Order :- implementation qua element_array.order(precede);
+
+    
+    integer procedure SEARCH(Key); text Key;
+        search := implementation qua element_array.search(Key);
+    
+    integer procedure BinarySearch(Key); text Key;
+        binarySearch := implementation qua element_array.BinarySearch(Key);
+
+    
+%   - - - - - Initialisation - - - - - - - - 
+
+    if initSize = 0 then initSize := 5;
+    if initSize > 0 then 
+        implementation :- new Element_array(this container, initSize)
+
+end  ------------    Table    ------------------------------;
+
+
+% ===============================================
+% ===============================================
+% ===                                         ===
+% ===     O T H E R   C O N T A I N E R S     ===
+% ===                                         ===
+% ===============================================
+% ===============================================
+
+
+
+!********************************************;
+!*     priority_Queue class HEAP            *;
+!********************************************;
+
+
+priority_Queue CLASS Heap;
+begin
+
+%    ref(Element_array) implementation;
+    
+    text procedure TYPE;
+        type :- "Heap";
+    
+    ref(Container) procedure CLONE;
+        Clone :- new Heap;
+        
+        
+    ref(container) procedure INSERT(E); ref(element) E;
+    begin
+        if E =/= none then
+        begin
+            implementation.Insert(E);
+            inspect implementation when Element_array do
+                siftUp(A,numElements);
+        end;
+        insert :- this Container;
+    end of insert;
+    
+    
+    ref(element) procedure POP;
+    begin ref(element) PE;
+        inspect implementation 
+        when Element_array do
+            if numElements > 0 then
+            begin
+                PE :- A(1);
+                A(1) :- A(numElements); 
+                numElements:= numElements-1;
+                sift(A,1,numElements);
+            end
+            else Error("POP on empty HEAP");
+        POP :- PE;
+    end;
+
+    ref(container) procedure REMOVE(E); ref(element) E;    
+    begin
+        integer i, N;
+        ref( Element_array ) implement;
+        
+        implement :- implementation;
+        if E =/= none then i := implement.search(E.key);
+        if i>0 And then implement.A(i) == E then 
+        begin
+            N:= implement.numElements;
+            implement.numElements := N-1;
+            if N > 1 then 
+            begin
+                implement.A(i) :- implement.A(N);
+                sift(implement.A,i,N-1);
+            end;
+        end;
+        remove :- this Container;
+    end;
+
+    procedure sift(A,i,n);  ref(Element) array A; 
+                            integer i,n;
+    begin
+        integer j;
+        Ref(element) E;
+        Text x;
+        
+        E :- A(i);
+%        x :- E.Key; 
+        j:= 2*i;
+        while j<=n do
+        begin
+%            if j<n and then precedes( A(j+1).Key, A(j).Key )
+            if j<n and then precedes( A(j+1), A(j) )
+            then j:= j+1;
+%            if not precedes( A(j).Key, X)
+            if not precedes( A(j), E)
+            then goto Exit;
+            A(i) :- A(j);
+            i := j; j:= 2*i;
+        end;
+    Exit:
+        A(i) :- E;
+    end;
+    
+    procedure siftUp(A,j); ref(Element) array A; 
+                           integer j;
+    begin
+        integer i;
+        Ref(element) E;
+        Text x;
+        
+        E :- A(j);
+%        x :- E.Key; 
+        i:= j // 2;
+%        while i>0 and then precedes( X, A(i).Key)
+        while i>0 and then precedes( E, A(i))
+        do begin
+            A(j):- A(i);
+            j := i; i := i // 2;
+        end;
+        A(j) :- E;
+    end;
+    
+    implementation :- new Element_array(this container, 5);
+        
+end of Heap;
+
+
+
+!********************************************
+!*               Sequence                   *
+!*******************************************;
+
+Queue CLASS sequence;
+BEGIN
+        
+  REF(sequence) PROCEDURE append(el);REF(element) el;
+     append :- insert(el);
+
+  REF(sequence) PROCEDURE put(el);REF(element) el;
+     put :-  insert(el);
+END;
+
+
+
+!********************************************
+!*                                          *
+!*        simple_Dictionary                 *
+!*                                          *
+!********************************************;
+
+
+Dictionary CLASS Simple_Dictionary;
+begin
+
+%    ref(Lisp_list) implementation;
+    
+    text procedure TYPE;
+        type :- "Simple_Dictionary";
+    
+    ref(Container) procedure CLONE;
+    	Clone :- new Simple_Dictionary;
+
+    ref(element) procedure GET(n); integer n;
+        get  :- implementation qua Lisp_list.get (n);
+    
+
+    ref(container) procedure INSERT(E); ref(element) E;
+    begin
+	    if E =/= none then
+	    begin
+	        ref(cons) p,q; ref(Lisp_List) L;
+	        
+	        L :- implementation;
+	        if  L.Find_Key_GE(p,q, E.Key )
+	          then p.Elem :- E
+	          else L.insert_after(E,q)
+		end;
+        insert :- this Container;
+    end of INSERT;
+ 
+    
+    ref(element) procedure FIND(Key); text Key;
+    begin
+        ref(cons) p,q;
+        if implementation qua Lisp_list.Find_Key_GE(p,q, Key ) 
+        then FIND :- p.elem;
+    end;
+
+
+    
+    ref(container)  Procedure REMOVE(E); ref (element) E;
+    begin
+	    if E =/= none then remove_key(E.Key);
+        remove :- this container;
+    end of remove;
+    
+    ref(element) procedure REMOVE_KEY(Key); text Key;
+    	remove_key :- implementation qua Lisp_list
+    	               .remove_key(Key);
+ 
+
+    ref(element) procedure FIND_OR_INSERT(key,newElement); 
+    	name      newElement; 
+        text      key;
+        ref (element) newElement; 
+    begin     
+        ref(Cons) p,q;
+        ref(element) E;
+        ref(Lisp_list) L;  L :- implementation;
+        
+        if  L.Find_Key_GE(p,q, Key ) 
+        then FIND_OR_INSERT :- p.elem
+        else begin
+            FIND_OR_INSERT :- E :- newElement;
+            if E == none then 
+                Error("newElement == NONE in Find_or_insert");
+            L.insert_after(E,q);
+        end;
+    end;
+        
+    implementation :- new Lisp_list(this container);
+        
+end of Simple_Dictionary ;
+
+
+% *********************************************************
+%     Equivalent classes
+% *********************************************************
+
+Queue          CLASS  simple_queue;;
+Queue          CLASS  List;;
+Priority_queue CLASS  pQueue;;
+Priority_queue CLASS  Ordered_list;;
+stack          CLASS  simple_stack;;
+simple_dictionary 
+               CLASS  simple_set;;
+dictionary     CLASS  hash_table;;
+table          CLASS  simple_table;;
+
+
+% *********************************************************
+% *********************************************************
+%
+%   Implementation DATA STRUCTURES (and their "methods")
+%   ------------------------------------------------------
+%
+% = class CONS (elem, next):    Lisp Cell for 1-way lists
+%       - copy
+%       - last
+%       - get (Nth)
+ 
+% = Lisp_list
+%   - clone     -> Lisp_list
+%   - for_each(P)
+%   - make_empty
+%   - remove(E) -> bool
+%   - get (n)   -> E
+%   - first     -> E
+%   - copy      -> Lisp_list
+%   - Insert(E) 
+%   - push  (E) 
+%   - pop   -> E
+%   - remove(E) 
+%   - remove_Key(K) -> Elem
+
+% = Lisp_list class O_list: ...ordered lists.
+%   - clone
+%   - insert(E)  
+%   - remove(E)         -> bool
+
+% = class HashArray(N):     Array of lists for hash_tables
+%       - copy
+%       - flush
+
+% = class Element_array(N);     Array of Elements
+%   	- for_each(P)
+%       - copy
+%       - resize
+%       - delete...n elements
+%       - insert...n elements
+%       - get  & set...nth element
+%       - push & pop
+%       - search & binarySearch
+%       - sort & quicksort
+%
+% *********************************************************
+% *********************************************************
+
+
+
+!********************************************
+ *                                          *
+ *     CONS: implementation class for       *
+ *           one way lists (a la LISP)      *
+ *                                          *
+ ********************************************;
+
+class CONS (elem, next);
+    ref(element) elem;
+    ref(cons)    next;
+begin
+
+    ref(cons) procedure COPY;
+        copy :- if next == none 
+                then new cons(elem,none)
+                else new cons(elem, next.copy);
+                
+    ref(cons) procedure LAST;
+        last :- if next == none 
+                then this cons
+                else next.last;
+                
+    ref(element) procedure get(Nth); integer Nth;
+       get :-
+          if Nth =1 then Elem
+          else if next =/= none then next.get(Nth-1)
+          else none;
+           
+end of CONS ;
+
+% ==============================================
+%  Data_struc : Where the data is kept
+% ==============================================
+
+Class Data_struc(Owner);  ref(container) Owner;
+virtual:
+    procedure INSERT   is procedure insert(E);  ref(Element) E;;
+    procedure REMOVE   is procedure remove (E); ref(Element) E;;
+    procedure FIRST    is ref(Element) procedure first;;
+    procedure POP      is ref(Element) procedure pop;;
+
+    procedure COPY  is ref(Data_struc) procedure copy;; 
+    procedure CLONE  is ref(Data_struc) procedure clone;; 
+   
+    procedure MAKE_EMPTY is procedure make_empty;;
+
+    procedure FOR_EACH is procedure for_each(p); 
+#ifdef CIM
+        procedure p is 
+        procedure p(el); ref(element) el;;
+#else
+        procedure p;
+#endif
+    ;              
+
+
+begin  
+    integer numElements;
+
+end  --- Data_struc ---;
+
+
+% ==============================================
+%  Lisp_list:  a "head" class for one-way lists
+% ==============================================
+
+Data_struc class Lisp_list; 
+begin
+    ref(cons) head,tail;
+    
+    ref(Data_struc) procedure CLONE; 
+    	Clone :- new Lisp_list(none);
+    
+    procedure FOR_EACH(proc); 
+#ifdef CIM
+        procedure proc is 
+        procedure proc(el); ref(element) el;;
+#else
+        procedure proc;
+#endif
+    begin
+        ref(cons) P;
+        
+        P :- head;
+        while P =/= none do begin
+            proc(P.elem);
+            P :- P.next;
+        end;
+    end;
+    
+    procedure MAKE_EMPTY;
+    begin
+    	numElements := 0;
+        head :- tail:- none;
+    end;
+        
+    ref(element) procedure GET(Nth); integer nth;
+      if nth > 0 and nth <= numElements then 
+         get  :- head.get (nth);
+    
+    ref(element) procedure FIRST; 
+        inspect head do first :- Elem;
+    
+    ref(Data_struc) procedure COPY;
+    begin
+        ref(Lisp_list) CH;
+        copy :- CH :- Clone;
+        if Head =/= none then
+        begin
+            CH.head :- head.copy;
+            CH.tail :- CH.Head.last;
+            CH.numElements := numElements;
+        end;
+    end;
+    
+    procedure INSERT(E); ref(element) E;
+    begin
+        ref(cons) P;
+        
+        P :- new cons(E,none);
+        if head == none then
+            head :- tail :- P
+        else begin
+            tail.next :- P;
+            tail :- P;
+        end;
+        numElements := numElements+1;
+    end;
+
+    procedure PUSH(E); ref(element) E;
+    if E =/= none then
+    begin
+        head :- new cons(E,head);
+        if tail == none then 
+            tail :- head;
+        numElements := numElements+1;
+    end;
+        
+    ref(element) procedure POP;
+    if head =/= none then
+    begin
+        pop :- head.elem;
+        if head == tail then
+            head :- tail :- none
+        else
+            head :- head.next;
+            
+        numElements := numElements-1;
+    end;
+
+    Procedure REMOVE(E); ref(Element) E;
+    begin
+        ref(cons) p,q;
+        
+        p :- head;
+        while p =/= none and then p.elem =/= E do
+        begin
+            q:- p; P :- p.next;
+        end;
+        if p =/= none then remove2(p,q);
+
+    end of remove;
+    
+    
+    ref(element) Procedure REMOVE_Key(Key); text Key;
+    begin
+        ref(cons) p,q;
+        
+		if  Find_Key_GE(p,q,Key)     
+        then begin
+        	remove_key :- p.elem;
+            remove2(p,q);
+        end;
+    end of remove_key ;
+ 
+    procedure remove2(p,q); ref(cons) p,q;
+    begin
+        if P == head 
+            then head   :- p.next
+            else q.next :- p.next;
+        if tail == p then 
+            tail :- q;
+        numElements := numElements-1;
+    end;
+    
+    Boolean procedure Find_Key_GE(p,q,Key);   ! for ordered LIST ;
+    name p,q;
+        ref(cons)   p,q;
+        Text        Key;
+    begin    
+        p :- head;
+        while p =/= none AND then 
+              p.elem.Key < Key do
+        begin
+            q:- p; p :- p.next;
+        end;
+        Find_Key_GE := p =/= none and then p.elem.Key = Key;
+    end;
+
+    procedure insert_after(E,q); ref(element) E;
+                                 ref(cons) q;
+    begin
+	    if q == none then begin
+	    	head :- new cons(E,head);
+	    	if tail == none then tail :- head;
+	    end
+	    else begin
+	    	q.next :- new cons(E,q.next);
+	    	if tail == q then tail :- q.next;
+	    end;
+	    numElements := numElements + 1;
+	end;
+    
+end;
+
+
+Lisp_list class O_list;
+begin
+
+    ref(Data_struc) procedure Clone; 
+        Clone :- new O_list(owner);
+    
+    procedure INSERT(E); ref(element) E;
+    if head == none then
+      begin
+         head :- tail :- new cons(E,none);
+    	 numElements := numElements + 1;
+      end
+	else begin
+        ref(cons) p,q;
+
+        find_gt(p,q,E);          
+        insert_after(E,q);
+        
+    end of INSERT;
+ 
+    Procedure REMOVE(E); ref(Element) E;
+    begin
+        ref(cons) p,q;
+        
+		find_ge(p,q,E);
+        while p =/= none and then not owner.precedes(E,P.elem)
+        do
+          if p.elem == E then
+        	begin
+           	   remove2(p,q);
+               P :- NONE;
+            end else begin
+            	q :- p; p :- p.next;
+        	end;
+    end of remove;
+    
+    Procedure find_GE (p,q,E);   
+    name p,q;
+        ref(cons)   p,q;
+        ref(Element) E;
+    begin    	
+        p :- head;
+        while p =/= none AND then 
+             owner.precedes( p.elem, E) do
+        begin
+            q:- p; p :- p.next;
+        end;
+    end;
+        
+    procedure find_gt(p,q,E); name p,q;
+        ref(cons)     p,q;
+        Ref(Element)      E;
+    begin
+        p :- head;
+        while p =/= none AND then 
+             not owner.precedes(E, p.elem) do
+        begin
+            q:- p; p :- p.next;
+        end;
+    end;
+    
+END of O_list;
+
+
+% ********************************************
+% *                                          *
+% *             Element_array                *
+% *                                          *
+% ********************************************
+
+Data_struc CLASS Element_array( size); integer size;
+begin
+
+    ref(element) ARRAY A (1:size);
+
+    procedure dummy;
+    begin       procedure add(E); ref(element)E;;
+        for_each(add);
+    end;
+    
+    procedure FOR_EACH(proc);     
+#ifdef CIM
+        procedure proc is 
+        procedure proc(el); ref(element) el;;
+#else
+        procedure proc;
+#endif
+
+    begin 
+        integer i; 
+        ref(element) E;
+        for i := 1 step 1 until numElements do
+        begin 
+            E :- A(i);
+            proc(E);
+        end;
+      end;
+
+    
+    procedure MAKE_EMPTY;
+        numElements := 0;
+        
+    boolean procedure FULL;
+        full := numElements=size;
+
+    ref(Data_struc) procedure COPY;
+        copy :- resize(size);
+             
+              
+    procedure COPIES(C); ref(container) C;
+    Begin
+        integer i,N;
+        ref(Element_array) EA;
+        
+        procedure add(E); ref(element)E;
+        begin  
+            i := i+1; EA.A(i) :- E;
+        end;
+           
+        N := C.size;
+        if  N > Size or else
+            Size > 2*N+10 
+        then owner.implementation :- 
+             EA :- new Element_array(owner, N+5 )
+        else EA :- this Element_array;
+           
+        C.for_each(add);
+        EA.numElements := i;
+     end;
+
+
+    ref(Element_array) procedure RESIZE( NewSize ); integer Newsize;
+      begin integer i,N;
+            ref(Element_array) EA;
+        resize :- EA :- new Element_array(owner, NewSize);
+        for i := 1 step 1 until numElements do
+            EA.A(i) :- A(i);
+         EA.numElements := numElements; 
+      end;
+      
+    procedure SET(i,E); integer i; ref(element) E;
+    if i>0 and i<=size then
+        A(i) :- E;
+    
+    ref(element) procedure GET(i); integer i;
+    if i>0 and i<=numElements then
+        get  :- A(i);
+        
+   
+
+! --------------------------------------------------------
+  INSERT_PLACES/REMOVE_ENTRIES assume that the positions 
+  1 to numElements of array A contain valid elements.
+   - INSERT_PLACES moves elements POS to TOP up N positions to 
+     allow insertion of N new elements starting at POS.
+   - REMOVE_ENTRIES removes N elements starting at position POS 
+    and shifts down the elements above.
+        
+   * The procedures assume that the parameters are correct
+  -------------------------------------------------------;
+
+    procedure INSERT_PLACES(pos,N); integer pos,n;
+    if pos > 0 and pos <= numElements then
+    begin   
+        integer i,newSize;
+    
+        newSize := numElements+n;
+        if newSize > size then 
+        begin
+            ref(Element_array) EA;
+            
+            EA :- new Element_array(Owner, max(1.4*Size,newSize));
+            EA.numElements := newSize;
+            for i := 1 step 1 until pos-1 do
+                EA.A(i) :- A(i);
+            for i := pos step 1 until numElements do
+                EA.A(i+n) :- A(i);
+            owner.implementation :- EA;
+        end
+        else begin
+            for i := numElements step -1 until pos do
+                A(i+n) :- A(i);
+            numElements := newSize;
+        end;
+        
+    end;
+
+    procedure REMOVE_ENTRIES(pos,N); integer pos,N;
+    if pos > 0 and pos <= numElements then
+    begin
+        integer i;
+        
+        n:= min(n,numElements-pos+1);
+        for i := pos step 1 until numElements-n do
+            A(i) :- A(i+n);
+        numElements := numElements - n;
+    end;
+    
+    procedure INSERT(E); ref(element) E;
+    Begin
+        ref(Element_array) EA;
+        if numElements = size then
+            owner.implementation :- EA :- resize(max(1.4*size,size+1))
+        else EA :- this Element_array;
+        inspect EA do begin
+            numElements:= numElements+1;
+            A(numElements) :- E;
+        end;
+    end;
+        
+    ref(element) procedure POP;
+    if numElements > 0 then
+    begin
+        pop :- A(numElements);
+        numElements := numElements-1;
+    end;
+    
+    ref(element) procedure FIRST;
+        if numElements > 0 then first :- A(numElements);
+ 
+    procedure REMOVE(E); ref(element) E;
+    begin  integer i; 
+        
+        i := search(E.Key);
+        if i>0 and then A(i) == E then
+            remove_entries(i,1); 
+    end;
+   
+
+!   -------------------- S E A R C H --------------------------
+    As opposed to FIND routines which return pointers to element
+    The SEARCH routines return INTEGER 'pointer' into the array.
+      - SEARCH: returns "0" if not found
+      - BinarySearch: returns the index of the largest element
+          smaller or equal to Key (or 0 if such an element 
+          does not exist.
+    ---------------------------------------------------------- ;
+    
+    integer procedure Search(Key); text Key;
+    begin
+        integer i;
+        i := numElements;
+        while i > 0 and then 
+              A(i).key <> Key
+        do 
+            i := i-1;
+        Search := i;
+    end;
+    
+    integer procedure BinarySearch(Key); text Key;
+    begin
+        integer lb,mid,ub;
+        
+        lb  := 0;  
+        ub := numElements+1;
+        while ub-lb>1 do
+        begin
+            mid := (lb+ub) //2;
+%            if owner.precedes(Key,A(mid).key) 
+            if Key < A(mid).key 
+                then ub := mid
+                else lb := mid;
+        end;
+        BinarySearch:= lb;
+    end;
+            
+    
+%   -----------------
+%     S O R T I N G 
+%   -----------------
+
+    ref( Container) procedure SORT;
+    begin
+        Boolean procedure precede(E1,E2); ref(element) E1,E2;
+%           precede := owner.precedes(E1.key < E2.key);
+           precede := E1.key < E2.key;
+
+        if numElements > 1 then
+            Quicksort(1, numElements, precede);
+        Sort :- Owner;
+    end;
+                
+    ref(Container) procedure ORDER( precede ); 
+#ifdef CIM
+        procedure precede is 
+        Boolean procedure precede(E1,E2); ref(element) E1,E2  ;;
+#else
+        Boolean procedure    precede;
+#endif
+    begin
+        if numElements > 1 then
+            quicksort(1,numElements, precede );
+        Order :- Owner;
+    end;
+        
+        
+    procedure Quicksort(L,R,precede);
+            integer   L,R;
+#ifdef CIM
+        procedure precede is 
+        Boolean procedure precede(E1,E2); ref(element) E1,E2  ;;
+#else
+        Boolean procedure    precede;
+#endif
+    begin 
+        integer i,j;
+        ref(element) x,Mid;
+          
+        Mid :- A ( (L+R) // 2 );
+        j := R;
+        i := L;
+        
+        while i < j do
+        begin
+            while precede( a(i), Mid ) do i := i+1;
+            while precede( Mid , a(j)) do j := j-1;
+            if i<=j then begin
+                x :- A(i); A(i) :- A(j); a(j) :- x;
+                i := i+1; j := j-1;
+            end ;
+        end;
+        if L < j then QuickSort(L,j,precede);
+        if i < R then QuickSort(i,R,precede);
+     end;
+     
+    
+END of Element_array ;
+
+% =====================================
+%      HashArray:  used in Dictionary
+% =====================================
+ 
+Data_struc CLASS HashArray(Limit); integer Limit;
+begin
+
+    ref(Cons) array LIST(1:Limit);
+%   integer         numElements;
+        
+    integer procedure reHash(N); integer N;
+        reHash := randint(1,Limit,N);
+        
+    ref(Data_struc) procedure COPY;
+    begin
+        ref(HashArray) C;
+        integer i;
+        
+        copy :- C :- new HashArray(owner, Limit);
+        for i := 1 step 1 until limit do
+            inspect List(i) do 
+                C.List(i) :- copy;
+    end;
+        
+    ref(Data_struc) procedure RESIZE (NewLimit); integer NewLimit;
+    begin
+        ref(HashArray) HT;
+        ref(Cons) p, pp;
+        integer   i, i2; 
+                   
+        Resize :- HT :- new HashArray(owner, NewLimit);
+        HT.numElements := numElements;
+        for i := 1 step 1 until Limit do
+        begin
+            p :- List(i); 
+            while P =/= none do begin
+                PP :- P.next;
+                i2 := HT.reHash(P.Elem.hashCode);
+                P.next :- HT.List(i2);
+                HT.List(i2) :- P;
+                P :- PP;
+            end;
+        end;
+    end;
+    
+   procedure INSERT(Elem); ref(element) Elem; 
+    begin
+        text      Key;
+        integer   index;
+        ref(Cons) p;
+        
+        Key   :- Elem.key;
+        index := rehash(Elem.hashCode);
+        P :- List(index);
+        while P =/= none and then P.Elem.Key <> Key 
+            do P :- P.next;
+        if P == none then 
+        begin
+            List(index) :- new Cons(Elem,List(index));
+            numElements := numElements + 1;
+            if overflow then 
+                owner.implementation :- Resize(1.4*limit);
+        end
+        else  P.Elem :- Elem;
+    end;
+   
+    procedure FOR_EACH(proc);
+#ifdef CIM
+        procedure proc is 
+        procedure proc(el); ref(element) el;;
+#else
+        procedure proc;
+#endif
+  
+     begin 
+        ref(Cons) p,pp;
+        integer i; 
+        for i := 1 step 1 until Limit do
+        begin
+            p :- List(i);
+            while P =/= none do begin
+                pp :- P.next;
+                proc(P.Elem);
+                P :- pp;
+            end;
+        end;
+      end;
+    
+    ref(element) procedure FIRST;
+    if numElements > 0 then
+    begin 
+        integer i; 
+        for i := i+1 while List(i) == none do ;
+        First :- List(i).elem;
+    end;
+
+    ref(element) procedure POP;
+    if numElements > 0 then
+    begin 
+        integer i; 
+        for i := i+1 while List(i) == none do ;
+        Pop :- List(i).elem;
+        List(i) :- List(i).next;
+        numElements := numElements - 1;
+    end;
+
+    Boolean procedure CONTAINS(Elem); ref(element) Elem; 
+    if elem =/= none then
+    begin
+        ref(Cons) P;
+         P :- List(rehash(Elem.hashCode));
+        while P =/= none and then P.Elem =/= Elem
+           do P :- P.next;
+        CONTAINS := P =/= none;
+    end;
+   
+    procedure REMOVE(E);    ref(Element) E;
+    begin  
+        ref(Cons) p,p2;
+        integer i;
+
+        i := rehash(E.hashCode);
+        p :- List(i);
+        while P =/= none and then P.Elem =/= E do 
+        begin
+            P2 :- P; P  :- P.next;
+        end;
+        if p =/= none then 
+        begin
+            numElements := numElements - 1;
+            if P2 == none 
+                then List(i) :- P.next
+                else P2.next :- P.next;
+        end;
+    end --- remove ---;
+   
+   
+    ref(element) procedure FIND(key); text key;
+      begin     
+        ref(Cons) p;
+
+        p :- List(rehash(default_hash(key)));
+        while P =/= none and then P.Elem.Key <> Key 
+            do P :- P.next;
+        
+        if p =/= none then
+            find :-  p.Elem;
+    end;
+
+    ref(element) procedure FIND_OR_INSERT(key,newElement); 
+        name  newElement;
+        text           key;
+        ref (element)  newElement; 
+    begin     
+        ref(Cons) p;
+        integer index;
+        ref(element) Elem;
+
+        index := rehash(default_hash(key));
+        p :- List(index);
+        while P =/= none and then P.Elem.Key <> Key 
+            do P :- P.next;
+        
+        if P == none then begin
+            find_or_insert :- Elem :- newElement;
+            List(index) :- new Cons(Elem,List(index));
+            numElements := numElements + 1;
+            if overflow then 
+                owner.implementation :- Resize(1.4*limit);
+        end
+        else
+            find_or_insert :-  p.Elem;
+    end;
+
+
+    ref(element) procedure REMOVE_KEY(key); text key;
+      begin     
+        ref(Cons) p,p2;
+        integer i;
+
+        i := rehash(default_hash(key));
+        p :- List(i);
+        while P =/= none and then P.Elem.Key <> Key do 
+        begin
+            P2 :- P;
+            P  :- P.next;
+        end;
+        
+        if p =/= none then 
+        begin
+            remove_key :- p.Elem;
+            if P2 == none 
+                then List(i) :- P.next
+                else P2.next :- P.next;
+            numElements := numElements - 1;
+        end; 
+      end;
+
+    procedure MAKE_EMPTY;
+    begin integer i;
+        for i := 1 step 1 until limit do
+            List(i) :- none;
+        numElements := 0;
+    end;
+
+   Boolean procedure overFlow;
+      overFlow := numElements > Limit;
+      
+    
+END ============ --- HashArray --- ================ ;
+
+
+% =====================================
+%           ITERATOR
+% =====================================
+ 
+Class   ITERATOR(C);   ref(container) C;
+
+Protected 
+    add;
+begin
+    integer i,N;
+    ref(element) array A(1:C.size);
+        
+    ref(element) procedure NextElement;
+    if I<=N then begin
+        NextElement :- A(i);
+        i:= i+1;
+    end;
+        
+    Boolean procedure MORE;
+        More := i<=N;
+    
+    Boolean procedure RESET; i := 1;
+    
+   procedure add(E); ref(element)E;
+    begin i := i+1; A(i) :- E; end;
+            
+    C.for_each(add);
+    N := C.size;
+    i := 1;
+
+end;
+
+
+

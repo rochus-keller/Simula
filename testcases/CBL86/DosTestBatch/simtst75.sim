@@ -1,0 +1,75 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 75
+%
+%  PURPOSE:     Test of name parameters and virtual procedures.
+%
+%  WRITTEN BY:  BEH   25/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Ref(A) x;
+   Real ar, br;
+
+   Class A;
+   Virtual: Real Procedure Q;
+   Begin Real Procedure Q; Q:= 2.5;
+
+         Procedure T(R); Name R; Real R;
+         Begin ar:= R*Q End;
+   End;
+
+   Procedure S(P, B); Name P, B; Procedure P ; Real B ;
+   Begin P(x.Q); br:= B*x.Q End;
+
+   A Class B;
+   Begin Real Procedure Q; Q:=2; End;
+
+
+   Outtext ("--- START Simula a.s. TEST 75") ;
+   Outimage ;
+   Outtext ("--- Test of name parameters and virtual procedures.");
+   Outimage ; Outimage ;
+
+   x:- New B; S(x.T, x.Q);
+
+   if ar-ar/1000 < 4 and ar+ar/1000 > 4 and
+      br-br/1000 < 4 and br+br/1000 > 4 then
+   else
+   begin Outtext ("*** ERROR : Virtual procedures (1).") ;
+         Outimage;
+         Outtext ("            Erroneus values : ar = ") ;
+         Outreal (ar, 4, 10);
+         Outimage ;
+         Outtext ("                              br = ");
+         Outreal (br, 4, 10);
+         Outimage; Outimage;
+         found_error := true
+   End;
+
+   x:- New A; S(x.T, x.Q);
+
+   if ar-ar/1000 < 6.25 and ar+ar/1000 > 6.25 and
+      br-br/1000 < 6.25 and br+br/1000 > 6.25 then
+   else
+   begin Outtext ("*** ERROR : Virtual procedures (2).") ;
+         Outimage;
+         Outtext ("            Erroneus values : ar = ") ;
+         Outreal (ar, 4, 10);
+         Outimage ;
+         Outtext ("                              br = ");
+         Outreal (br, 4, 10);
+         Outimage; Outimage;
+         found_error := true
+   End;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 75") ;
+   Outimage
+ END

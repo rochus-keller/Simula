@@ -123,7 +123,6 @@ namespace Sim {
 			case Tok_VIRTUAL: return "VIRTUAL";
 			case Tok_WHEN: return "WHEN";
 			case Tok_WHILE: return "WHILE";
-			case Tok_is: return "is";
 			case Tok_decimal_number: return "decimal_number";
 			case Tok_unsigned_integer: return "unsigned_integer";
 			case Tok_string: return "string";
@@ -255,7 +254,6 @@ namespace Sim {
 			case Tok_VIRTUAL: return "Tok_VIRTUAL";
 			case Tok_WHEN: return "Tok_WHEN";
 			case Tok_WHILE: return "Tok_WHILE";
-			case Tok_is: return "Tok_is";
 			case Tok_decimal_number: return "Tok_decimal_number";
 			case Tok_unsigned_integer: return "Tok_unsigned_integer";
 			case Tok_string: return "Tok_string";
@@ -275,15 +273,18 @@ namespace Sim {
 	bool tokenTypeIsSpecial( int r ) {
 		return r > TT_Specials && r < TT_Max;
 	}
-	static inline char at( const QByteArray& str, int i ){
-		return ( i >= 0 && i < str.size() ? str[i] : 0 );
+	static inline char at( const char* str, quint32 len, int i ){
+		return ( i < len ? str[i] : 0 );
 	}
 	TokenType tokenTypeFromString( const QByteArray& str, int* pos ) {
+		return tokenTypeFromString(str.constData(),str.size(),pos);
+	}
+	TokenType tokenTypeFromString( const char* str, quint32 len, int* pos ) {
 		int i = ( pos != 0 ? *pos: 0 );
 		TokenType res = Tok_Invalid;
-		switch( at(str,i) ){
+		switch( at(str,len,i) ){
 		case '!':
-			if( at(str,i+1) == '=' ){
+			if( at(str,len,i+1) == '=' ){
 				res = Tok_BangEq; i += 2;
 			} else {
 				res = Tok_Bang; i += 1;
@@ -302,7 +303,7 @@ namespace Sim {
 			res = Tok_Rpar; i += 1;
 			break;
 		case '*':
-			if( at(str,i+1) == '*' ){
+			if( at(str,len,i+1) == '*' ){
 				res = Tok_2Star; i += 2;
 			} else {
 				res = Tok_Star; i += 1;
@@ -315,7 +316,7 @@ namespace Sim {
 			res = Tok_Comma; i += 1;
 			break;
 		case '-':
-			if( at(str,i+1) == '>' ){
+			if( at(str,len,i+1) == '>' ){
 				res = Tok_MinusGt; i += 2;
 			} else {
 				res = Tok_Minus; i += 1;
@@ -325,14 +326,14 @@ namespace Sim {
 			res = Tok_Dot; i += 1;
 			break;
 		case '/':
-			if( at(str,i+1) == '/' ){
+			if( at(str,len,i+1) == '/' ){
 				res = Tok_2Slash; i += 2;
 			} else {
 				res = Tok_Slash; i += 1;
 			}
 			break;
 		case ':':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case '-':
 				res = Tok_ColonMinus; i += 2;
 				break;
@@ -348,7 +349,7 @@ namespace Sim {
 			res = Tok_Semi; i += 1;
 			break;
 		case '<':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case '=':
 				res = Tok_Leq; i += 2;
 				break;
@@ -361,9 +362,9 @@ namespace Sim {
 			}
 			break;
 		case '=':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case '/':
-				if( at(str,i+2) == '=' ){
+				if( at(str,len,i+2) == '=' ){
 					res = Tok_EqSlashEq; i += 3;
 				}
 				break;
@@ -376,21 +377,21 @@ namespace Sim {
 			}
 			break;
 		case '>':
-			if( at(str,i+1) == '=' ){
+			if( at(str,len,i+1) == '=' ){
 				res = Tok_Geq; i += 2;
 			} else {
 				res = Tok_Gt; i += 1;
 			}
 			break;
 		case 'A':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'C':
-				if( at(str,i+2) == 'T' ){
-					if( at(str,i+3) == 'I' ){
-						if( at(str,i+4) == 'V' ){
-							if( at(str,i+5) == 'A' ){
-								if( at(str,i+6) == 'T' ){
-									if( at(str,i+7) == 'E' ){
+				if( at(str,len,i+2) == 'T' ){
+					if( at(str,len,i+3) == 'I' ){
+						if( at(str,len,i+4) == 'V' ){
+							if( at(str,len,i+5) == 'A' ){
+								if( at(str,len,i+6) == 'T' ){
+									if( at(str,len,i+7) == 'E' ){
 										res = Tok_ACTIVATE; i += 8;
 									}
 								}
@@ -400,21 +401,21 @@ namespace Sim {
 				}
 				break;
 			case 'F':
-				if( at(str,i+2) == 'T' ){
-					if( at(str,i+3) == 'E' ){
-						if( at(str,i+4) == 'R' ){
+				if( at(str,len,i+2) == 'T' ){
+					if( at(str,len,i+3) == 'E' ){
+						if( at(str,len,i+4) == 'R' ){
 							res = Tok_AFTER; i += 5;
 						}
 					}
 				}
 				break;
 			case 'N':
-				if( at(str,i+2) == 'D' ){
-					if( at(str,i+3) == '_' ){
-						if( at(str,i+4) == 'T' ){
-							if( at(str,i+5) == 'H' ){
-								if( at(str,i+6) == 'E' ){
-									if( at(str,i+7) == 'N' ){
+				if( at(str,len,i+2) == 'D' ){
+					if( at(str,len,i+3) == '_' ){
+						if( at(str,len,i+4) == 'T' ){
+							if( at(str,len,i+5) == 'H' ){
+								if( at(str,len,i+6) == 'E' ){
+									if( at(str,len,i+7) == 'N' ){
 										res = Tok_AND_THEN; i += 8;
 									}
 								}
@@ -426,9 +427,9 @@ namespace Sim {
 				}
 				break;
 			case 'R':
-				if( at(str,i+2) == 'R' ){
-					if( at(str,i+3) == 'A' ){
-						if( at(str,i+4) == 'Y' ){
+				if( at(str,len,i+2) == 'R' ){
+					if( at(str,len,i+3) == 'A' ){
+						if( at(str,len,i+4) == 'Y' ){
 							res = Tok_ARRAY; i += 5;
 						}
 					}
@@ -440,21 +441,21 @@ namespace Sim {
 			}
 			break;
 		case 'B':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'E':
-				switch( at(str,i+2) ){
+				switch( at(str,len,i+2) ){
 				case 'F':
-					if( at(str,i+3) == 'O' ){
-						if( at(str,i+4) == 'R' ){
-							if( at(str,i+5) == 'E' ){
+					if( at(str,len,i+3) == 'O' ){
+						if( at(str,len,i+4) == 'R' ){
+							if( at(str,len,i+5) == 'E' ){
 								res = Tok_BEFORE; i += 6;
 							}
 						}
 					}
 					break;
 				case 'G':
-					if( at(str,i+3) == 'I' ){
-						if( at(str,i+4) == 'N' ){
+					if( at(str,len,i+3) == 'I' ){
+						if( at(str,len,i+4) == 'N' ){
 							res = Tok_BEGIN; i += 5;
 						}
 					}
@@ -462,11 +463,11 @@ namespace Sim {
 				}
 				break;
 			case 'O':
-				if( at(str,i+2) == 'O' ){
-					if( at(str,i+3) == 'L' ){
-						if( at(str,i+4) == 'E' ){
-							if( at(str,i+5) == 'A' ){
-								if( at(str,i+6) == 'N' ){
+				if( at(str,len,i+2) == 'O' ){
+					if( at(str,len,i+3) == 'L' ){
+						if( at(str,len,i+4) == 'E' ){
+							if( at(str,len,i+5) == 'A' ){
+								if( at(str,len,i+6) == 'N' ){
 									res = Tok_BOOLEAN; i += 7;
 								}
 							}
@@ -477,15 +478,15 @@ namespace Sim {
 			}
 			break;
 		case 'C':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'H':
-				if( at(str,i+2) == 'A' ){
-					if( at(str,i+3) == 'R' ){
-						if( at(str,i+4) == 'A' ){
-							if( at(str,i+5) == 'C' ){
-								if( at(str,i+6) == 'T' ){
-									if( at(str,i+7) == 'E' ){
-										if( at(str,i+8) == 'R' ){
+				if( at(str,len,i+2) == 'A' ){
+					if( at(str,len,i+3) == 'R' ){
+						if( at(str,len,i+4) == 'A' ){
+							if( at(str,len,i+5) == 'C' ){
+								if( at(str,len,i+6) == 'T' ){
+									if( at(str,len,i+7) == 'E' ){
+										if( at(str,len,i+8) == 'R' ){
 											res = Tok_CHARACTER; i += 9;
 										}
 									}
@@ -496,20 +497,20 @@ namespace Sim {
 				}
 				break;
 			case 'L':
-				if( at(str,i+2) == 'A' ){
-					if( at(str,i+3) == 'S' ){
-						if( at(str,i+4) == 'S' ){
+				if( at(str,len,i+2) == 'A' ){
+					if( at(str,len,i+3) == 'S' ){
+						if( at(str,len,i+4) == 'S' ){
 							res = Tok_CLASS; i += 5;
 						}
 					}
 				}
 				break;
 			case 'O':
-				if( at(str,i+2) == 'M' ){
-					if( at(str,i+3) == 'M' ){
-						if( at(str,i+4) == 'E' ){
-							if( at(str,i+5) == 'N' ){
-								if( at(str,i+6) == 'T' ){
+				if( at(str,len,i+2) == 'M' ){
+					if( at(str,len,i+3) == 'M' ){
+						if( at(str,len,i+4) == 'E' ){
+							if( at(str,len,i+5) == 'N' ){
+								if( at(str,len,i+6) == 'T' ){
 									res = Tok_COMMENT; i += 7;
 								}
 							}
@@ -520,11 +521,11 @@ namespace Sim {
 			}
 			break;
 		case 'D':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'E':
-				if( at(str,i+2) == 'L' ){
-					if( at(str,i+3) == 'A' ){
-						if( at(str,i+4) == 'Y' ){
+				if( at(str,len,i+2) == 'L' ){
+					if( at(str,len,i+3) == 'A' ){
+						if( at(str,len,i+4) == 'Y' ){
 							res = Tok_DELAY; i += 5;
 						}
 					}
@@ -536,30 +537,30 @@ namespace Sim {
 			}
 			break;
 		case 'E':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'L':
-				if( at(str,i+2) == 'S' ){
-					if( at(str,i+3) == 'E' ){
+				if( at(str,len,i+2) == 'S' ){
+					if( at(str,len,i+3) == 'E' ){
 						res = Tok_ELSE; i += 4;
 					}
 				}
 				break;
 			case 'N':
-				if( at(str,i+2) == 'D' ){
+				if( at(str,len,i+2) == 'D' ){
 					res = Tok_END; i += 3;
 				}
 				break;
 			case 'Q':
-				switch( at(str,i+2) ){
+				switch( at(str,len,i+2) ){
 				case 'U':
-					switch( at(str,i+3) ){
+					switch( at(str,len,i+3) ){
 					case 'A':
-						if( at(str,i+4) == 'L' ){
+						if( at(str,len,i+4) == 'L' ){
 							res = Tok_EQUAL; i += 5;
 						}
 						break;
 					case 'I':
-						if( at(str,i+4) == 'V' ){
+						if( at(str,len,i+4) == 'V' ){
 							res = Tok_EQUIV; i += 5;
 						}
 						break;
@@ -574,12 +575,12 @@ namespace Sim {
 				}
 				break;
 			case 'X':
-				if( at(str,i+2) == 'T' ){
-					if( at(str,i+3) == 'E' ){
-						if( at(str,i+4) == 'R' ){
-							if( at(str,i+5) == 'N' ){
-								if( at(str,i+6) == 'A' ){
-									if( at(str,i+7) == 'L' ){
+				if( at(str,len,i+2) == 'T' ){
+					if( at(str,len,i+3) == 'E' ){
+						if( at(str,len,i+4) == 'R' ){
+							if( at(str,len,i+5) == 'N' ){
+								if( at(str,len,i+6) == 'A' ){
+									if( at(str,len,i+7) == 'L' ){
 										res = Tok_EXTERNAL; i += 8;
 									}
 								}
@@ -591,31 +592,31 @@ namespace Sim {
 			}
 			break;
 		case 'F':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'A':
-				if( at(str,i+2) == 'L' ){
-					if( at(str,i+3) == 'S' ){
-						if( at(str,i+4) == 'E' ){
+				if( at(str,len,i+2) == 'L' ){
+					if( at(str,len,i+3) == 'S' ){
+						if( at(str,len,i+4) == 'E' ){
 							res = Tok_FALSE; i += 5;
 						}
 					}
 				}
 				break;
 			case 'O':
-				if( at(str,i+2) == 'R' ){
+				if( at(str,len,i+2) == 'R' ){
 					res = Tok_FOR; i += 3;
 				}
 				break;
 			}
 			break;
 		case 'G':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'E':
 				res = Tok_GE; i += 2;
 				break;
 			case 'O':
-				if( at(str,i+2) == 'T' ){
-					if( at(str,i+3) == 'O' ){
+				if( at(str,len,i+2) == 'T' ){
+					if( at(str,len,i+3) == 'O' ){
 						res = Tok_GOTO; i += 4;
 					}
 				} else {
@@ -623,11 +624,11 @@ namespace Sim {
 				}
 				break;
 			case 'R':
-				if( at(str,i+2) == 'E' ){
-					if( at(str,i+3) == 'A' ){
-						if( at(str,i+4) == 'T' ){
-							if( at(str,i+5) == 'E' ){
-								if( at(str,i+6) == 'R' ){
+				if( at(str,len,i+2) == 'E' ){
+					if( at(str,len,i+3) == 'A' ){
+						if( at(str,len,i+4) == 'T' ){
+							if( at(str,len,i+5) == 'E' ){
+								if( at(str,len,i+6) == 'R' ){
 									res = Tok_GREATER; i += 7;
 								}
 							}
@@ -641,11 +642,11 @@ namespace Sim {
 			}
 			break;
 		case 'H':
-			if( at(str,i+1) == 'I' ){
-				if( at(str,i+2) == 'D' ){
-					if( at(str,i+3) == 'D' ){
-						if( at(str,i+4) == 'E' ){
-							if( at(str,i+5) == 'N' ){
+			if( at(str,len,i+1) == 'I' ){
+				if( at(str,len,i+2) == 'D' ){
+					if( at(str,len,i+3) == 'D' ){
+						if( at(str,len,i+4) == 'E' ){
+							if( at(str,len,i+5) == 'N' ){
 								res = Tok_HIDDEN; i += 6;
 							}
 						}
@@ -654,13 +655,13 @@ namespace Sim {
 			}
 			break;
 		case 'I':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'F':
 				res = Tok_IF; i += 2;
 				break;
 			case 'M':
-				if( at(str,i+2) == 'P' ){
-					if( at(str,i+3) == 'L' ){
+				if( at(str,len,i+2) == 'P' ){
+					if( at(str,len,i+3) == 'L' ){
 						res = Tok_IMPL; i += 4;
 					} else {
 						res = Tok_IMP; i += 3;
@@ -668,19 +669,19 @@ namespace Sim {
 				}
 				break;
 			case 'N':
-				switch( at(str,i+2) ){
+				switch( at(str,len,i+2) ){
 				case 'N':
-					if( at(str,i+3) == 'E' ){
-						if( at(str,i+4) == 'R' ){
+					if( at(str,len,i+3) == 'E' ){
+						if( at(str,len,i+4) == 'R' ){
 							res = Tok_INNER; i += 5;
 						}
 					}
 					break;
 				case 'S':
-					if( at(str,i+3) == 'P' ){
-						if( at(str,i+4) == 'E' ){
-							if( at(str,i+5) == 'C' ){
-								if( at(str,i+6) == 'T' ){
+					if( at(str,len,i+3) == 'P' ){
+						if( at(str,len,i+4) == 'E' ){
+							if( at(str,len,i+5) == 'C' ){
+								if( at(str,len,i+6) == 'T' ){
 									res = Tok_INSPECT; i += 7;
 								}
 							}
@@ -688,10 +689,10 @@ namespace Sim {
 					}
 					break;
 				case 'T':
-					if( at(str,i+3) == 'E' ){
-						if( at(str,i+4) == 'G' ){
-							if( at(str,i+5) == 'E' ){
-								if( at(str,i+6) == 'R' ){
+					if( at(str,len,i+3) == 'E' ){
+						if( at(str,len,i+4) == 'G' ){
+							if( at(str,len,i+5) == 'E' ){
+								if( at(str,len,i+6) == 'R' ){
 									res = Tok_INTEGER; i += 7;
 								}
 							}
@@ -709,19 +710,19 @@ namespace Sim {
 			}
 			break;
 		case 'L':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'A':
-				if( at(str,i+2) == 'B' ){
-					if( at(str,i+3) == 'E' ){
-						if( at(str,i+4) == 'L' ){
+				if( at(str,len,i+2) == 'B' ){
+					if( at(str,len,i+3) == 'E' ){
+						if( at(str,len,i+4) == 'L' ){
 							res = Tok_LABEL; i += 5;
 						}
 					}
 				}
 				break;
 			case 'E':
-				if( at(str,i+2) == 'S' ){
-					if( at(str,i+3) == 'S' ){
+				if( at(str,len,i+2) == 'S' ){
+					if( at(str,len,i+3) == 'S' ){
 						res = Tok_LESS; i += 4;
 					}
 				} else {
@@ -729,8 +730,8 @@ namespace Sim {
 				}
 				break;
 			case 'O':
-				if( at(str,i+2) == 'N' ){
-					if( at(str,i+3) == 'G' ){
+				if( at(str,len,i+2) == 'N' ){
+					if( at(str,len,i+3) == 'G' ){
 						res = Tok_LONG; i += 4;
 					}
 				}
@@ -741,55 +742,55 @@ namespace Sim {
 			}
 			break;
 		case 'N':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'A':
-				if( at(str,i+2) == 'M' ){
-					if( at(str,i+3) == 'E' ){
+				if( at(str,len,i+2) == 'M' ){
+					if( at(str,len,i+3) == 'E' ){
 						res = Tok_NAME; i += 4;
 					}
 				}
 				break;
 			case 'E':
-				if( at(str,i+2) == 'W' ){
+				if( at(str,len,i+2) == 'W' ){
 					res = Tok_NEW; i += 3;
 				} else {
 					res = Tok_NE; i += 2;
 				}
 				break;
 			case 'O':
-				switch( at(str,i+2) ){
+				switch( at(str,len,i+2) ){
 				case 'N':
-					if( at(str,i+3) == 'E' ){
+					if( at(str,len,i+3) == 'E' ){
 						res = Tok_NONE; i += 4;
 					}
 					break;
 				case 'T':
-					switch( at(str,i+3) ){
+					switch( at(str,len,i+3) ){
 					case 'E':
-						switch( at(str,i+4) ){
+						switch( at(str,len,i+4) ){
 						case 'Q':
-							if( at(str,i+5) == 'U' ){
-								if( at(str,i+6) == 'A' ){
-									if( at(str,i+7) == 'L' ){
+							if( at(str,len,i+5) == 'U' ){
+								if( at(str,len,i+6) == 'A' ){
+									if( at(str,len,i+7) == 'L' ){
 										res = Tok_NOTEQUAL; i += 8;
 									}
 								}
 							}
 							break;
 						case 'X':
-							if( at(str,i+5) == 'T' ){
+							if( at(str,len,i+5) == 'T' ){
 								res = Tok_NOTEXT; i += 6;
 							}
 							break;
 						}
 						break;
 					case 'G':
-						if( at(str,i+4) == 'R' ){
-							if( at(str,i+5) == 'E' ){
-								if( at(str,i+6) == 'A' ){
-									if( at(str,i+7) == 'T' ){
-										if( at(str,i+8) == 'E' ){
-											if( at(str,i+9) == 'R' ){
+						if( at(str,len,i+4) == 'R' ){
+							if( at(str,len,i+5) == 'E' ){
+								if( at(str,len,i+6) == 'A' ){
+									if( at(str,len,i+7) == 'T' ){
+										if( at(str,len,i+8) == 'E' ){
+											if( at(str,len,i+9) == 'R' ){
 												res = Tok_NOTGREATER; i += 10;
 											}
 										}
@@ -799,9 +800,9 @@ namespace Sim {
 						}
 						break;
 					case 'L':
-						if( at(str,i+4) == 'E' ){
-							if( at(str,i+5) == 'S' ){
-								if( at(str,i+6) == 'S' ){
+						if( at(str,len,i+4) == 'E' ){
+							if( at(str,len,i+5) == 'S' ){
+								if( at(str,len,i+6) == 'S' ){
 									res = Tok_NOTLESS; i += 7;
 								}
 							}
@@ -817,13 +818,13 @@ namespace Sim {
 			}
 			break;
 		case 'O':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'R':
-				if( at(str,i+2) == '_' ){
-					if( at(str,i+3) == 'E' ){
-						if( at(str,i+4) == 'L' ){
-							if( at(str,i+5) == 'S' ){
-								if( at(str,i+6) == 'E' ){
+				if( at(str,len,i+2) == '_' ){
+					if( at(str,len,i+3) == 'E' ){
+						if( at(str,len,i+4) == 'L' ){
+							if( at(str,len,i+5) == 'S' ){
+								if( at(str,len,i+6) == 'E' ){
 									res = Tok_OR_ELSE; i += 7;
 								}
 							}
@@ -834,13 +835,13 @@ namespace Sim {
 				}
 				break;
 			case 'T':
-				if( at(str,i+2) == 'H' ){
-					if( at(str,i+3) == 'E' ){
-						if( at(str,i+4) == 'R' ){
-							if( at(str,i+5) == 'W' ){
-								if( at(str,i+6) == 'I' ){
-									if( at(str,i+7) == 'S' ){
-										if( at(str,i+8) == 'E' ){
+				if( at(str,len,i+2) == 'H' ){
+					if( at(str,len,i+3) == 'E' ){
+						if( at(str,len,i+4) == 'R' ){
+							if( at(str,len,i+5) == 'W' ){
+								if( at(str,len,i+6) == 'I' ){
+									if( at(str,len,i+7) == 'S' ){
+										if( at(str,len,i+8) == 'E' ){
 											res = Tok_OTHERWISE; i += 9;
 										}
 									}
@@ -853,33 +854,33 @@ namespace Sim {
 			}
 			break;
 		case 'P':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'O':
-				if( at(str,i+2) == 'W' ){
-					if( at(str,i+3) == 'E' ){
-						if( at(str,i+4) == 'R' ){
+				if( at(str,len,i+2) == 'W' ){
+					if( at(str,len,i+3) == 'E' ){
+						if( at(str,len,i+4) == 'R' ){
 							res = Tok_POWER; i += 5;
 						}
 					}
 				}
 				break;
 			case 'R':
-				switch( at(str,i+2) ){
+				switch( at(str,len,i+2) ){
 				case 'I':
-					if( at(str,i+3) == 'O' ){
-						if( at(str,i+4) == 'R' ){
+					if( at(str,len,i+3) == 'O' ){
+						if( at(str,len,i+4) == 'R' ){
 							res = Tok_PRIOR; i += 5;
 						}
 					}
 					break;
 				case 'O':
-					switch( at(str,i+3) ){
+					switch( at(str,len,i+3) ){
 					case 'C':
-						if( at(str,i+4) == 'E' ){
-							if( at(str,i+5) == 'D' ){
-								if( at(str,i+6) == 'U' ){
-									if( at(str,i+7) == 'R' ){
-										if( at(str,i+8) == 'E' ){
+						if( at(str,len,i+4) == 'E' ){
+							if( at(str,len,i+5) == 'D' ){
+								if( at(str,len,i+6) == 'U' ){
+									if( at(str,len,i+7) == 'R' ){
+										if( at(str,len,i+8) == 'E' ){
 											res = Tok_PROCEDURE; i += 9;
 										}
 									}
@@ -888,11 +889,11 @@ namespace Sim {
 						}
 						break;
 					case 'T':
-						if( at(str,i+4) == 'E' ){
-							if( at(str,i+5) == 'C' ){
-								if( at(str,i+6) == 'T' ){
-									if( at(str,i+7) == 'E' ){
-										if( at(str,i+8) == 'D' ){
+						if( at(str,len,i+4) == 'E' ){
+							if( at(str,len,i+5) == 'C' ){
+								if( at(str,len,i+6) == 'T' ){
+									if( at(str,len,i+7) == 'E' ){
+										if( at(str,len,i+8) == 'D' ){
 											res = Tok_PROTECTED; i += 9;
 										}
 									}
@@ -907,24 +908,24 @@ namespace Sim {
 			}
 			break;
 		case 'Q':
-			if( at(str,i+1) == 'U' ){
-				if( at(str,i+2) == 'A' ){
+			if( at(str,len,i+1) == 'U' ){
+				if( at(str,len,i+2) == 'A' ){
 					res = Tok_QUA; i += 3;
 				}
 			}
 			break;
 		case 'R':
-			if( at(str,i+1) == 'E' ){
-				switch( at(str,i+2) ){
+			if( at(str,len,i+1) == 'E' ){
+				switch( at(str,len,i+2) ){
 				case 'A':
-					switch( at(str,i+3) ){
+					switch( at(str,len,i+3) ){
 					case 'C':
-						if( at(str,i+4) == 'T' ){
-							if( at(str,i+5) == 'I' ){
-								if( at(str,i+6) == 'V' ){
-									if( at(str,i+7) == 'A' ){
-										if( at(str,i+8) == 'T' ){
-											if( at(str,i+9) == 'E' ){
+						if( at(str,len,i+4) == 'T' ){
+							if( at(str,len,i+5) == 'I' ){
+								if( at(str,len,i+6) == 'V' ){
+									if( at(str,len,i+7) == 'A' ){
+										if( at(str,len,i+8) == 'T' ){
+											if( at(str,len,i+9) == 'E' ){
 												res = Tok_REACTIVATE; i += 10;
 											}
 										}
@@ -945,28 +946,28 @@ namespace Sim {
 			}
 			break;
 		case 'S':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'H':
-				if( at(str,i+2) == 'O' ){
-					if( at(str,i+3) == 'R' ){
-						if( at(str,i+4) == 'T' ){
+				if( at(str,len,i+2) == 'O' ){
+					if( at(str,len,i+3) == 'R' ){
+						if( at(str,len,i+4) == 'T' ){
 							res = Tok_SHORT; i += 5;
 						}
 					}
 				}
 				break;
 			case 'T':
-				if( at(str,i+2) == 'E' ){
-					if( at(str,i+3) == 'P' ){
+				if( at(str,len,i+2) == 'E' ){
+					if( at(str,len,i+3) == 'P' ){
 						res = Tok_STEP; i += 4;
 					}
 				}
 				break;
 			case 'W':
-				if( at(str,i+2) == 'I' ){
-					if( at(str,i+3) == 'T' ){
-						if( at(str,i+4) == 'C' ){
-							if( at(str,i+5) == 'H' ){
+				if( at(str,len,i+2) == 'I' ){
+					if( at(str,len,i+3) == 'T' ){
+						if( at(str,len,i+4) == 'C' ){
+							if( at(str,len,i+5) == 'H' ){
 								res = Tok_SWITCH; i += 6;
 							}
 						}
@@ -976,23 +977,23 @@ namespace Sim {
 			}
 			break;
 		case 'T':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'E':
-				if( at(str,i+2) == 'X' ){
-					if( at(str,i+3) == 'T' ){
+				if( at(str,len,i+2) == 'X' ){
+					if( at(str,len,i+3) == 'T' ){
 						res = Tok_TEXT; i += 4;
 					}
 				}
 				break;
 			case 'H':
-				switch( at(str,i+2) ){
+				switch( at(str,len,i+2) ){
 				case 'E':
-					if( at(str,i+3) == 'N' ){
+					if( at(str,len,i+3) == 'N' ){
 						res = Tok_THEN; i += 4;
 					}
 					break;
 				case 'I':
-					if( at(str,i+3) == 'S' ){
+					if( at(str,len,i+3) == 'S' ){
 						res = Tok_THIS; i += 4;
 					}
 					break;
@@ -1002,8 +1003,8 @@ namespace Sim {
 				res = Tok_TO; i += 2;
 				break;
 			case 'R':
-				if( at(str,i+2) == 'U' ){
-					if( at(str,i+3) == 'E' ){
+				if( at(str,len,i+2) == 'U' ){
+					if( at(str,len,i+3) == 'E' ){
 						res = Tok_TRUE; i += 4;
 					}
 				}
@@ -1011,10 +1012,10 @@ namespace Sim {
 			}
 			break;
 		case 'U':
-			if( at(str,i+1) == 'N' ){
-				if( at(str,i+2) == 'T' ){
-					if( at(str,i+3) == 'I' ){
-						if( at(str,i+4) == 'L' ){
+			if( at(str,len,i+1) == 'N' ){
+				if( at(str,len,i+2) == 'T' ){
+					if( at(str,len,i+3) == 'I' ){
+						if( at(str,len,i+4) == 'L' ){
 							res = Tok_UNTIL; i += 5;
 						}
 					}
@@ -1022,22 +1023,22 @@ namespace Sim {
 			}
 			break;
 		case 'V':
-			switch( at(str,i+1) ){
+			switch( at(str,len,i+1) ){
 			case 'A':
-				if( at(str,i+2) == 'L' ){
-					if( at(str,i+3) == 'U' ){
-						if( at(str,i+4) == 'E' ){
+				if( at(str,len,i+2) == 'L' ){
+					if( at(str,len,i+3) == 'U' ){
+						if( at(str,len,i+4) == 'E' ){
 							res = Tok_VALUE; i += 5;
 						}
 					}
 				}
 				break;
 			case 'I':
-				if( at(str,i+2) == 'R' ){
-					if( at(str,i+3) == 'T' ){
-						if( at(str,i+4) == 'U' ){
-							if( at(str,i+5) == 'A' ){
-								if( at(str,i+6) == 'L' ){
+				if( at(str,len,i+2) == 'R' ){
+					if( at(str,len,i+3) == 'T' ){
+						if( at(str,len,i+4) == 'U' ){
+							if( at(str,len,i+5) == 'A' ){
+								if( at(str,len,i+6) == 'L' ){
 									res = Tok_VIRTUAL; i += 7;
 								}
 							}
@@ -1048,16 +1049,16 @@ namespace Sim {
 			}
 			break;
 		case 'W':
-			if( at(str,i+1) == 'H' ){
-				switch( at(str,i+2) ){
+			if( at(str,len,i+1) == 'H' ){
+				switch( at(str,len,i+2) ){
 				case 'E':
-					if( at(str,i+3) == 'N' ){
+					if( at(str,len,i+3) == 'N' ){
 						res = Tok_WHEN; i += 4;
 					}
 					break;
 				case 'I':
-					if( at(str,i+3) == 'L' ){
-						if( at(str,i+4) == 'E' ){
+					if( at(str,len,i+3) == 'L' ){
+						if( at(str,len,i+4) == 'E' ){
 							res = Tok_WHILE; i += 5;
 						}
 					}
@@ -1072,15 +1073,10 @@ namespace Sim {
 			res = Tok_Rbrack; i += 1;
 			break;
 		case '^':
-			if( at(str,i+1) == '=' ){
+			if( at(str,len,i+1) == '=' ){
 				res = Tok_HatEq; i += 2;
 			} else {
 				res = Tok_Hat; i += 1;
-			}
-			break;
-		case 'i':
-			if( at(str,i+1) == 's' ){
-				res = Tok_is; i += 2;
 			}
 			break;
 		case '|':

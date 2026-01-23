@@ -1,0 +1,56 @@
+% ================================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 89
+%
+%  PURPOSE: Test inbytefile and outbytefile.
+%           Inputfile must be defined.
+%
+%  METHOD:  Copy from one file to the other.
+%
+%  WRITTEN BY:
+% ==============================================================================
+begin text src,dst; integer b,bb; boolean errorFound;
+      ref(inbytefile) inpt,inoupt; ref(outbytefile) oupt;
+
+      outtext("--- START Simula a.s. TEST 89"); outimage;
+L1:   outtext("Input file: "); breakoutimage;
+      inimage; src:-copy(sysin.image.strip);
+      inpt:-new inbytefile(src); if not inpt.open then
+      begin outtext("Can't open " & src); outimage; goto L1 end;
+
+L2:   outtext("Output file: "); breakoutimage;
+      inimage; dst:-copy(sysin.image.strip);
+      oupt:-new outbytefile(dst); if not oupt.open then
+      begin outtext("Can't open " & dst); outimage; goto L2 end;
+
+      inpt.close; inpt.open;
+%     for b:=inpt.inbyte while b <> 26 do oupt.outbyte(b);
+      b:=inpt.inbyte;
+      while not inpt.endfile do begin
+            oupt.outbyte(b); b:=inpt.inbyte; end;
+      inpt.close; oupt.close;
+      inoupt:-new inbytefile(oupt.filename); oupt:-none;
+      inpt.open; inoupt.open;
+      b:=inpt.inbyte; bb:=inoupt.inbyte;
+      while not inpt.endfile do begin
+            if not b=bb then begin errorFound:=true;
+               sysout.outtext("    ERROR: The files differ");
+               goto CLOSEM;
+            end;
+            if inoupt.endfile then begin errorFound:=true;
+               sysout.outtext("    ERROR: Output file is too short");
+               goto CLOSEM;
+            end;
+            b:=inpt.inbyte; bb:=inoupt.inbyte;
+      end;
+      if inoupt.endfile then !OK;
+      else begin errorFound:=true;
+         sysout.outtext("    ERROR: Output file is too long");
+  CLOSEM: sysout.outimage;
+      end;
+
+      inpt.close; inoupt.close;
+      
+      outtext("--- END Simula a.s. TEST 89");
+      if not errorFound then outtext(" (NO ERRORS FOUND)");
+      outimage;
+end;

@@ -1,0 +1,386 @@
+% ========================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST  NO 3
+%
+%  PURPOSE:  To test the relational operators  =  <>  <  <=  >  >= 
+%            (eq, ne, lt, le, gt and ge) on texts.
+%
+%  METHOD:  Use the operators on various text values.
+%
+%  NOTE:  1. In the lines commented with NOTE 1: The largest permitted
+%            text.length on your implementation must be filled in.
+%
+%         2. The test assumes that ranking of characters and digits is
+%            equivalent to the ISO ranking.
+%
+%  WRITTEN BY:  THE  15/09-83
+% ======================================================================
+BEGIN
+TEXT               t1;                 ! Texts to take on the        ;
+TEXT               t2;                 ! various values for the test.;
+
+BOOLEAN            found_error;        ! Set to true when errors are ;
+                                       ! found.                      ;
+INTEGER            maxtext;            ! To contain the maximum text ;
+                                       ! constant length.            ;
+
+outtext ("--- START Simula a.s. TEST 3");
+Outimage;
+outtext ("--- Test text value relations");
+Outimage; Outimage;
+
+maxtext := 32000;                      !********* NOTE 1 ************;
+                                       ! Max text constant length    ;
+                                       ! must be filled in.          ;
+
+                                       !*****************************;
+                                       ! Start with both texts empty ;
+                                       !*****************************;
+IF t1 <> NOTEXT THEN
+   BEGIN
+   outtext ("***  Equality between empty texts not recognized (1).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 = t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Equality between empty texts not recognized (2).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <> t2 THEN
+   BEGIN
+   outtext ("***  Equality between empty texts not recognized (3).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 < t2 THEN
+   BEGIN
+   outtext ("***  Equality between empty texts not recognized (4).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <= t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Equality between empty texts not recognized (5).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 > t2 THEN
+   BEGIN
+   outtext ("***  Equality between empty texts not recognized (6).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 >= "" THEN
+ELSE
+   BEGIN
+   outtext ("***  Equality between empty texts not recognized (7).");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Now assign a value to one   ;
+                                       ! of the texts.               ;
+                                       !*****************************;
+t1 :- blanks (10);
+
+IF t1 <> "          " THEN
+   BEGIN
+   outtext ("***  Equality betw. non empty texts not recognized (1).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 = t2 THEN
+   BEGIN
+   outtext ("***  Non empty text equal to empty text (1).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <> t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Non empty text equal to empty text (2).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 < t2 THEN
+   BEGIN
+   outtext ("***  Non empty text less than empty text.");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <= t2 THEN
+   BEGIN
+   outtext ("***  Non empty text less than or equal to empty text.");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 > t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Non empty text not greater than empty text (1).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 >= t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Non empty text not greater than empty text (2).");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Now make the two texts      ;
+                                       ! equal.                      ;
+                                       !*****************************;
+t1 := "abcdefghij";
+t2 :- copy (t1);
+
+IF t2 <> "abcdefghij" THEN
+   BEGIN
+   outtext ("***  Equality betw. non empty texts not recognized (2).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 = t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Equality betw. non empty texts not recognized (3).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <> t2 THEN
+   BEGIN
+   outtext ("***  Equality betw. non empty texts not recognized (4).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 < t2 THEN
+   BEGIN
+   outtext ("***  Equality betw. non empty texts not recognized (5).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <= t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Equality betw. non empty texts not recognized (6).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 > t2 THEN
+   BEGIN
+   outtext ("***  Equality betw. non empty texts not recognized (7).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 >= t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Equality betw. non empty texts not recognized (8).");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Make one text longer than   ;
+                                       ! the other.                  ;
+                                       !*****************************;
+t2 :- blanks (15);
+t2 := t1;
+
+IF t2 <> "abcdefghij     " THEN
+   BEGIN
+   outtext ("***  Equality betw. non empty texts not recognized (9).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 = t2 THEN
+   BEGIN
+   outtext ("***  Non-eq. betw. non empty texts not recognized (1).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <> t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Non-eq. betw. non empty texts not recognized (2).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 < t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Wrong ranking of texts (1).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <= t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Wrong ranking of texts (2).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 > t2 THEN
+   BEGIN
+   outtext ("***  Wrong ranking of texts (3).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 >= t2 THEN
+   BEGIN
+   outtext ("***  Wrong ranking of texts (4).");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Give texts equal length but ;
+                                       ! different contens.          ;
+                                       !*****************************;
+t1 :- copy ("SIMULA 67");
+t2 :- copy ("SIMULA 83");
+
+IF t1 = t2 THEN
+   BEGIN
+   outtext ("***  Non-eq. betw. non empty texts not recognized (3).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <> t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Non-eq. betw. non empty texts not recognized (4).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 < t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Wrong ranking of texts (5).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 <= t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Wrong ranking of texts (6).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 > t2 THEN
+   BEGIN
+   outtext ("***  Wrong ranking of texts (7).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 >= t2 THEN
+   BEGIN
+   outtext ("***  Wrong ranking of texts (8).");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Try some relops on maximum  ;
+                                       ! sized texts.                ;
+                                       !*****************************;
+t1 :- blanks (maxtext);
+t2 :- blanks (maxtext);
+t1 := "long text";
+t2 := "very long text";
+
+IF t1 = t2 THEN
+   BEGIN
+   outtext ("***  Non-equal. betw. max length texts not recognized.");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 < t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Wrong ranking of texts (9).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 > t2 THEN
+   BEGIN
+   outtext ("***  Wrong ranking of texts (10).");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Try with one character      ;
+                                       ! texts.                      ;
+                                       !*****************************;
+t1 :- copy ("v");
+IF t1 = "v" THEN t2:-copy ("%") ELSE t2:-blanks (1);
+!*** not cond.expr, that's not what's being tested!!!;
+
+IF t2 <> "%" THEN
+   BEGIN
+   outtext ("***  Equality between one char. texts not recognized.");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 = t2 THEN
+   BEGIN
+   outtext ("***  Non-eq. betw. one char. texts not recognized.");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 < t2 THEN
+   BEGIN
+   outtext ("***  Wrong ranking of one character texts (1).");
+   outimage;
+   found_error := TRUE
+   END;
+
+IF t1 > t2 THEN
+ELSE
+   BEGIN
+   outtext ("***  Wrong ranking of one character texts (2).");
+   outimage;
+   found_error := TRUE
+   END;
+
+
+IF found_error THEN  ELSE
+   begin outtext ("--- NO ERRORS FOUND IN THIS TEST"); Outimage; end;
+outtext ("--- END Simula a.s. TEST 3");
+outimage
+
+END of program

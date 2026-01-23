@@ -1,0 +1,941 @@
+% ================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST  NO 4
+%
+%  PURPOSE:  To test reading of integer and real numbers from source text.
+%
+%  METHOD:  Use the procedures with various values.
+%
+%  NOTES:
+%   0. Some very long constants are given. When replaced, take care to
+%      use exactly 72 positions (the maximum allowed by the Standard).
+%   1. At lines commented with NOTE 1 : The expected precision (no of
+%      digits) for real and long real must be filled in.
+%   2. At lines commented with NOTE 2 : The max/min legal short integer
+%      value on your implementation must be filled in as explained.
+%   3. At lines commented with NOTE 3 : The max/min legal real value
+%      on your implemetation must be filled in as explained.
+%   4. At lines commented with NOTE 4 : The max/min legal real value
+%      with double precision must be filled in as explained.
+%   5. At lines commented with NOTE 5 : The expected result of the
+%      putreal operation with the given precision must be edited into
+%      the text string.
+%
+%  WRITTEN BY:  THE  12.10.83
+%    CORR. BY:  PJE  3/6 86 to conformance with SIMULA Standard.
+% ====================================================================
+BEGIN
+BOOLEAN            found_error;     ! Set to true when errors are;
+                                    ! found.                     ;
+
+TEXT               txt;             ! Text to use the editing and;
+                                    ! de-editing procedures on.  ;
+
+INTEGER            int;             ! To be used in the procedures;
+SHORT INTEGER      sho;             ! To be used in the procedures;
+REAL               rea;             ! To be used in the procedures;
+LONG REAL          lon;             ! To be used in the procedures;
+
+INTEGER            realprecision;   ! To contain the precision for;
+INTEGER            longprecision;   ! reals and long reals       ;
+                                    ! respectively.              ;
+
+outtext ("--- START Simula a.s. TEST 4");
+Outimage;
+outtext ("--- Test reading numbers from source text");
+Outimage; Outimage;
+
+txt :- blanks (30);
+
+realprecision := 7;                  !********* NOTE 1 ************;
+                                     ! Fill in expected precision ;
+                                     ! (no of digits) for reals...;
+longprecision := 16;                 !      ... and for long reals.;
+
+txt.putint (realprecision);
+
+IF txt <> "                             7" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In integer operation (1).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+txt.putint (longprecision);
+
+IF txt <> "                            16" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In integer operation (2).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+                                      !*****************************;
+                                      ! Start testing the handling  ;
+                                      ! of integers.               ;
+                                      !*****************************;
+int := 123456;
+txt.putint (int);
+
+IF txt <> "                        123456" THEN
+   BEGIN
+   outtext ("*** ERROR :  In integer operation (3).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+int := maxint;
+txt.putint (int);
+
+IF txt <> "                    2147483647" THEN
+   BEGIN
+   outtext ("*** ERROR :  In integer operation (4).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+txt.putint (+0);
+
+IF txt <> "                             0" THEN
+   BEGIN
+   outtext ("*** ERROR :  In integer operation (6).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+int := minint;
+txt.putint (int);
+
+IF txt <> "                   -2147483648" THEN
+   BEGIN
+   outtext ("*** ERROR :  In integer operation (7).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+txt.putint (-0);
+
+IF txt <> "                             0" THEN
+   BEGIN
+   outtext ("*** ERROR :  In integer operation (8).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+                                      !*****************************;
+                                      ! Test handeling of short    ;
+                                      ! integers.                  ;
+                                      !*****************************;
+txt.putint (sho);
+
+IF txt <> "                             0" THEN
+   BEGIN
+   outtext ("*** ERROR :  In short integer operation (1).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+sho := 32767;                          !************ NOTE 2 *********;
+txt.putint (sho);                      ! Fill in largest positive    ;
+                                       ! short integer value in these;
+                                       ! two places.                 ;
+
+IF txt <> "                         32767" THEN
+   BEGIN
+   outtext ("*** ERROR :  In short integer operation (2).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+sho := +13;
+txt.putint (sho);
+
+IF txt <> "                            13" THEN
+   BEGIN
+   outtext ("*** ERROR :  In short integer operation (4).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+sho := -32768;                         !********* NOTE 2 ************;
+txt.putint (sho);                      ! Fill in max negative short  ;
+                                       ! integer value.              ;
+
+IF txt <> "                        -32768" THEN
+   BEGIN
+   outtext ("*** ERROR :  In short integer operation (5).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+                                      !*****************************;
+                                      ! Test the handeling of reals.;
+                                      !*****************************;
+rea := 123456;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.234560&+05" THEN
+   BEGIN
+   outtext ("*** ERROR :  In real operation (1).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********* NOTE 3 ************;
+                                       ! Fill in max positive real   ;
+                                       ! value on the form +n and    ;
+                                       ! with a precision >=         ;
+                                       !         "realprecision.     ;
+rea :=
+340282350000000000000000000000000000000.0
+;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  3.402824&+38" THEN  ! *** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (2).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := - 3;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -3.000000&+00" THEN  ! *** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (3).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := .8888888888888;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  8.888889&-01" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (4).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := +.0;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  0.000000&+00" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (5).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********* NOTE 3 ************;
+                                       ! Fill in min negative real   ;
+                                       ! value on the form -.n and   ;
+                                       ! with a precision >=         ;
+                                       !       "realprecision".      ;
+rea := -
+.0000001192093
+;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -1.192093&-07" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (6).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := 0.0;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  0.000000&+00" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (7).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := +       1234.99999999;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.235000&+03" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (8).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********* NOTE 3 ************;
+                                       ! Fill in max negative real   ;
+                                       ! value on the form -n.m and  ;
+                                       ! with a precision >=         ;
+                                       !         "realprecision".    ;
+rea := -
+3.402823500&+38
+;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -3.402824&+38" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (9).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := &3;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.000000&+03" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (10).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+txt.putreal (&+20, realprecision);
+
+IF txt <> "                  1.000000&+20" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (11).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := &-0;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.000000&+00" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (12).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+txt.putreal (+&6, realprecision);
+
+IF txt <> "                  1.000000&+06" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (13).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := + &+01;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.000000&+01" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (14).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+txt.putreal (+&-37, realprecision);
+
+IF txt <> "                  1.000000&-37" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (15).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := -      &2;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -1.000000&+02" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (16).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := -&+35;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -1.000000&+35" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (17).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := -&-2;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -1.000000&-02" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (18).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********** NOTE 3 ***********;
+                                       ! Fill in max positive real   ;
+                                       ! value on the form n&m and   ;
+                                       ! with a precision>="realprec.";
+txt.putreal (340282350&30, realprecision);
+
+IF txt <> "                  3.402824&+38" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (19).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := 123456789&+1;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.234568&+09" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (20).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := 3333&-8;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  3.333000&-05" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (21).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea :=  +   2222222222222&-50;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  2.222222&-38" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (22).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := +55555555&-0;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  5.555556&+07" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (23).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := -9999999999&2;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -1.000000&+12" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (24).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := -0&+0;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  0.000000&+00" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (25).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := .3333333333&7;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  3.333333&+06" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (26).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := .777777777&-10;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  7.777778&-11" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (27).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := +.00000000111111111&+4;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.111111&-05" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (28).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := -  .0000006666666666666666&+06;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -6.666667&-01" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (29).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********* NOTE 3 ************;
+                                       ! Fill in min positive real   ;
+                                       ! value on the form .n&-m     ;
+                                       ! where m < "max exponent" and;
+                                       ! with a precision >=         ;
+                                       !         "realprecision".    ;
+rea :=  .119209300&-08;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.192093&-09" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (30).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := 0.000000&000;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  0.000000&+00" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (31).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := 123.45678&+30;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.234568&+32" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (32).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := +0.1111111111&+01;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.111111&+00" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (33).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea :=  +  123456789123456789123456789123456789.123456789&-41;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                  1.234568&-06" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (34).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********* NOTE 3 ************;
+                                       ! Fill in max negative real   ;
+                                       ! value on the form -n.m&e    ;
+                                       ! where e="max exponent" and  ;
+                                       ! with a precision >=         ;
+rea := -3.40282350&38;                 !          "realprecision".   ;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -3.402824&+38" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (35).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+rea := - 30000000000.00&-5;
+txt.putreal (rea, realprecision);
+
+IF txt <> "                 -3.000000&+05" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In real operation (36).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Test the handeling of long  ;
+                                       ! reals.                      ;
+                                       !*****************************;
+lon := 12345678912345678.0&&+00;
+txt.putreal (lon, longprecision);
+
+IF txt <> "        1.234567891234568&+016" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (1).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********* NOTE 4 ************;
+                                       ! Fill in max positive real   ;
+                                       ! value on the form +n and    ;
+                                       ! with a precision >=         ;
+                                       !          "longprecision".   ;
+lon :=
+17976931348623150000000000000000000000000000000000000000000000000&&+244
+;
+txt.putreal (lon, longprecision);
+IF txt <> "        1.797693134862315&+308" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (2).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+txt.putreal (.88888888888888888&&+00, longprecision);
+
+IF txt <> "        8.888888888888890&-001" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (3).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+lon := 0;
+txt.putreal (lon, longprecision);
+
+IF txt <> "        0.000000000000000&+000" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (4).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********* NOTE 4 ************;
+                                       ! Fill in min negative real   ;
+                                       ! value on the form -.n  and  ;
+                                       ! with a precision >=         ;
+                                       !          "longprecision".   ;
+lon := -
+.2220446049250313&&-017
+;
+txt.putreal (lon, longprecision);
+
+IF txt <> "       -2.220446049250313&-018" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (5).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+lon := +       1234.99999999111111111111111&&+00;
+txt.putreal (lon, longprecision);
+
+IF txt <> "        1.234999999991111&+003" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (6).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+lon := &&3;
+txt.putreal (lon, longprecision);
+
+IF txt <> "        1.000000000000000&+003" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (7).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+txt.putreal (+ &&00, longprecision);
+
+IF txt <> "        1.000000000000000&+000" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (8).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+lon := + &&+01;
+txt.putreal (lon, longprecision);
+
+IF txt <> "        1.000000000000000&+001" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (9).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********* NOTE 4 ************;
+                                       ! Fill in max positive real   ;
+                                       ! value on the form n&&m where;
+                                       ! m < "max exponent" and with ;
+                                       ! a precision >=              ;
+                                       !            "longprecision". ;
+txt.putreal (17976931348623150&&292, longprecision);
+
+IF txt <> "        1.797693134862315&+308" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (10).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+lon := 123456789123456789&&+1;
+txt.putreal (lon, longprecision);
+
+IF txt <> "        1.234567891234568&+018" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (11).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+lon := -99999999999999999999&&2;
+txt.putreal (lon, longprecision);
+
+IF txt <> "       -1.000000000000000&+022" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (12).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+lon := .7&&-10;
+txt.putreal (lon, longprecision);
+
+IF txt <> "        7.000000000000000&-011" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (13).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+lon := +.00000000111111111111111111111&&+4;
+txt.putreal (lon, longprecision);
+
+IF txt <> "        1.111111111111111&-005" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (14).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+lon := 123.456789111111111111&&+30;
+txt.putreal (lon, longprecision);
+
+IF txt <> "        1.234567891111111&+032" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (15).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+                                       !********* NOTE 4 ************;
+                                       ! Fill in max negative real   ;
+                                       ! value on the form -n.m&&e   ;
+                                       ! where e="max exponent" and  ;
+                                       ! with a precision >=         ;
+lon := -1.797693134862315&&+308;       ! "longprecision".;
+txt.putreal (lon, longprecision);
+
+IF txt <> "       -1.797693134862315&+308" THEN  !*** NOTE 5 ***;
+   BEGIN
+   outtext ("*** ERROR :  In long real operation (16).");
+   outimage;
+   outtext (" - the following result is wrong: ");
+   outtext (txt);
+   outimage;
+   found_error := TRUE
+   END;
+
+
+IF found_error THEN  ELSE
+   begin Outtext ("--- NO ERRORS FOUND IN THIS TEST"); Outimage; end;
+outtext ("--- END Simula a.s. TEST 4");
+outimage
+
+END of program

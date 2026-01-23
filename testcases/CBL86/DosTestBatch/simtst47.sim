@@ -1,0 +1,65 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 47
+%
+%  PURPOSE:     Test of this.
+%
+%  REWRITTEN BY:  BEH   29/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Ref(A) ra1, ra2, ra3 ;
+
+   Class A ;
+   begin
+
+      Ref (A) Procedure Z ;
+      begin
+          ra2 :- This A;
+
+          begin
+             integer i;
+             ra3 :- This A
+          end ;
+          Z :- This A
+      END of procedure Z ;
+
+   END;
+
+   Outtext ("--- START Simula a.s. TEST 47") ;
+   Outimage ;
+   Outtext ("--- Test of this.") ;
+   Outimage ; Outimage ;
+
+   ra1 :- new a ;
+   ra1 :- ra1.z ;
+
+   if ra1 == ra2 and ra2 == ra3 then
+   else
+   begin
+      Outtext ("*** ERROR : This.") ;
+      Outimage ;
+      Outtext ("            Erroneus references : ") ;
+      Outimage ;
+      Outtext ("                      ra1 == ra2 - ") ;
+      Outtext (if ra1 == ra2 then "true" else "false") ;
+      Outimage ;
+      Outtext ("                      ra1 == ra3 - ") ;
+      Outtext (if ra1 == ra3 then "true" else "false") ;
+      Outimage ;
+      Outtext ("                      ra2 == ra3 - ") ;
+      Outtext (if ra2 == ra3 then "true" else "false") ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 47") ;
+   Outimage
+ END

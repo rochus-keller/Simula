@@ -1,0 +1,877 @@
+comment *************************************************
+ 
+    tokenizer.SIM   (version 2.6)
+    =============================
+        renamed from: analyzer.SIM   (version 2.3)
+        ------------------------------------------
+    auteur:  jean vaucher
+    date  :  fev 1997   ( retravaille pour Projet Henault)
+    date  :  MAI 1995   ( adapte de simanal 8 juillet 1981)
+ 
+ 
+ This class does the lexical analysis of SIMULA source programs. 
+ It is meant to be used as a the Front-end of any program that parses
+ Simula text.
+ 
+ USED BY:   scope.sim
+ 
+ INTERFACE:
+ 
+ - Constants for SIMULA symbols, i.e.: if_sy, then_sy, begin_sy...
+ 
+ - procedures:
+    - getsy
+    - skip( symb)
+    - chercher( symb)
+    - symbol_is( symb )
+    - symbol_in( symb_set )
+    
+ - global variables:    
+    - peeksy
+    - usc       { unite syntaxique courante: if_sy }
+    - token     { text version of USC,ex:   "IF"   }
+    
+ - NAMES for useful SETS of SYMBOLS:
+ 
+    fin_d_enonce    fin_comment
+    simple_decl     declar      
+    decspec         punctuation 
+    nonWords   
+    
+ - debugging FLAGS:  array of 10 BOOLEANS
+ 
+ =================================================================
+ MODIFICATIONS:
+ 
+ Feb 1997 (JV): 2.5 
+ 
+   - We found that having sets of just 32 symbols was limiting...so...
+        Added SymSet Class for sets of SYMBOLS of any size !
+   - Handles "AND THEN" and "OR ELSE"
+   - adapted for PRETTY printing with VIRTUAL procedures called
+      whenever a COMMENT is encountered 
+      & to handle special formating of KEYWORDS (Upper-cased by
+            default)
+
+ Feb 1996 (JV): created version 2.4 
+ 
+    - corrected OVERFLOW problem in COMMENT lines
+    - superset of all previous versions
+    - more appropriate initial comments
+ 
+****************************************************************;
+
+class tokenizer;
+virtual:
+    procedure CreateReader is
+       procedure CreateReader;;
+    Procedure FormatKeyWord is
+           procedure FormatKeyWord(KW) ; text KW;;
+
+begin
+
+  integer   nligne;
+  character C, CR = '!13!';
+  Boolean   EOF;
+
+
+  ref(ReaderClass) Reader;
+  
+  class ReaderClass(filein);  REF(InFile) filein; 
+  begin
+    text t, image, t1, t2, com1 ;
+    boolean Overflow;
+
+    EOF := FALSE;  !CDL, June 30 1995;
+    nligne:=0;
+    image :- filein.image;
+    t1 :- image.sub(1,1);
+    t2 :- image.sub(2,11);
+    C := ' ';
+    DETACH;
+    
+    Overflow :=  filein.inrecord; 
+    FOR   nligne := nligne+1 
+    WHILE not filein.endfile DO
+    BEGIN
+        t:- image.sub(1,filein.pos-1);
+             
+        IF t1 = "%" or t1 = "#" 
+           then  resetDebugFlags(t2);
+        if trace>2 then
+        begin
+            if Pos <> 1 then outimage;
+            outint(nligne,5); outtext(" =");
+            outtext(t);  outimage;
+        end;
+              
+        IF t1 = "%" or t1 = "#" 
+        then     ! we have a comment line  ;
+        begin
+               Com1 :- " 1:" & T.strip ;
+               C := char(1);
+               detach; 
+               C := CR;  detach;
+               t1 := " ";
+               while OverFlow do Overflow :=  filein.inrecord;
+        End
+        
+        else Begin
+            while t.more do
+            begin
+                C:= t.getchar;
+                if rank(c) < 32 then c:= ' ';
+                DETACH   
+            end;
+            if not Overflow then 
+                  begin c := CR; DETACH end;
+         End;
+         
+        t1 := " ";
+        Overflow :=  filein.inrecord; 
+    END;
+    
+    c:= ';'; EOF := true;
+    DETACH;
+    outimage;
+    outtext("*** Lecture apres EOF, contact J. Vaucher"
+          " (vaucher@iro.umontreal.ca) ");
+    outimage;
+    c:= ';'; EOF := true;
+    DETACH;
+    
+    error(" Dans ReaderClass: lecture apres EOF");
+     
+  end  *** ReaderClass ***;
+ 
+
+% ====================================================
+%   Debugging and feature flags;
+%       Set from comment lines with double %% in cols 1-2.
+%    - 1st digit sets TRACE
+%    - next (up to) 10 characters set FLAG array
+%        '1' means true
+%    '0' means false
+%    else FLAG stay unchanged.
+%
+%   %%41x0   puts:
+%   4 -> trace
+%   FLAG(1) <- true
+%   FLAG(2)      unchanged
+%   FLAG(3) <- false
+%   FLAG(4..10)  unchanged
+% ====================================================
+
+integer TRACE;
+Boolean array FLAG(1:10);
+
+procedure  resetDebugFlags (T); value T; text T;
+if T =/= notext and then T.getchar = '%' then
+begin
+    character C;
+    integer   i;
+    
+    if T.more then C := T.getchar;      
+    if digit(C) then 
+        trace := rank(C) - rank('0');
+    
+    while T.more do 
+    begin
+    i := i+1;
+    C := T.getchar;
+    if      C = '1' then FLAG(i) := true
+    else if C = '0' then FLAG(i) := false;
+    end;
+end;
+    
+    procedure traceMsg(Level,Msg); integer level; text Msg;
+        if TRACE >= level then outline(Msg);
+        
+
+    TEXT PROCEDURE intAsStrBin(n);   INTEGER n;
+    BEGIN
+       INTEGER i;
+       Text T;
+       i:=1;
+       while N > 0 do 
+       BEGIN
+           IF rem(n,2) = 1 then T :- T & intAsText(i) & "+";
+           N := N // 2;
+           i := i+1;
+       END;
+       
+       intAsStrBin :- T;
+    END;
+
+
+
+! ------------------------------------------------ ;
+
+ integer
+   comment_sy,  ident_sy,      begin_sy,      end_sy,
+   decl_sy,     spec_sy,
+   text_sy,     class_sy,      external_sy,  
+   is_sy,       
+   inspect_sy,  when_sy,       do_sy,         otherwise_sy,
+
+   if_sy,       then_sy,       else_sy,
+   virtual_sy,  array_sy,   
+%  label_sy,    
+   qua_sy,
+   procedure_sy,  ref_sy,      switch_sy,
+   while_sy,    for_sy,
+   
+   assign_sy,
+   pv_sy,       deux_points,
+   comma,       period,
+   leftPar,     rightPar,
+   other_sy,    nl_sy,          fdf_sy,
+   double_start ;
+ 
+ 
+! Classes de symboles   ;
+  
+  Ref( SymSet )
+    fin_d_enonce,
+    fin_comment,    
+    simple_decl,
+    declar,
+    decspec,
+    punctuation,
+    nonWords ;
+ 
+ 
+  procedure init_sy;
+  begin
+    integer i, n;
+    
+    integer procedure NC;  comment  next_code  ;
+    begin  nc:= n; n := n+1;  end;
+ 
+    n := 0;
+    array_sy  :=nc;
+    assign_sy :=nc;
+    begin_sy  :=nc;
+    class_sy  :=nc;
+    deux_points:= nc;
+    decl_sy   :=nc; ! decl_sy == bool, int, real, char, short, long ;
+    do_sy     :=nc;
+    end_sy    :=nc;
+    else_sy   :=nc;
+    external_sy:=nc;
+    fdf_sy    :=nc;
+    ident_sy  :=nc;
+    inspect_sy:=nc;
+    other_sy  :=nc;
+    procedure_sy:=nc;
+    pv_sy     :=nc;
+    qua_sy    :=nc;
+    ref_sy    :=nc;
+    switch_sy :=nc;
+    spec_sy   :=nc;    ! spec_sy ==  name, value, hidden, protected  ;
+    then_sy   :=nc;
+    virtual_sy:=nc;
+
+    comma     :=nc;
+    leftpar   :=nc;
+    rightpar  :=nc;
+    period    :=nc;
+    is_sy     :=nc;
+
+    otherwise_sy:=nc;
+    when_sy   :=nc;
+    comment_sy:=nc;
+    if_sy     :=nc;
+    while_sy  := nc;
+    for_sy    := nc;
+    nl_sy    := nc;
+    double_Start    := nc;
+    
+    fin_d_enonce :- new SymSet(N).
+                    add(fdf_sy).
+                    add(pv_sy).
+                    add(end_sy);
+                    
+    fin_comment :- fin_d_enonce.copy
+                  .add(else_sy)
+                  .add(when_sy)
+                  .add(otherwise_sy);
+    
+    simple_decl :- new SymSet(N).
+                    add(decl_sy).
+                    add(ref_sy).
+                    add(external_sy);
+                    
+    declar :- simple_decl.copy
+                  .add(switch_sy)
+                  .add(procedure_sy)
+                  .add(class_sy);
+                  
+    decspec :- declar.copy
+                  .sub(switch_sy)
+                  .add(array_sy)
+                  .sub(external_sy)
+                  .add(spec_sy);
+    
+    punctuation :- new SymSet(N)
+                   .add(comma).         add(period)
+                   .add(deux_points).   add(pv_sy).
+                    add(leftPar);
+                    
+    nonWords :- punctuation.copy
+                  .add(other_sy);
+    
+     
+    for i := 0 step 1 until maxrank do
+        charType(i) := other_sy;
+    
+    charType( rank(';') ) := pv_sy;
+    charType( rank(':') ) := deux_points;
+    charType(       1   ) := comment_sy;
+    charType( rank('!') ) := comment_sy;
+    charType( rank(',') ) := comma;
+    charType( rank('.') ) := period;
+    charType( rank('(') ) := leftPar;
+    charType( rank(')') ) := rightPar;
+
+    charType( rank(':') ) := Double_start;
+    charType( rank('*') ) := Double_start;
+    charType( rank('/') ) := Double_start;
+    charType( rank('>') ) := Double_start;
+    charType( rank('<') ) := Double_start;
+    charType( rank('=') ) := Double_start;
+
+  end  *** init_sy *** ;
+ 
+  procedure init_table;
+  begin
+    table :- new table_class(107);
+    inspect table do
+    begin
+      add("array",   array_sy);      
+      add("begin",   begin_sy);      add("boolean",  decl_sy);
+      add("character",decl_sy);
+      add("class",   class_sy);      add("comment",  comment_sy);
+      add("end",     end_sy);        add("external", external_sy);
+      add("integer", decl_sy);
+      add("is",      is_sy);         
+      add("label",   decl_sy);
+      add("long",    decl_sy);      
+      add("name",    spec_sy);       add("procedure",procedure_sy);
+      add("real",    decl_sy);       add("ref",      ref_sy);
+      add("short",   decl_sy);
+      add("switch",  switch_sy);     add("text",     decl_sy);
+      add("value",   spec_sy);       add("virtual",  virtual_sy);
+      
+      add("if",      if_sy);   
+      add("then",    then_sy);   
+      add("else",    else_sy); 
+        
+      add("inspect", inspect_sy);
+      add("when",    when_sy);
+      add("do",      do_sy);
+      add("otherwise",otherwise_sy);
+      
+      
+      add("call",   other_sy);
+      add("detach", other_sy);       
+      add("false",  other_sy); 
+      add("go",     other_sy);       add("to",     other_sy);
+      add("goto",   other_sy);       add("hidden", spec_sy);       
+      add("for",    for_sy  );       
+      add("in",     other_sy);       add("inner",  other_sy);      
+      add("new",    other_sy);
+      add("none",   other_sy);       add("notext", other_sy);
+      add("protected", spec_sy); 
+      add("qua",    qua_sy);      ! Period ??? <<=== to handle 'X qua Y.Z' like
+                                          'X.Y.Z'   ;
+      add("step",   other_sy);
+      add("this",   other_sy);
+      add("true",   other_sy);
+      add("until",  other_sy);       
+      add("while",  while_sy);
+
+      add("activate",other_sy);      add("after",     other_sy);
+      add("at",      other_sy);       
+      add("before",  other_sy);      add("delay",     other_sy);
+      add("prior",   other_sy);      add("reactivate",other_sy);
+            
+      add("and", other_sy);   
+      add("eq",  other_sy);          add("eqv",  other_sy);
+      add("ge",  other_sy);          add("gt",   other_sy);
+      add("imp", other_sy);   
+      add("le",  other_sy);          add("lt",   other_sy);   
+      add("ne",  other_sy);
+      add("not", other_sy);          add("or",   other_sy);
+      
+    end;
+  end  *** init_table ***;
+ 
+
+
+! ********************************************************************;
+! ***************** hashtable of key words  **************************;
+! ********************************************************************;
+ 
+  ref(TABLE_CLASS) table;
+ 
+  class kword(t,code);  text t; integer code;
+    begin  ref(kword) suc; end;
+ 
+ 
+  class TABLE_CLASS(size);
+      integer size;
+  begin
+    ref(kword) array index (1:size);
+    integer i;
+ 
+   integer procedure hash(t); text t;
+   begin
+      integer N, K;
+               
+      K := abs( minint // 16);      
+      t.Setpos(1); 
+      while t.More do begin
+         N := 11*N + Rank(t.Getchar);
+         IF N > K THEN N := rem( N, K);
+      end;
+      hash := randint(1, size, N);
+   end of HASH;
+   
+    procedure add (t,code);  value t;
+      text t; integer code;
+    begin
+      ref(kword) p,pp,k;
+      integer i;
+      i:= hash(t);
+      k:- new kword(t,code);
+      p:- index(i);
+      if t<= p.t then
+        index(i) :- k
+      else begin
+        while t > p.t do
+        begin  pp:-p; p:-p.suc end;
+        pp.suc:-k;
+      end;
+      k.suc:-p;
+    end  ** add **;
+ 
+    integer procedure lookup (t); text t;
+    begin  comment  this procedure is expanded in-line
+                    where needed   ;
+    end  ** lookup **;
+ 
+    for i:= 1 step 1 until size do
+      index(i) :- new kword(copy("~"),0);
+ 
+  end ** table_class **;
+ 
+ 
+
+
+comment $p   *** analize lexicale -  G E T S Y   *** 
+             ***************************************  ;
+ 
+  integer USC, usc2;
+  text    Sy, 
+          reference ;
+  
+  integer array charType(0:maxrank);
+    
+  ref(Symbol) NextSymbol;
+  
+  Class Symbol(nU,nT,nTok,suc); 
+    integer nU;
+    text    nT, nTok;
+    ref(Symbol) suc;
+    ;
+    
+  integer procedure PeekSy;
+  inspect NextSymbol 
+     do PeekSy:= usc
+  otherwise begin
+        integer U;
+        text T;
+        
+        U := usc; T :- copy(Token); 
+        getSy;    
+        NextSymbol :- new Symbol(usc,copy(Token),Token,none);
+        PeekSy := usc;
+        usc := U;  
+        RestoreSy(T);
+        traceMsg(3,"Restore to " & Token & ":" & intAsText(usc));
+   end;
+  
+    PROCEDURE copyChar;  
+    IF not EOF then 
+    BEGIN 
+       IF NOT sy.More      
+           then BEGIN TEXT T;
+              T :- sy & Blanks(0.5* sy.Length+1);
+              T.SetPos(sy.Pos);
+              Sy :- T;
+           END;
+       sy.PutChar(c);
+       Call(Reader)  
+    END;
+
+ 
+  TEXT PROCEDURE Token;
+     Token :- sy.Sub(1,sy.Pos-1);
+ 
+    Procedure restoreSy(T); Text T;
+    begin
+    	if Sy.length < T.length then Sy :- blanks(T.length);
+        Sy.sub(1,T.length) := T;
+        Sy.setpos(T.length+1);
+    end;
+    
+  procedure ChercherC (Cc); character Cc;
+    while C<>Cc and not EOF do call (Reader);
+ 
+  procedure CopyTo (Cc); character Cc;
+    while not EOF and C<>Cc do copyChar;
+ 
+  Boolean InComment;
+  
+  
+! =======================================; 
+   procedure getSy2;
+! =======================================; 
+  inspect nextSymbol do 
+  begin
+     usc   := nU; 
+     RestoreSy(nT);  
+     nextSymbol :- suc;
+     if trace > 2 then
+         outLine(" (" & intAsText(usc) & ":" & Token &  ") ");
+  end
+  otherwise begin
+    text t;
+    ref(kword) p;
+
+    
+! ==>> Main starts here ====== ;
+    
+    usc := other_sy;
+    sy.SetPos(1);
+    while c = ' ' do call (Reader);
+ 
+    if EOF then usc:= fdf_sy  
+    else if C = CR then begin
+        usc := nl_sy; call(READER);
+    end
+
+    else if LETTER(c) then 
+% ------------------------------------------------------       
+     begin
+      copyChar;
+      while letter(c) or digit(c) or c='_' do
+        begin copyChar end;
+ 
+      t :- lowcase(copy(Token));
+      p :- table.index(table.hash(t));
+      
+      while t > p.t do p:-p.suc;
+      if t=p.t 
+        then begin 
+            usc:= p.code; 
+            if T = "or" and then PeekSy = else_sy then
+            begin
+                getsy;
+                usc := other_sy;
+                restoreSy("or else"); 
+            end
+            else if T = "and" and then PeekSy = then_sy then
+            begin
+                getsy;
+                usc := other_sy;
+                restoreSy("and then"); 
+            end;
+            FormatKeyWord(Token) ;
+        end
+        else usc:= ident_sy;
+        
+ 
+      if usc=ref_sy then 
+      begin
+        reference :- blanks(32);
+        while c <> '(' and not EOF do copyChar;
+        copyChar;
+        while c <> ')' and not EOF do begin
+            if reference.more then reference.putchar(C);
+            copyChar;
+        end;
+        reference :- lowcase(reference.strip);
+        copyChar;
+      end
+     end
+ 
+    else if DIGIT(c) then
+% ------------------------------------------------------ 
+      while digit(c) or c='.' or c = '&' or c='_' DO copyChar
+      
+    else if c='.' then begin
+       copyChar;
+       if digit(c) then 
+          while digit(c) or c = '&' or c='_' DO copyChar
+       else usc := period
+    end
+    
+    else if c=''' then
+    begin
+        copyChar ; 
+        copyChar ;
+        while not (c = ''' or EOF) do copyChar;
+        copyChar;
+    end
+ 
+    else if c='"' then
+      while c = '"' do 
+      begin
+        copyChar ;
+        while not (c = '"' or EOF) do copyChar;
+        copyChar;
+      end
+
+% ----------------------------------------------------------------     
+%  Operateurs multi-caracteres:  :=, :-, <>, >=, <=, =/=, ==, //  
+%                                **, //
+% ----------------------------------------------------------------     
+    
+    else if charType(rank(c)) = Double_start then 
+    begin
+    
+        Boolean procedure Check(Cc);  character Cc;
+        if C = Cc then 
+        begin
+            copyChar;
+            Check := true;
+        end;
+    
+        usc := other_sy;
+        if c=':' then
+        begin
+            copyChar ;
+            if c = '-' or c = '=' then begin
+                 copyChar;
+                 usc := assign_sy;
+            end
+            else usc := deux_points;
+        end
+        else if check('=') then begin
+            if check('/') then check('=')
+            else check('=') 
+        end
+        else if check('>') then check('=')
+        else if check('<') then 
+        begin
+            if not check('=') then check('>')
+            else check('=') 
+        end 
+        else if check('*') then check('*')
+        else if check('/') then check('/')
+    end
+    
+%  Autre Operateur   
+
+    else begin  
+        usc := charType(rank(c));
+        if C <> '!1!' then copyChar; 
+    end;
+ 
+    if usc=comment_sy then
+    begin 
+    	if C = char(1) then	
+    	begin
+    	    restoreSy(Reader.Com1); call(READER);
+    	end else
+	    begin 
+		Text TPos;
+	    
+	    	if not InComment then 
+	    	begin
+	    		integer N;
+	    		InComment := true;
+			TPos :- copy("  :");
+			N := reader.T.pos - Sy.pos;
+			if C=CR then N:= N+1;
+			Tpos.sub(1,2).putint(N);
+	    	end else
+	    	begin
+			TPos :- copy(" 1:");
+			Sy.setpos(1);
+	    	end;
+	    	
+		while not(C=';' or C=CR) do copyChar;
+		
+		if C = ';' then 
+		begin
+	          	copyChar;
+			InComment := false;
+		end
+		else begin
+			C := '!';
+		end;
+		restoreSy(TPOS & Token);
+	end
+    end; 
+    
+    if trace > 2 then
+        outLine(" <" & intAsText(usc) & ":" & Token & "> ");
+    
+end ===---===---=== getsy2 ===---===---=== ;
+ 
+
+% -------------------------------
+%   Procedures d'interface
+% -------------------------------
+
+    Procedure GetSy; 
+    begin GetSy2; 
+          while usc = nl_sy do GetSy2;
+    end;
+ 
+    procedure TreatComment(T, nPos); 
+          text T;  integer    nPos;
+    begin
+        outimage;
+        outtext(">>>>> "); 
+        outtext(T); outimage;
+    end;
+
+        Procedure FormatKeyWord(KW) ; text KW;
+            upCase(KW);
+            
+    Text procedure GetEndComment;
+    begin 
+        procedure EndStuff;
+        begin
+            Sy.setpos(1);
+            while not letter(C) and C<>';' do copyChar;
+            T :- T & Token;
+            GetSy;
+        end;
+        
+        Text T; 
+        
+        while not symbol_in(fin_comment) do 
+        begin
+            T :- T & Token;
+            EndStuff;
+        end;
+        GetEndComment :- T;
+    end;
+          
+% -------------------------------
+%   UTILITAIRES
+% -------------------------------
+
+  integer margin,
+          MARGIN1 = 8;
+ 
+  procedure OutLine(T); Text T;
+     begin outtext(T); outimage end;
+  
+  procedure Chercher (s); ref(SymSet) s;
+  begin
+    while usc<>fdf_sy and then not symbol_in (S) 
+       do getsy;
+  end  ** chercher **;
+ 
+    Boolean procedure symbol_is(S); integer S;
+        symbol_is := usc = S;
+        
+    Boolean procedure symbol_in(S); ref(Symset) S;
+        symbol_in := S.contains(USC) ;
+                
+    Boolean procedure Contains (set,elem);  
+        integer elem;
+        ref(SymSet) set;
+        Contains:= Set.contains(Elem) ;
+    
+    procedure Skip(Sy); integer Sy;
+        if usc = Sy then getSy;
+ 
+    text procedure intAsText(N); integer N;
+    begin  text T;
+       intAsText :-
+         T :- blanks( if N <10 then 1
+                 else if N < 100 then 2
+                 else if N < 1000 then 3 
+                 else if N < 10000 then 4 
+                 else if N < 1000000 then 6 
+                 else 10);
+        T.putint(N);
+    end;
+
+class SymSet(N); integer N;
+begin
+    integer Lim = 31;
+    integer array S(0:N//Lim);
+    
+    Boolean procedure contains(X); integer X;
+    if X <= N then 
+    begin
+        integer a,b;
+        a := X//Lim; 
+        b := 2**rem(X,Lim);
+        contains := rem( S(a) // b, 2) = 1;
+    end;
+    
+    procedure dump;
+    begin
+        integer i;
+        for i := 0 step 1 until N-1 do 
+            outchar(if Contains(i) then '1' else '0');
+    end;
+    
+    ref(SymSet) procedure Copy;
+    begin
+        ref(SymSet) SS;
+        integer i;
+        
+        copy :- SS :- new SymSet(N);
+        for i := 0 step 1 until N//Lim do
+            SS.S(i) := S(i);
+    end;
+        
+    ref(SymSet) procedure add(X); integer X;
+    begin 
+        if X >= 0 and X<= N then begin integer a,b;
+            a := X//Lim; 
+            b := 2**rem(X,Lim);
+            if rem( S(a) // b, 2) <> 1
+            then S(a) := S(a) + b;
+        end;
+        add :- this Symset;
+    end;
+        
+    ref(SymSet) procedure sub(X); integer X;
+    begin 
+        if X >= 0 and X<= N then 
+        begin integer a,b;
+            a := X//Lim; 
+            b := 2**rem(X,Lim);
+            if rem( S(a) // b, 2) = 1
+            then S(a) := S(a) - b;
+        end;
+        sub :- this Symset;
+    end;
+
+end ----- SymSet ----- ;
+
+procedure CreateReader;
+	reader :-  NEW ReaderClass(SysIn);
+
+% >>>>>>>>>>>>>>>>>>>>>>>>>>
+%     INITIALISATIONS
+% <<<<<<<<<<<<<<<<<<<<<<<<<<
+
+   init_sy;
+   init_table;
+   sy:- Blanks(40);
+   CreateReader;
+
+
+end -- analyzer ---;

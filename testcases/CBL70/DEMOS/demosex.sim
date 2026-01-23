@@ -1,0 +1,1034 @@
+begin  external class demos;
+
+
+ comment -------------------- program 0 --------------------- ;
+   demos begin
+     outimage;  outimage;  outtext("programme # 0");
+     outimage;  outimage;  outimage;  outimage;  outimage;
+     noreport;
+   end;
+
+
+
+
+
+ comment -------------------- program 1 --------------------- ;
+   demos begin
+     ref(res)tugs, jetties;
+
+     entity class boat;
+     begin
+     dock: 
+       jetties.acquire(1);  tugs.acquire(2);
+       hold(2.0);
+       tugs.release(2);
+     unload: 
+       hold(14.0);
+     leave: 
+       tugs.acquire(1);
+       hold(2.0);
+       tugs.release(1);  jetties.release(1);
+     end***boat***;
+
+     outimage;  outimage;  outtext("programme # 1");
+     outimage;  outimage;  outimage;  outimage;  outimage;
+     trace;
+     tugs      :- new res("tugs", 3);
+     jetties   :- new res("jetties", 2);
+     new boat("boat").schedule(0.0);
+     new boat("boat").schedule(1.0);
+     new boat("boat").schedule(15.0);
+     hold(36.0);
+   end;
+
+
+
+
+
+ comment -------------------- program 2 --------------------- ;
+   demos begin
+     ref(res)tugs, jetties;
+     ref(rdist)next, discharge;
+
+     entity class boat;
+     begin
+       new boat("boat").schedule(next.sample);
+     dock: 
+       jetties.acquire(1);  tugs.acquire(2);
+       hold(2.0);
+       tugs.release(2);
+     unload: 
+       hold(discharge.sample);
+     leave: 
+       tugs.acquire(1);
+       hold(2.0);
+       tugs.release(1);  jetties.release(1);
+     end***boat***;
+
+     outimage;  outimage;  outtext("programme # 2");
+     outimage;  outimage;  outimage;  outimage;  outimage;
+     trace;
+     tugs      :- new res("tugs", 3);
+     jetties   :- new res("jetties", 2);
+     next      :- new negexp("next boat", 0.1);
+     discharge :- new normal("discharge", 14.0, 3.0);
+     new boat("boat").schedule(0.0);
+     hold(50.0);
+     notrace;
+     hold(28.0*24.0-50.0);
+   end;
+
+
+
+
+
+ comment -------------------- program 3 --------------------- ;
+   demos begin
+     ref(res)tugs, jetties;
+     ref(rdist)next, discharge;
+
+     entity class boat;
+     begin
+       new boat("boat").schedule(next.sample);
+     dock: 
+       tugs.acquire(2);  jetties.acquire(1);
+       hold(2.0);
+       tugs.release(2);
+     unload: 
+       hold(discharge.sample);
+     leave: 
+       tugs.acquire(1);
+       hold(2.0);
+       tugs.release(1);  jetties.release(1);
+     end***boat***;
+
+     outimage;  outimage;  outtext("programme # 3");
+     outimage;  outimage;  outimage;  outimage;  outimage;
+     trace;
+     tugs      :- new res("tugs", 3);
+     jetties   :- new res("jetties", 2);
+     next      :- new negexp("next boat", 0.1);
+     discharge :- new normal("discharge", 14.0, 3.0);
+     new boat("boat").schedule(0.0);
+     hold(50.0);
+     notrace;
+     hold(28.0*24.0-50.0);
+   end;
+
+
+
+
+
+ comment -------------------- program 4 --------------------- ;
+     demos begin
+       ref(res)file;
+       ref(count)reads, writes;
+
+       entity class reader;
+       begin
+       read: 
+         file.acquire(1);
+         hold(2.0);
+         file.release(1);
+         reads.update(1);
+       use: 
+         hold(5.0);
+         repeat;
+       end***reader***;
+
+       entity class writer;
+       begin
+       gather: 
+         hold(5.0);
+       write: 
+         file.acquire(3);
+         hold(3.0);
+         file.release(3);
+         writes.update(1);
+         repeat;
+       end***writer***;
+
+       outimage;  outimage;  outtext("programme # 4");
+       outimage;  outimage;  outimage;  outimage;  outimage;
+       trace;
+       reads  :- new count("reads");
+       writes :- new count("writes");
+       file   :- new res("file", 3);
+       new reader("r").schedule(0.0);
+       new writer("w").schedule(0.0);
+       new reader("r").schedule(0.0);
+       new reader("r").schedule(2.0);
+       new writer("w").schedule(1.0);
+       hold(25.0);
+     end;
+
+
+
+
+
+ comment -------------------- program 5 --------------------- ;
+     demos begin
+       ref(res)file;
+       ref(count)reads, writes;
+
+       entity class reader;
+       begin
+         priority := 1;
+       loop: read: 
+         file.acquire(1);
+         hold(2.0);
+         file.release(1);
+         reads.update(1);
+       use: 
+         hold(5.0);
+         repeat;
+       end***reader***;
+
+       entity class writer;
+       begin
+       gather: 
+         hold(5.0);
+       write: 
+         file.acquire(3);
+         hold(3.0);
+         file.release(3);
+         writes.update(1);
+         repeat;
+       end***writer***;
+
+       outimage;  outimage;  outtext("programme # 5");
+       outimage;  outimage;  outimage;  outimage;  outimage;
+       trace;
+       reads  :- new count("reads");
+       writes :- new count("writes");
+       file   :- new res("file", 3);
+       new reader("r").schedule(0.0);
+       new writer("w").schedule(0.0);
+       new reader("r").schedule(0.0);
+       new reader("r").schedule(2.0);
+       new writer("w").schedule(1.0);
+       hold(25.0);
+     end;
+
+
+
+
+
+ comment -------------------- program 6 --------------------- ;
+   demos begin
+     ref(bin)array q(1:2);
+     ref(rdist)array next(1:2);
+     ref(bin)shutdown;
+     ref(rdist)crossing;
+     ref(tally)load;
+     ref(count)trips, empties;
+
+     entity class ferry;
+     begin integer side, c;
+       for side := 1, 2 do
+       begin
+     loading: 
+         c := 0;
+         while c < 6 and q(side).avail > 0 do
+         begin q(side).take(1);
+           hold(0.5);
+           c := c + 1;
+         end;
+         load.update(c);
+         if c = 0 then empties.update(1);
+     cross: 
+         hold(crossing.sample);
+     unload: 
+         hold(c*0.5);
+       end;
+       trips.update(1);
+       if time < 1305.0 then repeat;
+       shutdown.give(1);
+     end***ferry***;
+
+     entity class arrival(side); integer side;
+     begin hold(next(side).sample);
+       q(side).give(1);
+       repeat;
+     end***repeat***;
+
+
+
+     outimage;  outimage;  outtext("programme # 6");
+     outimage;  outimage;  outimage;  outimage;  outimage;
+     hold(420.0);
+     q(1)     :- new bin("mainland", 3);
+     q(2)     :- new bin("island",  1);
+     shutdown :- new bin("shutdown", 0);
+     next(1)  :- new negexp("mainland", 0.15);
+     next(2)  :- new negexp("island",   0.15);
+     crossing :- new normal("crossing", 8.0, 0.5);
+     trips    :- new count("trips");
+     empties  :- new count("empty trips");
+     load     :- new tally("av. load");
+     new arrival("arr", 1).schedule(0.0);
+     new arrival("arr", 2).schedule(0.0);
+     new ferry("ferry").schedule(0.0);
+     shutdown.take(1);
+   end;
+
+
+
+
+
+     comment -------------------- program 7 --------------------- ;
+       demos begin
+         integer k;
+         ref(histogram)thru;
+         ref(waitq)array requestq(1:6);
+         ref(res)array terminal(1:6);
+         ref(bin)buffers;
+         ref(rdist)arrivals, keyin, process, read;
+         ref(idist)terminals;
+
+         entity class scanner;
+         begin integer n; boolean b; ref(query)q;
+           for n := 1 step 1 until 6 do
+           begin
+         rotate: 
+             hold(0.0027);
+         test: 
+             b := requestq(n).length > 0;
+             hold(0.0027);
+             if b then
+             begin
+         transfer: 
+               q :- requestq(n).coopt;
+               buffers.take(1);
+               hold(0.0117);
+               q.schedule(0.0);
+             end;
+           end;
+           repeat;
+         end***scanner***;
+
+         entity class query;
+         begin integer n; real t;
+           new query("query").schedule(arrivals.sample);
+           t := time;
+           n := terminals.sample;
+         joinqanddialrequest: 
+           terminal(n).acquire(1);
+           hold(keyin.sample);
+         awaitprocessing: 
+           requestq(n).wait;
+         processing: 
+           hold(process.sample);
+         sendreply: 
+           hold(0.0397);
+           buffers.give(1);
+         readreply: 
+           hold(read.sample);
+           terminal(n).release(1);
+           thru.update(time-t);
+         end***query***;
+
+
+
+         outimage;  outimage;  outtext("programme # 7");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         arrivals  :- new negexp("arr", 5.0);
+         terminals :- new randint("terminals", 1, 6);
+         keyin     :- new uniform("key in", 0.3, 0.5);
+         process   :- new uniform("process", 0.05, 0.10);
+         read      :- new uniform("read", 0.6, 0.8);
+         thru      :- new histogram("thru times", 1.0, 11.0, 10);
+
+         for k := 1 step 1 until 6 do
+         begin
+           requestq(k) :- new waitq(edit("request", k));
+           terminal(k):- new res(edit("terminal", k), 1);
+         end;
+
+         buffers :- new bin("buffers", 3);
+         new scanner("scanner").schedule(0.0);
+         new query("q").schedule(0.0);
+         hold(20.0);
+       end;
+
+
+
+
+
+     comment -------------------- program 8 --------------------- ;
+         demos begin
+         ref(res)tugs, jetties;
+         ref(condq)dockq; boolean lowtide;
+         ref(rdist)next, discharge;
+
+         entity class boat;
+         begin
+           new boat("boat").schedule(next.sample);
+         dock: 
+           jetties.acquire(1);
+           dockq.waituntil(tugs.avail >= 2 and not lowtide);
+           tugs.acquire(2);
+           hold(2.0);
+           tugs.release(2);
+           dockq.signal;
+         unload: 
+           hold(discharge.sample);
+         leave: 
+           tugs.acquire(1);
+           hold(2.0);
+           tugs.release(1);  jetties.release(1);
+           dockq.signal;
+         end***boat***;
+
+         entity class tide;
+         begin
+         lowtideon: 
+           lowtide := true;
+           hold(4.0);
+           lowtide := false;
+           dockq.signal;
+         lowtideoff: 
+           hold(9.0);
+           repeat;
+         end***tide***;
+
+         outimage;  outimage;  outtext("programme # 8");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         tugs      :- new res("tugs", 3);
+         jetties   :- new res("jetties", 2);
+         dockq     :- new condq("dockq");
+         next      :- new negexp("next boat", 0.1);
+         discharge :- new normal("discharge", 14.0, 3.0);
+         new tide("tide").schedule(1.0);
+         new boat("boat").schedule(0.0);
+         hold(50.0);
+         notrace;
+         hold(28.0*24.0-50.0);
+       end;
+
+
+
+
+
+     comment -------------------- program 9 --------------------- ;
+       demos begin
+         integer k;
+         ref(res)array fork(1:5);
+         ref(idist)think, eat;
+         ref(condq)q;
+
+         entity class philosopher(n); integer n;
+         begin ref(res)l, r;
+           l :- fork(n);
+           r :- fork(if n=5 then 1 else n+1);
+         loop: 
+           hold(think.sample);
+           q.waituntil(l.avail > 0 and r.avail > 0);
+           l.acquire(1);  r.acquire(1);
+           hold(eat.sample);
+           l.release(1); r.release(1);
+           q.signal;
+           repeat;
+         end***philosopher***;
+
+         outimage;  outimage;  outtext("programme # 9");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         q :- new condq("await eat");
+         q.all := true;
+         think :- new randint("think", 20, 30);
+         eat   :- new randint("eat",   10, 20);
+         for k := 1 step 1 until 5 do
+           fork(k) :- new res(edit("fork", k), 1);
+         for k := 1 step 1 until 5 do
+           new philosopher("p", k).schedule(0.0);
+         hold(180.0);
+       end;
+
+
+
+
+
+
+
+     comment -------------------- program 10 -------------------- ;
+       demos begin
+         real rate;
+         ref(entity)user;  ref(res)hopper;
+         ref(idist)p, vol; ref(rdist)next;
+
+         boolean procedure and2(a, b); name a, b; boolean a, b;
+           and2 := if a then b else false;
+
+         entity class lorry;
+         begin real tleft, load, start;
+           new lorry("l").schedule(next.sample);
+           priority := p.sample;
+           load := 5*vol.sample;
+           tleft := load/rate;
+           if and2(user =/= none, priority > user.priority) then
+              user.interrupt(1);
+           while tleft > 0.0 do
+           begin hopper.acquire(1);
+             user :- current;
+             start := time;
+             hold(tleft);
+           doneorinterrupted: 
+             user :- none;
+             hopper.release(1);
+             if interrupted = 0 then tleft := 0.0 else
+             begin interrupted := 0.0;
+               tleft := tleft - (time-start);
+               priority := priority + 1;
+             end;
+           end;
+         end***lorry***;
+
+         outimage;  outimage;  outtext("programme # 10");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         rate   := 1.0;
+         p      :- new randint("priority", 1, 4);
+         vol    :- new randint("lorry load", 1, 3);
+         next   :- new negexp("next lorry", 1/12);
+         hopper :- new res("hopper", 1);
+         new lorry("l").schedule(0.0);
+         hold(120.0);
+         notrace;
+         hold(360.0);
+       end;
+
+
+
+
+
+
+
+     comment -------------------- program 11 -------------------- ;
+       demos begin
+         ref(sdigger)s;
+         ref(condq)q; ref(waitq)ltq, stq;
+         ref(rdist)nextl, nexts;
+
+         entity class truck;
+         begin
+           real load;
+         end***truck***;
+
+         truck class ltruck;
+         begin
+           load := 20.0;
+           new ltruck("l").schedule(nextl.sample);
+           while load > 0.0 do
+           begin q.signal;
+             ltq.wait;
+           end;
+         end***ltruck***;
+
+         truck class struck;
+         begin
+           load := 5.0;
+           new struck("s").schedule(nexts.sample);
+           if s.t is ltruck then s.interrupt(1) else q.signal;
+           stq.wait;
+         end***struck***;
+
+         entity class digger;
+         begin
+           ref(truck)t; real rate;
+         end***digger***;
+
+         digger class ldigger;
+         begin
+           rate := 240.0;
+         loop: 
+           t :- ltq.coopt;
+           hold(t.load/rate);
+           t.load := 0.0;
+           t.schedule(0.0);
+           t :- none;
+           if ltq.length = 0 and s.t is ltruck then s.interrupt(2);
+           repeat;
+         end***ldigger***;
+
+
+
+         digger class sdigger;
+         begin real start;
+           rate := 60.0;
+         loop: 
+           q.waituntil(stq.length > 0 or ltq.length >
+       ltq.masterq.length);
+           if stq.length > 0 then
+           begin
+             t :- stq.coopt;
+             hold(t.load/rate);
+           end else
+           begin
+             start := time;
+             t :- ltq.coopt;
+             hold(t.load/rate);
+             if interrupted = 0 then t.load := 0.0 else
+             begin t.load := t.load-(time-start)*rate;
+               t.priority := 1;
+               interrupted := 0;
+             end;
+           end;
+           t.schedule(0.0);
+           t :- none;
+           repeat;
+         end***sdigger***;
+
+         outimage;  outimage;  outtext("programme # 11");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         nextl :- new negexp("next large", 22.0);
+         nexts :- new negexp("next small", 10.0);
+         q     :- new condq("sq");
+         stq   :- new waitq("s truck q");
+         ltq   :- new waitq("l truck q");
+         s     :- new sdigger("s digger");
+         s.schedule(0.0);
+         new ldigger("l digger").schedule(0.0);
+         new ldigger("l digger").schedule(0.0);
+         new ltruck("l").schedule(0.0);
+         new struck("s").schedule(0.0);
+         hold(0.5);
+         notrace;
+         hold(9.5);
+       end;
+
+
+
+
+
+
+
+     comment -------------------- program 12 -------------------- ;
+       demos begin
+         ref(waitq)tankq;
+         ref(rdist)arr;  ref(idist)size;
+         real pumprate, drate, setuptime;
+
+         entity class tanker;
+         begin
+           ref(shoretank)st;
+           integer load;
+           new tanker("t").schedule(arr.sample);
+           load := 5*size.sample;
+         awaitshoretank: 
+           tankq.find(st, st.free >= load);
+           hold(setuptime + load*pumprate);
+           st.free := st.free-load;
+           st.schedule(0.0);
+         end***tanker***;
+
+         entity class shoretank(free); integer free;
+         begin
+           integer max;
+           max := 70;
+         loop: reload: 
+           while free >= 20 do
+             tankq.wait;
+         discharge: 
+           hold((max-free)*drate);
+           free := max;
+           repeat;
+         end***shoretank***;
+
+         outimage;  outimage;  outtext("programme # 12");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         setuptime := 0.5;
+         pumprate  := 1.0;
+         drate     := 0.25;
+         arr       :- new negexp("arrivals", 0.125);
+         size      :- new randint("size", 3, 5);
+         tankq     :- new waitq("shore tanks");
+         new shoretank("s", 70).schedule(0.0);
+         new shoretank("s", 70).schedule(0.0);
+         new shoretank("s", 45).schedule(12.0);
+         new shoretank("s", 25).schedule(3.5);
+         new shoretank("s", 70).schedule(8.0);
+         new tanker("t").schedule(0.0);
+         hold(1000.0);
+       end;
+
+
+
+
+
+
+     comment -------------------- program 13 -------------------- ;
+         demos begin
+           ref(waitq)bayq;
+           ref(rdist)nextlorry, fill, nexttrip;
+           ref(res)weighbridge, crane, bays, vanspaces;
+           ref(bin)fullhoppers, emptyhoppers;
+
+           entity class van;
+           begin
+             integer k;
+           enter: 
+             vanspaces.acquire(1);
+             weighbridge.acquire(1);
+             hold(2.0);
+             weighbridge.release(1);
+           unload: 
+             crane.acquire(1);
+             for k := 1 step 1 until 3 do
+             begin
+               emptyhoppers.take(1);
+               hold(fill.sample);
+               fullhoppers.give(1);
+             end;
+             crane.release(1);
+           leave: 
+             weighbridge.acquire(1);
+             hold(2.0);
+             weighbridge.release(1);
+             vanspaces.release(1);
+           nextload: 
+             hold(98.0 + nexttrip.sample);
+             repeat;
+           end***van***;
+
+           entity class lorry;
+           begin
+             new lorry("lorry").schedule(nextlorry.sample);
+           enter: 
+             bays.acquire(1);
+             weighbridge.acquire(1);
+             hold(3.0);
+             weighbridge.release(1);
+           load: 
+             bayq.wait;
+
+           exit: 
+             weighbridge.acquire(1);
+             hold(3.0);
+             weighbridge.release(1);
+             bays.release(1);
+           end***lorry***;
+
+
+
+           entity class production;
+           begin
+             ref(lorry)l;
+           firsthopper: 
+             fullhoppers.take(1);
+             hold(10.0);
+           findtruck: 
+             l :- bayq.coopt;
+             hold(15.0);
+             emptyhoppers.give(1);
+           secondhopper: 
+             fullhoppers.take(1);
+             hold(25.0);
+             emptyhoppers.give(1);
+             l.schedule(10.0);
+             repeat;
+           end***production line***;
+
+           integer k;
+
+           outimage;  outimage;  outtext("programme # 13");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           nextlorry    :- new negexp("next lorry", 0.1);
+           fill         :- new normal("fill hopper", 5.0, 1.0);
+           nexttrip     :- new negexp("van return", 0.1);
+           weighbridge  :- new res("weighbridge", 1);
+           crane        :- new res("crane", 1);
+           bays         :- new res("bays", 6);
+           vanspaces    :- new res("van spaces", 4);
+           bayq         :- new waitq("await container");
+           fullhoppers  :- new bin("full hoppers",  3);
+           emptyhoppers :- new bin("empty hoppers", 5);
+           new lorry("l").schedule(0.0);
+           for k := 1 step 1 until 7 do
+             new van("v").schedule((k-1)*14);
+           for k := 1 step 1 until 5 do
+             new production("p-line").schedule(0.0);
+           hold(480.0);
+         end;
+
+
+
+
+
+
+
+     comment -------------------- program 14 -------------------- ;
+         demos begin
+           ref(rdist)burst, next;
+           ref(res)cpu;
+
+           entity class program;
+           begin
+             new program("p").schedule(next.sample);
+             cpu.acquire(1);
+             hold(burst.sample);
+             cpu.release(1);
+           end***program***;
+
+           burst :- new negexp("cpu burst", 1.0);
+           next  :- new negexp("next job", 0.875);
+           cpu   :- new res("cpu", 1);
+
+           outimage;  outimage;  outtext("programme # 14");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           new program("p").schedule(0.0);
+           hold(50.0);
+         end;
+
+
+
+
+
+
+
+     comment -------------------- program 15 -------------------- ;
+         demos begin
+           real slice;
+           ref(rdist)burst, next;
+           ref(res)cpu, multi;
+
+           entity class program;
+           begin
+             real tleft, t;
+
+             new program("p").schedule(next.sample);
+             multi.acquire(1);
+             tleft := burst.sample;
+             while tleft > 0.0 do
+             begin
+               cpu.acquire(1);
+               t := if tleft < slice then tleft else slice;
+               hold(t);
+               tleft := tleft - t;
+               cpu.release(1);
+             end;
+             multi.release(1);
+           end***program***;
+
+           outimage;  outimage;  outtext("programme # 15");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           burst :- new negexp("cpu burst", 1.0);
+           next  :- new negexp("next job", 0.875);
+           cpu   :- new res("cpu", 1);
+           multi :- new res("multilevel", 4);
+           slice := 0.040;
+           new program("p").schedule(0.0);
+           hold(50.0);
+         end;
+
+
+
+
+
+
+
+     comment -------------------- program 16 -------------------- ;
+         demos begin
+           ref(rdist)burst, next, transfer;
+           ref(res)cpu, multi, disk;
+           ref(idist)ios;
+
+           entity class program;
+           begin
+             integer k, n;
+             multi.acquire(1);
+             n := ios.sample//10;
+             for k := 1 step 1 until n do
+             begin
+               cpu.acquire(1);
+               hold(burst.sample);
+               cpu.release(1);
+               disk.acquire(1);
+               hold(transfer.sample);
+               disk.release(1);
+             end;
+             multi.release(1);
+           end***program***;
+
+           integer k;
+
+         outimage;  outimage;  outtext("programme # 16");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+           burst    :- new negexp("cpu burst", 1.0);
+           next     :- new negexp("next job", 0.0875);
+           transfer :- new uniform("transfer", 0.005, 0.085);
+           ios      :- new randint("io's", 25, 75);
+           disk     :- new res("disk drive", 2);
+           cpu      :- new res("cpu", 1);
+           multi    :- new res("multi", 4);
+
+           for k := 1 step 1 until 7 do
+             new program("p").schedule(0.0);
+           while time < 100.0 do
+           begin
+             new program("p").schedule(0.0);
+             hold(next.sample);
+           end;
+         end;
+
+
+
+
+
+
+     comment -------------------- program 17 -------------------- ;
+         demos begin
+           ref(res)cu;
+           ref(res)array disk(1:8);
+           ref(rdist)next, head, rotate;
+
+           entity class request(n); integer n;
+           begin
+             new request("r", n).schedule(next.sample);
+           passseekinfo: 
+             disk(n).acquire(1);
+             cu.acquire(1);
+             hold(0.0);
+             cu.release(1);
+           movearms: 
+             hold(head.sample);
+           dotransfer: 
+             cu.acquire(1);
+             hold(rotate.sample + transfer);
+             cu.release(1);
+             disk(n).release(1);
+           end***request***;
+
+           integer k;
+           real transfer;
+
+           outimage;  outimage;  outtext("programme # 17");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           for k := 1 step 1 until 8 do
+             disk(k) :- new res(edit("disk", k), 1);
+           cu       :- new res("channel unit", 1);
+           next     :- new negexp("next request", 10.0);
+           head     :- new uniform("h-movement" , 0.005, 0.085);
+           rotate   :- new uniform("rotate time", 0.000, 0.018);
+           transfer := 0.001;
+           for k := 1 step 1 until 8 do
+             new request("r", k).schedule(next.sample*k/8);
+           hold(3.0);
+         end;
+
+
+
+
+
+
+
+     comment -------------------- program 18 -------------------- ;
+       demos begin
+         ref(bin)b;
+
+         entity class p;
+         begin
+           hold(3.0);
+           b.give(1);
+           repeat;
+         end***p***;
+
+         entity class c;
+         begin
+           b.take(2);
+           hold(2.0);
+           repeat;
+         end***c***;
+
+         outimage;  outimage;  outtext("programme # 18");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         b :- new bin("b", 2);
+         new p("p").schedule(0.0);
+         new c("c").schedule(6.0);
+         hold(25.0);
+       end;
+
+
+
+
+
+
+
+     comment -------------------- program 19 -------------------- ;
+       demos begin
+         ref(waitq)q;
+
+         entity class p;
+         begin ref(entity)e;
+           e :- q.coopt;
+           hold(2.0);
+           e.schedule(time);
+           repeat;
+         end***p***;
+
+         entity class c;
+         begin
+           q.wait;
+           repeat;
+         end***c***;
+
+         outimage;  outimage;  outtext("programme # 19");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         q :- new waitq("waiting");
+         trace;
+         new p("p").schedule(0.0);
+         new p("p").schedule(5.0);
+         new c("c").schedule(0.0);
+         new c("c").schedule(1.0);
+         new c("c").schedule(2.0);
+         new c("c").schedule(3.0);
+         hold(35.0);
+       end;
+
+
+
+
+
+
+
+     comment -------------------- program 20 -------------------- ;
+         demos begin
+           ref(rdist)burst, next;
+           ref(waitq)cpuq;
+           ref(tally)thru;
+
+           entity class program;
+           begin
+             real t;
+             t := time;
+             new program("p").schedule(next.sample);
+             cpuq.wait;
+             thru.update(time-t);
+           end***program***;
+
+           entity class cpu;
+           begin
+             ref(entity)p;
+             p :-cpuq.coopt;
+             hold(burst.sample);
+             p.schedule(0.0);
+             repeat;
+           end***cpu***;
+
+           outimage;  outimage;  outtext("programme # 20");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           thru  :- new tally("thru times");
+           burst :- new negexp("cpu burst", 1.0);
+           next  :- new negexp("next job", 0.875);
+           cpuq  :- new waitq("cpu q");
+           new cpu("cpu").schedule(0.0);
+           new program("p").schedule(0.0);
+           hold(100.0);
+         end;
+
+
+
+end;

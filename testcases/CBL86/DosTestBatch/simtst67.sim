@@ -1,0 +1,94 @@
+% ======================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 67
+%
+%  PURPOSE:     Simple test of detach, call and resume.
+%
+%  WRITTEN BY:  BEH   08/08-86
+% =====================================================================
+BEGIN
+   Boolean found_error;
+
+   integer array ia(1:10);
+   integer i, nri;
+
+   procedure savei(i);  integer i;
+   begin  nri := nri + 1;   ia(nri) := i  end;
+
+   Procedure Checki;
+   Begin
+      if     ia(1) = 2
+         and ia(2) = 3
+         and ia(3) = 5
+         and ia(4) = 13
+         and ia(5) = 18
+         and ia(6) = 49
+         and nri    = 6  then
+      else
+      begin
+         integer j;
+         Outtext("*** ERROR : Program sequencing.");
+         Outimage;
+         Outtext("            Subsequent values of i : ");
+         Outimage;
+         for j := 1 step 1 until nri do
+         begin
+            Outtext("            ");
+            Outint(j, 2);
+            Outtext(" : ");
+            Outint(ia(j), 4);
+            Outimage;
+         end;
+         Outimage;
+         found_error := true
+      end;
+   end pros. checki;
+
+
+   Class A;
+   begin Integer j;
+         Ref(B) rb;
+
+         j := i := i+i;  savei(i);     !(1) *** i=2 ***;
+      Detach;
+         j := i := j+i;  savei(i);     !(3) *** i=5 ***;
+      Call(rb);
+         j := i := j+i;  savei(i);     !(5) *** i=18 ***;
+   END of class A;
+
+   Class B;
+   begin Integer j;
+
+         j := i := i+1;   savei(i);    !(2) *** i=3 ***;
+      Detach;
+         j := i := j+2*i; savei(i);    !(4) *** i=13 ***;
+      Detach;
+         j := i := j+2*i; savei(i)     !(6) *** i=49 ***;
+   END of class B;
+
+   Ref(A)            ua;
+   integer            c;
+
+   Outtext("--- START Simula a.s. TEST 67");
+   Outimage;
+   Outtext("--- Simple test of detach, call and resume.");
+   Outimage; Outimage;
+
+   i := 1;
+   ua :- New A;
+   c := c + 1;
+   ua.rb :- New B;
+   Resume(ua);
+   Resume(ua.rb);
+
+   Checki;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END;
+
+   Outtext("--- END Simula a.s. TEST 67");
+   Outimage
+ END

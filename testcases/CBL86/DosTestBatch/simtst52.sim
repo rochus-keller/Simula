@@ -1,0 +1,83 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 52
+%
+%  PURPOSE:     Test 'inner'
+%
+%  WRITTEN BY:  BEH   31/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   LONG REAL          a ;
+   REAL               b ;
+
+   CLASS C ;
+   BEGIN
+      LONG REAL       d ;
+      d := a + b ;
+      INNER ;
+      b := a + b + d
+   END of class C ;
+
+   C CLASS E ;
+   BEGIN
+      REAL            f ;
+      f := d + b ;
+      a := f + d
+   END of class E ;
+
+   REF (C)            g ;
+
+   Outtext ("--- START Simula a.s. TEST 52") ;
+   Outimage ;
+   Outtext ("--- Test 'inner'.") ;
+   Outimage ; Outimage ;
+
+   a := b := 5.45;
+
+   g :- NEW C;
+
+   if b-b/1000 > 21.8 or b+b/1000 < 21.8 or
+      a-a/1000 > 5.45 or a+a/1000 < 5.45 then
+   begin
+      Outtext ("*** ERROR : Global variables a or b have wrong values after") ;
+      Outimage ;
+      Outtext ("            execution of class body (1).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : a = ") ;
+      outreal (a, 4, 10) ;
+      Outimage ;
+      Outtext ("                              b = ") ;
+      Outreal (b, 4, 10) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   g :- NEW E ;
+
+   if b-b/1000 > 125.35 or b+b/1000 < 125.35 or
+      a-a/1000 > 76.30  or a+a/1000 < 76.30  then
+   begin
+      Outtext ("*** ERROR : Global variables a or b have wrong values after") ;
+      Outimage ;
+      Outtext ("            execution of class body (2).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : a = ") ;
+      outreal (a, 4, 10) ;
+      Outimage ;
+      Outtext ("                              b = ") ;
+      Outreal (b, 4, 10) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 52") ;
+   Outimage
+ END

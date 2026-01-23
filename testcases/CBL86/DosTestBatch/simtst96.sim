@@ -1,0 +1,236 @@
+% =======================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 96
+%
+%  PURPOSE: Test SIMULATION, complex example.
+%
+%  REWRITTEN BY:   BEH  14/01-87
+% =====================================================================
+begin
+COMMENT DATA data96;
+
+Boolean found_error;
+
+outtext("--- START Simula a.s. TEST 96"); outimage;
+outtext("    Test of Simulation - reads from infile ""data96"".");
+Outimage; Outimage;
+
+inspect new infile("data96") do
+simulation begin
+comment
+************************************************************************
+*                                                                      *
+*               how to use distance simulation program                 *
+*               **************************************                 *
+*                                                                      *
+*     purpose:    to find the shortest path through two points in      *
+*                 a given graph.                                       *
+*                                                                      *
+*     syntax:                                                          *
+*                                                                      *
+*     the data deck is treated as a continuous string of characters,   *
+*     and is of the form                                               *
+*                                                                      *
+*                    <map>*<instruction set>                           *
+*                                                                      *
+*     <map>::=               <crossdata>/<crossdata><map>              *
+*     <crossdata>::=         <crosspoint><directory>                   *
+*     <crosspoint>::=        <name>                                    *
+*     <name>::=              any sequence of characters different      *
+*                            from blank, not beginning with * or  ,    *
+*                            and terminated with a blank               *
+*     <directory>::=         <direction>/<direction><directory>        *
+*     <direction>::=         <nextpoint><distance>                     *
+*     <nextpoint>::=         <name>                                    *
+*     <distance>::=          real constant terminated by a blank       *
+*     <instruction set>::=   <command>/<command><instruction set>      *
+*     <command>::=           <entry><exit>                             *
+*     <entry>::=             <name>                                    *
+*     <exit>::=              <name>                                    *
+*                                                                      *
+*     use blanks at will outside smallest syntactic units.             *
+*                                                                      *
+*                                                                      *
+*     semantics:                                                       *
+*                                                                      *
+*     <map> provides information upon the points and paths of the      *
+*     system.                                                          *
+*                                                                      *
+*     <crossdata> generates the point <crosspoint> and all paths       *
+*     leading from it.                                                 *
+*                                                                      *
+*     a path is thus generated leading from <crosspoint> directly to   *
+*     <nextpoint>, having the length <distance>.  note that a path     *
+*     leading from <nextpoint> to <crosspoint> must be generated       *
+*     explicitly, due to possibility of one-way street etc.            *
+*                                                                      *
+*     <command> calls for a calculation of shortest path leading from  *
+*     <entry> to <exit>.  the program will then output intermediate    *
+*     points, if any, and total length of the path.                    *
+*                                                                      *
+*                                                                      *
+************************************************************************
+;
+      text array answer,ut(1:50); integer utnr,i;
+
+      procedure Outimage;
+      begin utnr:=utnr+1;
+            ut(utnr):-copy(sysout.image.strip);
+            sysout.image:=notext; sysout.setpos(1);
+      end;
+
+
+      process class car(start,destin,dist);
+
+      ref (town)start,destin;
+      real dist;
+      begin ref (head)been;
+            procedure send(c);ref (link)c;if c is car then
+            begin been.first qua townpoint.put(c qua car.been);
+                  activate c;
+            end ;
+      active:
+            been:-new head;
+            wait(start.cars);
+            send(suc);
+            hold(dist);
+            if stop then
+            begin if nextev==none then activate main after this car;
+                  goto active;
+            end ;
+            if destin.gone then goto active;new townpoint(destin).into(been);
+            if destin==destination then
+            begin activate main after this car;
+                  h:-been;
+                  goto active;
+            end ;
+            send(destin.cars.first);
+            destin.gone:=true ;
+            goto active;
+      end ;
+
+      link class townpoint(t);ref (town)t;
+      begin procedure put(h);ref (head)h;
+            begin new townpoint(t).into(h);
+                  inspect suc when townpoint do put(h);
+            end ;
+            procedure write;
+            if suc is townpoint then
+            begin if sysout.pos gt 100-t.nam_ .length then outimage;
+                  outtext(t.nam_ );outtext(", ");
+                  suc qua townpoint.write;
+            end else
+            begin sysout.setpos(sysout.pos-2);
+                  outchar('.');
+                  outimage;
+            end ;
+      end ;
+
+      link class town(nam_ );value nam_ ;text nam_ ;
+      begin ref (head)cars;
+            ref (town)procedure find(code);text code;
+            if code=nam_ then find:-this town
+               else if suc==none then find:-new town(code)
+               else find:-suc qua town.find(code);
+            boolean gone;
+            cars:-new head;
+            into(towns);
+      end ;
+
+      procedure scan;
+      begin for ch:=inchar while ch=' 'do ;
+            setpos(pos-1);
+      end ;
+
+      procedure load;
+      begin t:-blanks(100);
+            for ch:=inchar while ch ne ' 'do t.putchar(ch);
+            t.setpos(1);
+      end ;
+
+      ref (head)towns,h;
+      ref (town)r,destination;
+      real starttime;
+      boolean stop;
+      text t;
+      character ch;
+
+      if not open(blanks(80)) then begin found_error:=true;
+         sysout.outtext("ERROR: Cannot open infile ""data96"" ");
+         sysout.outimage; goto EXIT end;
+
+
+    answer(1):-copy(
+             "shortest way from SAND to FJELLHAUG goes through VANG.");
+    answer(2):-copy("the distance is    120.000.");
+   !answer(3):-notext;
+    answer(4):-copy(
+             "shortest way from VESTBY to DAL goes through BERG, "
+                     "FJELLHAUG.");
+    answer(5):-copy("the distance is    145.000.");
+   !answer(6):-notext;
+    answer(7):-copy(
+             "shortest way from VANG to BERG goes through VESTBY.");
+    answer(8):-copy("the distance is    110.000.");
+   !answer(9):-notext;
+    answer(10):-copy("shortest way from SAND to SUNDHOLM goes through "
+                     "VESTBY.");
+    answer(11):-copy("the distance is    110.000.");
+
+
+      t:-blanks(100);
+      towns:-new head;
+      for ch:=inchar while ch ne '*'do
+      begin setpos(pos-1); scan; load;
+            r:-if towns.empty then new town(t.strip)
+                              else towns.first qua town.find(t.strip);
+            scan;
+            for ch:=inchar while ch ne '}' do
+            begin setpos(pos-1);
+                  load;
+                  activate new car(r,towns.first
+                           qua town.find(t.strip),inreal);
+                  scan;
+            end ;
+            scan;
+      end ;
+      for ch:=ch while not lastitem do
+      begin scan; load;
+            r:-towns.first qua town.find(t.strip);
+            scan; load;
+            destination:-towns.first qua town.find(t.strip);
+            new townpoint(r).into(r.cars.first qua car.been);
+            activate r.cars.first;
+            starttime:=time; passivate;
+            outtext("shortest way from "); outtext(r.nam_ );
+            outtext(" to "); outtext(destination.nam_ );
+            if h.cardinal=2 then outtext(" goes direct  ")
+                            else outtext(" goes through ");
+            h.first.suc qua townpoint.write; outtext("the distance is ");
+            outfix(time-starttime,3,10); outchar('.');
+            outimage; outimage;
+            stop:=true ;
+            if current.nextev=/=none then passivate;
+            stop:=false ;
+            r:-towns.first qua town;  r.gone:=false ;
+            for r:-r.suc while r is town do r.gone:=false ;
+      end ;
+
+      for i:=1 step 1 until utnr do
+      if ut(i)<>answer(i) then found_error:=true;
+
+      if found_error then
+      begin Outtext("*** ERROR : Simulation program "
+                    "produces erroneus output:"); sysout.outimage;
+            for i:=1 step 1 until utnr do begin
+                sysout.Outtext(ut(i)); sysout.outimage;
+                Outtext(" - supposed to be:"); sysout.outimage;
+                sysout.Outtext(answer(i)); sysout.outimage;
+            end;
+      end;
+      close;
+EXIT:
+end ;
+outtext("--- END Simula a.s. TEST 96"); outimage;
+if not found_error then Outtext(" (NO ERRORS FOUND)");
+sysout.outimage;
+end

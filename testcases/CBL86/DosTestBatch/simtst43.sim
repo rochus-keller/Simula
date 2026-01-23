@@ -1,0 +1,57 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 43
+%
+%  PURPOSE:     Test an integer procedure which computes "n-fac", using
+%               recursion.
+%
+%  WRITTEN BY:  BEH   24/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   INTEGER            i, j ;
+
+   integer array res (0:7) ;
+
+   INTEGER PROCEDURE Nfac (n) ;  INTEGER n ;
+      Nfac := if n = 0 then 1 else
+              if n > 0 then n * Nfac (n-1) else 0 ;
+
+   Outtext ("--- START Simula a.s. TEST 43") ;
+   Outimage ;
+   Outtext ("--- Test integer procedure which computes 'n-fac' recursively.");
+   Outimage ; Outimage ;
+
+   res (0) := 1 ;
+   res (1) := 1 ;
+   res (2) := 2 ;
+   res (3) := 6 ;
+   res (4) := 24 ;
+   res (5) := 120 ;
+   res (6) := 720 ;
+   res (7) := 5040 ;
+
+   FOR  i := 1  STEP  1  UNTIL  7  DO
+   begin
+      j := Nfac (i) ;
+      if j = res (i) then
+      else
+      begin
+         Outtext ("*** ERROR : Values : ") ;
+         Outint (i, 5) ;
+         Outint (j, 10) ;
+         Outimage ;
+         found_error := true
+      end
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 43") ;
+   Outimage
+END of program

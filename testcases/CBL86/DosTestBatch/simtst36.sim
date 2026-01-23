@@ -1,0 +1,74 @@
+% =====================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 36
+%
+%  PURPOSE:     Test Jensens Device - call by name.
+%
+%  REWRITTEN BY:  BEH   23/07-86
+% ====================================================================
+BEGIN
+   Boolean found_error;
+
+   real eps;
+
+   PROCEDURE Gps(n, v, z);  NAME v, z;  INTEGER n;  REAL v, z;
+      FOR  cv:= 1  STEP 1 UNTIL n DO  v:= z;
+
+   Procedure test(r, v); real r, v;
+   begin
+      if r-r*eps > v or r+r*eps < v then
+      begin
+         Outtext("*** ERROR: Erroneous value: ");
+         Outreal(r, 5, 12);
+         Outimage;
+         found_error:= true
+      end;
+   end;
+
+   INTEGER ARRAY      x(1:9);
+   INTEGER            cv, limit;
+   REAL               innerp, simpson;
+
+
+   Outtext("--- START Simula a.s. TEST 36");
+   Outimage;
+   Outtext("--- Test Jensen's Device - Call by name.");
+   Outimage; Outimage;
+
+   eps:= 0.001;
+
+   FOR  cv:= 1  STEP 1 UNTIL 9 DO x(cv):= cv*cv*cv;
+   limit:= 9;
+   Gps(limit, innerp, innerp + x(cv) !**2; *x(cv));
+
+                         COMMENT WE HAVE NOW FOUND
+                                 1**6+2**6+3**6...9**6=978405
+                                 HELD IN INNERP;
+   test(innerp, 978405);
+
+   limit:= 4;
+ Gps(limit, simpson, simpson +(x(2*cv - 1) + 4*x(2*cv) + x(2*cv + 1))/3);
+                       COMMENT SIMPSON NOW HOLDS 1640 THE
+                               INTEGRAL OF ***3 BETWEEN 1 AND 9
+                               FOR FORTHER EXAMPLES OF A
+                               MORE GENERAL GPS WHICH WILL
+                               COMPUTE ANY COMPUTABLE
+                               FUNCTION SEE KNUTH AND
+                               MERNER CACM V4, (1961)PP.
+                               268-272 "ALGOL 60 CONFIDENTIAL".
+                               THERE IS AN ERROR P.271, LINE 24
+                               WHERE THE LAST CALL ON GPS SHOULD
+                               READ:  "Gps(A, 1 0, I, -1.0)";
+
+   test(simpson, 1640);
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END;
+
+   Outtext("--- END Simula a.s. TEST 36");
+   Outimage
+
+END of program

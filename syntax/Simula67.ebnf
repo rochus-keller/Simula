@@ -262,7 +262,7 @@ specification_part ::= specifier identifier_list ';'
 	// original: [ specifier identifier_list ';' ] { specifier identifier_list }
 
 #ifdef SIM86
-procedure_specification ::= ( 'is' | 'IS' ) procedure_declaration
+procedure_specification ::= IS procedure_declaration
 #endif
 
 external_item ::=  [ \LL:2\ identifier '=' ] external_identifier 
@@ -477,3 +477,4 @@ Comment ::=
 /// Pragmas
 %module ::= 'Simula'
 %namespace ::= 'Sim' 
+%no_syntree ::= 'true'

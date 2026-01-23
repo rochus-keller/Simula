@@ -1,0 +1,267 @@
+% =====================================   Main   program =============
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 28
+%
+%  PURPOSE:       Test paramenter transmission to procedures by value.
+%
+%  NOTE:          The format of reals and long reals in your
+%                 implementation must be reflected in the texts.
+%
+%  REWRITTEN BY:  BEH   18/07-86
+% ====================================================================
+BEGIN
+   Boolean found_error;
+
+   BOOLEAN       ARRAY ba1 (0:2), ba3 (0:2, 0:1, 0:2);
+   CHARACTER     ARRAY ca1 (0:2), ca3 (0:2, 0:1, 0:2);
+   SHORT INTEGER ARRAY sa1 (0:2), sa3 (0:2, 0:1, 0:2);
+   INTEGER       ARRAY ia1 (0:2), ia3 (0:2, 0:1, 0:2);
+   REAL          ARRAY ra1 (0:2), ra3 (0:2, 0:1, 0:2);
+   LONG REAL     ARRAY la1 (0:2), la3 (0:2, 0:1, 0:2);
+   TEXT          ARRAY ta1 (0:2), ta3 (0:2, 0:1, 0:2); ! Not by value;
+
+   INTEGER         i, subscr1, subscr2, subscr3, sum;
+   TEXT            t, checkline, txt;
+   BOOLEAN         b;
+   CHARACTER       c;
+   SHORT INTEGER   s;
+   REAL            r;
+   LONG REAL       l;
+
+
+   PROCEDURE Pr1 (b, c, s, i, r, l, t);   VALUE t;
+                                   BOOLEAN       b;
+                                   CHARACTER     c;
+                                   SHORT INTEGER s;
+                                   INTEGER       i;
+                                   REAL          r;
+                                   LONG REAL     l;
+                                   TEXT          t;
+      BEGIN
+      sysout.image:= notext;
+      sysout.setpos (1);
+
+      IF b THEN Outtext ("TRUE ") ELSE Outtext ("FALSE ");
+      Outchar (c);
+      Outint (s, 4);
+      Outint (i, 4);
+      Outreal (r, 5, 12);
+      Outreal (l, 5, 12);
+      Outchar (' ');
+      Outtext (t);
+      END of procedure Pr1;
+
+
+   Outtext ("--- START Simula a.s. TEST 28");
+   Outimage;
+   Outtext ("--- Test parameter transmission of value types and");
+   Outimage;
+   Outtext ("--- text, and arrays of these types to procedures by");
+   Outimage;
+   Outtext ("--- value (except text array).");
+   Outimage; Outimage;
+
+   Pr1 (TRUE, 'X', 99, 123, 100.1, 200.2&-5, "PRDL TO YOU TOO.");
+
+   if sysout.image.strip =
+       "TRUE X  99 123  1.0010&+02 2.0020&-003 PRDL TO YOU TOO." then
+   else
+   begin
+      Outimage;
+      Outtext ("*** ERROR: Call with constants as actual");
+      Outtext (" parameters (1).");
+      Outimage; Outimage;
+      found_error:= true;
+   end;
+
+
+   Pr1 (FALSE, 'Y', 2.4555, 1.45&+1, 2976555, 4481,
+       "ABRACADADRA (MISSPELT).");
+
+   if sysout.image.strip =
+     "FALSE Y   2  15  2.9766&+06 4.4810&+003 ABRACADADRA (MISSPELT)."
+   then else
+   begin
+      Outimage;
+      Outtext ("*** ERROR: Call with constants with type conversion");
+      Outimage;
+      Outtext ("            as actual parameters (2).");
+      Outimage; Outimage;
+      found_error:= true;
+   end;
+
+   b:= TRUE;
+   c:= '*';
+   s:= 12;
+   i:= 943;
+   r:= 2.29;
+   l:= 0.02&-11;
+   t:- COPY ("OKEYDOKE.");
+
+   Pr1 (b, c, s, i, r, l, t);
+
+   if sysout.image.strip =
+            "TRUE *  12 943  2.2900&+00 2.0000&-013 OKEYDOKE." then
+   else
+   begin
+      Outimage;
+      Outtext ("*** ERROR: Call with simple variables as actual ");
+      Outimage;
+      Outtext ("            parameters (3).");
+      Outimage; Outimage;
+      found_error:= true;
+   end;
+
+   Pr1 (b, c, l, r, i, s, t);
+
+   if sysout.image.strip =
+      "TRUE *   0   2  9.4300&+02 1.2000&+001 OKEYDOKE."
+   then else
+   begin
+      Outimage;
+      Outtext ("*** ERROR: Call with simple variables with type");
+      Outimage;
+      Outtext ("            conversion as actual parameters (4).");
+      Outimage; Outimage;
+      found_error:= true;
+   end;
+
+
+   Pr1 (b, c, r, l, s, i, t);
+
+   if sysout.image.strip =
+            "TRUE *   2   0  1.2000&+01 9.4300&+002 OKEYDOKE." then
+   else
+   begin
+      Outimage;
+      Outtext ("*** ERROR: Call with simple variables with type");
+      Outimage;
+      Outtext ("            conversion as actual parameters (5).");
+      Outimage; Outimage;
+      found_error:= true;
+   end;
+
+
+   Pr1 (IF b THEN NOT b ELSE b,
+        IF TRUE THEN (IF NOT b THEN 'N' ELSE
+                      IF b THEN 'Q' ELSE 'N') ELSE ('N'),
+        IF b THEN s**3 ELSE 2**s,
+        IF NOT b THEN 2.873 ELSE 299,
+        i/s* (IF b THEN s ELSE 0.0),
+        l*i,
+        IF NOT ( NOT b) THEN t.SUB (1, s/2) ELSE NOTEXT);
+
+
+   if sysout.image.strip =
+              "FALSE Q1728 299  9.4300&+02 1.8860&-010 OKEYDO" then
+   else
+   begin
+      Outimage;
+      Outtext ("*** ERROR: Call with expressions as actual");
+      Outtext (" parameters (6).");
+      Outimage; Outimage;
+      found_error:= true;
+   end;
+
+
+   Pr1 (LN (i)*i>- (IF i = 0 THEN 0 ELSE i*i/r) AND NOT LETTER (c),
+        IF DIGIT (c) THEN 'D' ELSE 'L',
+        i + r*100/4,
+        - (IF b THEN s/12 ELSE ((i/943)+1)),
+       (r**2)/2,
+       l*1&20,
+       t.STRIP );
+
+   if sysout.image.strip =
+            "TRUE L1000  -1  2.6221&+00 2.0000&+007 OKEYDOKE." then
+   else
+   begin
+      Outimage;
+      Outtext ("*** ERROR: Call with expressions as actual");
+      Outtext (" parameters (7).");
+      Outimage; Outimage;
+      found_error:= true;
+   end;
+
+                                     ! Now try value type arrays   ;
+                                     ! by value.                   ;
+                                     ! First initialise arrays     ;
+
+   WHILE  subscr1 <= 2  DO
+      BEGIN
+      ba1 (subscr1):= IF subscr1>0 THEN NOT ba1 (subscr1-1) ELSE TRUE;
+      ca1 (subscr1):= '*';
+      sa1 (subscr1):= subscr1;
+      ia1 (subscr1):= subscr1;
+      ra1 (subscr1):= subscr1;
+      la1 (subscr1):= subscr1;
+      txt:- COPY (" (  )");
+      txt.SUB (2, 2).PUTINT (subscr1);
+      ta1 (subscr1):- txt;
+      subscr2:= 0;
+
+      WHILE  subscr2 <= 1  DO
+         BEGIN
+         subscr3:= 0;
+
+         WHILE  subscr3 <= 2  DO
+            BEGIN
+            sum:= subscr1 + subscr2 + subscr3;
+            ba3 (subscr1, subscr2, subscr3):=
+                            subscr1 > subscr2 AND subscr1 < subscr3;
+            ca3 (subscr1, subscr2, subscr3):= '/';
+            sa3 (subscr1, subscr2, subscr3):= sum;
+            ia3 (subscr1, subscr2, subscr3):= sum;
+            ra3 (subscr1, subscr2, subscr3):= sum;
+            la3 (subscr1, subscr2, subscr3):= sum;
+            txt:- COPY ("(  ,  ,  )");
+            txt.SUB (2, 2).PUTINT (subscr1);
+            txt.SUB (5, 2).PUTINT (subscr2);
+            txt.SUB (8, 2).PUTINT (subscr3);
+            ta3 (subscr1, subscr2, subscr3):- txt;
+            subscr3:= subscr3+1
+            END;
+
+         subscr2:= subscr2+1
+         END;
+      subscr1:= subscr1+1
+      END;
+
+                                     ! First try calling Pr1 with ;
+                                     ! some subscripted variables ;
+
+   Pr1 (IF ba1 (i-i) THEN ba1 (r+2-r) ELSE ba1 (l+1-l),
+        IF ba3 (1, s-s, r+l+i-r-l-i) THEN ca1 (l*i) ELSE ca1 (i/i),
+        sa1 (l),
+        la1 (ra1 (ia1(sa3((r+r)/(2*r),
+             la1 (ra1 (ia1 (r-r))), la3 (0, l, 1))))),
+        ia3 (IF ba1(r-r) EQV ba1(i-i) THEN r ELSE (0),
+             ia1(i/i*i/i-1), sa1 (l)),
+        sa1 (l+sa1(l+sa1(l+sa1(l+sa1(l+sa1(l+sa1(sa1(l)+l))))))),
+        ta3 (i+s+r+sa1 (l)-r-s-i, ra1 (l)+ (s/s), -1+s/ (2**2)));
+
+   if sysout.image.strip =
+            "TRUE *   0   2  2.0000&+00 0.0000&+000 ( 0, 1, 2)" then
+   else
+   begin
+      Outimage;
+      Outtext ("*** ERROR: Call with subscribted variables as actual");
+      Outimage;
+      Outtext ("            parameters (8).");
+      Outimage; Outimage;
+      found_error:= true;
+   end;
+
+
+   sysout.setpos (1);
+   sysout.image:= notext;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END;
+
+   Outtext ("--- END Simula a.s. TEST 28");
+   Outimage
+END;

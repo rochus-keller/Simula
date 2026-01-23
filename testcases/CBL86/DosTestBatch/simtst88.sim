@@ -1,0 +1,50 @@
+% ================================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 88
+%
+%  PURPOSE: Checking coroutines.
+%
+%  METHOD:  read-changer-writer: input from SYSIN, no more than 5 chars/line
+%           passes evrything except "**" and "!" unchanged to SYSOUT.
+%           "**" is changed to "$", "!" terminates the program
+%
+%    NOTE: -- this program should be changed ---
+%
+%  WRITTEN BY:
+% ==============================================================================
+begin character c1,c2;
+      ref(coroutine) r,c,w;
+
+      class coroutine; detach;
+
+      coroutine class reader;
+      while true do begin c1:=inchar; resume(c) end;
+
+      coroutine class changer;
+      while true do
+      begin if c1='*' then
+            begin resume(r);
+                  if c1='*' then c2:='$' else
+                  begin c2:='*'; resume(w); c2:=c1 end;
+            end else c2:=c1;
+            resume(w); resume(r);
+      end;
+
+      coroutine class writer;
+      begin integer i;
+            while true do
+            begin for i:=1 step 1 until 30 do
+                  begin if c2='!' then  begin outimage; detach end
+                   else begin outchar(c2); resume(c) end;
+                  end;
+                  outimage;
+            end;
+      end;
+
+      outtext("--- START Simula a.s. TEST 88"); outimage;
+      outtext("--- input from SYSIN, no more than 5 chars."); outimage;
+      outtext(" ('!' terminates the program)"); outimage;
+      sysin.image:-sysin.image.sub(1,5);
+      r:-new reader; c:-new changer; w:-new writer;
+      resume(r);
+      outtext("--- END Simula a.s. TEST 88"); outimage;
+end;

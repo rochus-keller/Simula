@@ -1,0 +1,663 @@
+external class statsim;
+statsim class quesim;
+begin
+!=================================================================;
+!======================      QUESIM       ========================;
+!======================    package for    ========================;
+!======================   simulation of   ========================;
+!====================== queueing networks ========================;
+!=================================================================;
+
+!====================== Generic customer =========================;
+
+process class g_customer(priority,waitcost); integer priority;
+                 real waitcost;  ! waiting cost per unit time;
+begin
+  real timeinq,     ! time of last entering a queue;
+       timeins,     ! time of entering system (creation time);
+       waitingcost, ! total waiting cost;
+       queuetime,   ! last queueing time;
+       waitingtime, ! total queueing time;
+       attr1;       ! attribute for general use;
+
+  procedure initiate; ! object initialization;
+  begin
+    timeins := time;
+    waitingcost := 0;
+    waitingtime := 0;
+  end;
+
+  procedure waitin(Q); ref(fifo) Q; ! entering a queue Q for waiting;
+  begin
+    inspect Q
+      when lifo do enqueue(current)
+      when lifo_h do enqueue(current)
+      when priorityqueue do enqueue(current)
+      when priorityqueue_h do enqueue(current)
+      otherwise Q.enqueue(current);
+      passivate;
+  end;
+
+  procedure nowaitin(Q); ref(fifo) Q; ! going through Q without waiting;
+  begin
+    timeinq := time;   ! may be needed for histogram;
+    inspect Q          ! needed for Q statistics;
+      when fifo_h do gothrough
+      otherwise Q.gothrough;
+  end;
+  
+  real procedure systemtime; ! returns system time so far;
+  begin
+    systemtime := time - timeins;
+  end;
+
+  initiate; ! g_customer life;
+
+end of g_customer;
+
+!=========================== Queues ==============================;
+! Inheritance tree:       ;
+!      fifo               ;
+!     / |  \              ;
+! lifo  | priorityqueue   ;
+!     fifo_h              ;
+!     /    \              ;
+! lifo_h  priorityqueue_h ;
+!========================= FIFO queue ============================;
+
+head class fifo(qname,capacity); value qname; text qname;
+           integer capacity; ! capacity = maxint means unlimited queue;
+
+  hidden isize,length,waiting;
+ 
+begin
+  integer isize;       ! current size;
+  ref(accumulator) 
+       length,         ! queue length statistics;
+       busy;           ! busy time statistics (busy = not empty);
+  ref(tally)
+       waiting;        ! waiting time statistics;        
+                       ! total waiting time = waiting.sum;
+  real waitingcost,    ! total waiting costs;
+       arrivals,       ! number of arrivals;
+                       ! number of departures = waiting.updates;
+       nwarrivals;     ! number of not waiting arrivals;
+
+  boolean procedure empty; ! check also the server status !!;
+  begin
+    empty := (isize=0);
+  end;
+  
+  boolean procedure full;
+  begin
+    full := (capacity<maxint) and (isize=capacity);
+  end;
+
+  procedure initiate; ! object initialization;
+  begin
+    clear;
+    length.initiate(0);
+    busy.initiate(0);
+    waiting.initiate;
+    isize := 0;
+    waitingcost := 0;
+    arrivals := 0;
+    nwarrivals := 0;
+  end;
+
+  procedure enqueue(item); ref(g_customer) item; ! taking item to wait;
+  begin
+    if full then begin
+      outtext("Warning: " & qname & " FIFO queue capacity violation");
+      outimage;
+    end;
+    item.into(this fifo); ! go to last place;
+    item.timeinq := time;
+    isize := isize + 1;
+    length.updateto(isize);
+    busy.updateto(1);
+    arrivals := arrivals + 1;
+  end;
+
+  procedure gothrough; ! item passing through without waiting;
+  begin
+    arrivals := arrivals + 1;
+    nwarrivals := nwarrivals + 1;
+    waiting.update(0);
+  end;
+
+  ref(g_customer) procedure takefirst; ! removing first item;
+  begin
+    real qt,c;
+    ref(g_customer) item;
+    if empty then begin
+      outtext("Warning: removing from empty queue " & qname);
+      outimage;
+      takefirst :- none;
+    end else begin
+      item :- first;
+      item.out;
+      isize := isize - 1;
+      length.updateto(isize);
+      if isize=0 then busy.updateto(0);
+      qt := time - item.timeinq;
+      waiting.update(qt);
+      item.queuetime := qt;
+      item.waitingtime := item.waitingtime + qt;
+      c := qt*item.waitcost;
+      waitingcost := waitingcost + c;
+      item.waitingcost := item.waitingcost + c;
+      takefirst :- item;
+    end;
+  end;
+
+  ! procedures that return effectiveness parameters:;
+  
+  integer procedure LQ;
+  begin
+    LQ := isize;
+  end;
+
+  real procedure LQaverage;
+  begin
+    LQaverage := length.average;
+  end;
+
+  real procedure LQmaximum;
+  begin
+    LQmaximum := length.maxvalue;
+  end;
+
+  real procedure LQstddev;
+  begin
+    LQstddev := length.stddev;
+  end;
+
+  real procedure WQaverage;
+  begin
+    WQaverage := waiting.average;
+  end;
+
+  real procedure WQnzaverage; ! average nonzero waiting;
+  begin
+    if nwarrivals=0 then
+      WQnzaverage := 0
+    else
+      WQnzaverage := waiting.sum/nwarrivals;
+  end;
+
+  real procedure WQmaximum;
+  begin
+    WQmaximum := waiting.maxvalue;
+  end;
+
+  real procedure WQstddev;
+  begin
+    WQstddev := waiting.stddev;
+  end;
+
+  real procedure WQtotal; ! total waiting time;
+  begin
+    WQtotal := waiting.sum;
+  end;
+
+  real procedure departures;
+  begin
+    departures := waiting.updated;
+  end;
+
+  ! output of the results to a file;
+  procedure fileout(f,title,n,w); text title; integer n,  ! decimal places;
+                                                      w;  ! total width;
+                              ref(outfile) f; ! f = sysout for screen;
+  begin
+   inspect f do begin
+    outtext(title & " queue statistics:"); outimage;
+    outtext("Average length "); outfix(LQaverage,n,w); 
+    outimage;
+    outtext("Length Std Dev "); outfix(LQstddev,n,w); 
+    outimage;
+    outtext("Maximum length "); outfix(LQmaximum,0,w); 
+    outimage;
+    outtext("Current length "); outfix(LQ,0,w); 
+    outimage;
+    outtext("Average waiting"); outfix(WQaverage,n,w); 
+    outimage;
+    outtext("Av nonzero wait"); outfix(WQnzaverage,n,w); 
+    outimage;
+    outtext("Maximum waiting"); outfix(WQmaximum,n,w); 
+    outimage;
+    outtext("Waiting Std Dev"); outfix(WQstddev,n,w); 
+    outimage;
+    outtext("Total wait time"); outfix(WQtotal,n,w); 
+    outimage;
+    outtext("Total wait cost"); outfix(waitingcost,n,w); 
+    outimage;
+    outtext("Arrivals       "); outfix(arrivals,0,w); 
+    outimage;
+    outtext("Not waiting arr"); outfix(nwarrivals,0,w); 
+    outtext(" ["); outfix(nwarrivals/arrivals*100,2,6);
+    outtext("%]");
+    outimage;
+    outtext("Departures     "); outfix(departures,0,w); 
+    outimage;
+    outtext("Total busy time"); outfix(busy.sum,n,w); 
+    outimage;
+    outtext("Utilization [%]"); outfix(busy.sum/time*100,n,w); 
+    outimage;
+   end inspect;
+  end;
+
+  length :- new accumulator(0); ! fifo life (also lifo, priorityqueue);
+  busy :- new accumulator(0);
+  waiting :- new tally;
+
+end of fifo;
+
+!================== FIFO queue with histogram ====================;
+
+fifo class fifo_h(hmin,hmax,bins); real hmin,hmax; integer bins;
+
+! fifo queue with collection of queue time histogram;
+
+begin
+  ref(histotally) quetime; ! queue time with histogram;
+
+  procedure initiate; ! object initialization;
+  begin
+    this fifo_h qua fifo.initiate;
+    quetime.initiate;
+  end;
+    
+  procedure gothrough; ! item passing through without waiting;
+  begin
+    this fifo_h qua fifo.gothrough;
+    quetime.update(0);
+  end;
+    
+  ref(g_customer) procedure takefirst; ! removing first item;
+  begin
+    ref(g_customer) item;
+    if empty then begin
+      outtext("Warning: removing from empty histo queue " & qname);
+      outimage;
+      takefirst :- none;
+    end else begin
+      item :- first;
+      quetime.update(time - item.timeinq);
+      takefirst :- this fifo_h qua fifo.takefirst;
+    end;
+  end;
+
+  ! output of the results to a file;
+  procedure fileout(f,title,n,w); text title; integer n,  ! decimal places;
+                                                      w;  ! total width;
+                              ref(outfile) f; ! f = sysout for screen;
+  begin
+   inspect f do begin
+    outtext(title & " queue statistics:"); 
+    outimage;
+    outtext("Average length "); outfix(LQaverage,n,w); 
+    outimage;
+    outtext("Length Std Dev "); outfix(LQstddev,n,w); 
+    outimage;
+    outtext("Maximum length "); outfix(LQmaximum,0,w); 
+    outimage;
+    outtext("Current length "); outfix(LQ,0,w); 
+    outimage;
+    outtext("Arrivals       "); outfix(arrivals,0,w); 
+    outimage;
+    outtext("Not waiting arr"); outfix(nwarrivals,0,w); 
+    outtext(" ["); outfix(nwarrivals/arrivals*100,2,6);
+    outtext("%]");
+    outimage;
+    outtext("Departures     "); outfix(departures,0,w); 
+    outimage;
+    outtext("Total busy time"); outfix(busy.sum,n,w); 
+    outimage;
+    outtext("Utilization [%]"); outfix(busy.sum/time*100,n,w); 
+    outimage;
+    quetime.fileout(f,"Waiting time ",n,w);
+    outtext("Av nonzero wait"); outfix(WQnzaverage,n,w); 
+    outimage;
+    outtext("Total wait time"); outfix(WQtotal,n,w); 
+    outimage;
+    outtext("Total wait cost"); outfix(waitingcost,n,w); 
+    outimage;
+   end inspect;
+  end;
+
+  quetime :- new histotally(hmin,hmax,bins); ! life of fifo_h;
+
+end of fifo_h;
+
+!========================= LIFO queue ============================;
+
+fifo class lifo; ! "stack" queue;
+
+begin
+
+  procedure enqueue(item); ref(g_customer) item; ! taking item to wait;
+  begin
+    if full then begin
+      outtext("Warning: " & qname & " LIFO queue capacity violation");
+      outimage;
+    end;
+    item.follow(this lifo); ! go to first place;
+    item.timeinq := time;
+    isize := isize + 1;
+    length.updateto(isize);
+    busy.updateto(1);
+    arrivals := arrivals + 1;
+  end;
+
+end of lifo;
+
+!================== LIFO queue with histogram ====================;
+
+fifo_h class lifo_h; ! "stack" queue with histogram;
+
+begin
+
+  procedure enqueue(item); ref(g_customer) item; ! taking item to wait;
+  begin
+    if full then begin
+      outtext("Warning: " & qname & " LIFO queue capacity violation");
+      outimage;
+    end;
+    item.follow(this lifo_h); ! go to first place;
+    item.timeinq := time;
+    isize := isize + 1;
+    length.updateto(isize);
+    busy.updateto(1);
+    arrivals := arrivals + 1;
+  end;
+
+end of lifo_h;
+
+!======================= Priority queue ==========================;
+
+fifo class priorityqueue; ! queue organized by priority of g_customer;
+
+begin
+
+  procedure enqueue(item); ref(g_customer) item; ! taking item to wait;
+  begin
+    if full then begin
+      outtext("Warning: " & qname & " PRIORITY queue capacity violation");
+      outimage;
+    end;
+    item.into(this priorityqueue);  ! go to end;
+    while (item.pred=/=none) and then
+          (item.pred qua g_customer.priority>item.priority) do
+      item.precede(item.pred);      ! move forward;
+    item.timeinq := time;
+    isize := isize + 1;
+    length.updateto(isize);
+    busy.updateto(1);
+    arrivals := arrivals + 1;
+  end;
+
+end of priorityqueue;
+
+!================= Priority queue with histogram =================;
+
+fifo_h class priorityqueue_h; 
+! queue organized by priority of g_customer with histogram;
+
+begin
+
+  procedure enqueue(item); ref(g_customer) item; ! taking item to wait;
+  begin
+    if full then begin
+      outtext("Warning: " & qname & " PRIORITY queue capacity violation");
+      outimage;
+    end;
+    item.into(this priorityqueue_h);  ! go to end;
+    while (item.pred=/=none) and then
+          (item.pred qua g_customer.priority>item.priority) do
+      item.precede(item.pred);      ! move forward;
+    item.timeinq := time;
+    isize := isize + 1;
+    length.updateto(isize);
+    busy.updateto(1);
+    arrivals := arrivals + 1;
+  end;
+
+end of priorityqueue;
+
+!===================== Multichannel server =======================;
+
+class multichannel(mname,channels,timecost,itemcost);
+       value mname; text mname;
+       integer channels; ! # of channels, maxint means selfservice (unlimited);
+       real timecost,    ! service cost per 1 server per unit time;
+            itemcost;    ! cost per 1 completed service;
+
+begin
+  integer busychannels;  ! number of currently working channels;
+  ref(accumulator)
+    busy,                ! number of busy channels statistics;
+    busyall,             ! statistics on time when all channels were busy;
+    idleall;             ! statistics on time when all channels were idle;
+  real arrivals,         ! number of arrivals;
+    departures;          ! number of completed services;
+
+  procedure initiate;    ! object initialization;
+  begin
+    busy.initiate(0);
+    busyall.initiate(0);
+    idleall.initiate(1);
+    busychannels := 0;
+    arrivals := 0;
+    departures := 0;
+  end;
+
+  boolean procedure allbusy;
+  begin
+    allbusy := (channels<maxint) and (busychannels = channels);
+  end;
+
+  boolean procedure idle;
+  begin
+    idle := (busychannels = 0);
+  end;
+
+  procedure seize; ! start service by taking a server;
+  begin
+    if allbusy then begin
+      outtext("Warning: " & mname & " multichannel capacity violation");
+      outimage;
+      terminate_program;
+    end;
+    busychannels := busychannels + 1;
+    busy.updateto(busychannels);
+    idleall.updateto(0);
+    if allbusy then busyall.updateto(1);
+    arrivals := arrivals + 1;
+  end;
+
+  procedure release; ! end service by releasing a server;
+  begin
+    if idle then begin
+      outtext("Warning: " & mname & " idle multichannel releasing");
+      outimage;
+    end else begin
+      busychannels := busychannels - 1;
+      busy.updateto(busychannels);
+      busyall.updateto(0);
+      if idle then idleall.updateto(1);
+      departures := departures + 1;
+    end;
+  end;
+
+  real procedure average; ! average number of working channels;
+  begin
+    average := busy.average;
+  end;
+
+  real procedure utilization; ! utilization of channels;
+  begin
+    if channels = maxint then
+      utilization := 0
+    else
+      utilization := average/channels;
+  end;
+
+  real procedure totalcost; ! total service costs;
+  begin
+    totalcost := departures*itemcost + busy.sum*timecost;
+  end;
+
+  ! output of the results to a file;
+  procedure fileout(f,title,n,w); text title; integer n, ! decimal places;
+                                                      w; ! total width;
+                              ref(outfile) f; ! f = sysout for screen;
+  begin
+   inspect f do begin
+    outtext(title & " multichannel statistics:"); 
+    outimage;
+    outtext("Channels number"); outfix(channels,0,w); 
+    outimage;
+    outtext("Average working"); outfix(average,n,w); 
+    outimage;
+    outtext("Maximum working"); outfix(busy.maxvalue,0,w);
+    outimage;
+    outtext("Currently work "); outfix(busychannels,0,w);
+    outimage;
+    outtext("Utilization [%]"); outfix(utilization*100,n,w);
+    outimage;
+    outtext("Busy all [%]   "); outfix(busyall.average*100,n,w);
+    outimage;
+    outtext("Idle all [%]   "); outfix(idleall.average*100,n,w);
+    outimage;
+    outtext("Arrivals       "); outfix(arrivals,0,w); 
+    outimage;
+    outtext("Departures     "); outfix(departures,0,w); 
+    outimage;
+    outtext("Total cost     "); outfix(totalcost,n,w); 
+    outimage;
+   end inspect;
+  end;
+
+  busy :- new accumulator(0);     ! multichannel life;
+  busyall :- new accumulator(0);
+  idleall :- new accumulator(1);
+
+end of multichannel;
+
+!================= Station: queue + multichannel =================;
+
+class station(sname,queue,multi,systemtime);
+       value sname; text sname;
+       ref(fifo) queue;         ! queue created outside;
+       ref(multichannel) multi; ! multichannel created outside;
+       ref(tally) systemtime;   ! tally or histotally created outside;
+
+begin
+  
+  procedure initiate; ! object initialization;
+  begin
+    inspect queue
+      when fifo_h do initiate
+      otherwise queue.initiate;
+    multi.initiate;
+    inspect systemtime
+      when histotally do initiate
+      otherwise systemtime.initiate;
+  end;
+
+  boolean procedure idle;
+  begin
+    idle := multi.idle;
+  end;
+
+  boolean procedure full;
+  begin
+    full := queue.full;
+  end;
+
+  integer procedure queue_length;
+  begin
+    queue_length := queue.LQ;
+  end;
+
+  procedure service(item,         ! item to be served (can wait);
+                    st);          ! service duration;
+     ref(g_customer) item;
+     real st;
+  begin
+    ref(g_customer) next;
+    item.attr1 := st;             ! save service time;
+    if multi.allbusy then
+      item.waitin(queue)          ! has to wait in queue;
+    else
+      item.nowaitin(queue);       ! needed for queue statistics;
+    multi.seize;                  ! service starts;
+	hold(item.attr1);             ! service duration;
+	multi.release;                ! service ends;
+    inspect systemtime
+      when histotally do update(time - item.timeinq)
+      otherwise systemtime.update(time - item.timeinq);
+  	if not queue.empty then begin
+      inspect queue
+        when fifo_h do next :- takefirst
+        otherwise next :- queue.takefirst;
+ 	  activate next after item;   ! first from queue activated;
+	end;  
+  end;
+
+  ! output of the results to a file;
+  procedure fileout(f,title,n,w); text title; integer n, ! decimal places;
+                                                      w; ! total width;
+                              ref(outfile) f; ! f = sysout for screen;
+  begin
+   inspect f do begin
+    outtext(title & " service station statistics:"); 
+    outimage;
+    outimage;
+    inspect queue
+      when fifo_h do fileout(f,"",n,w)
+      otherwise queue.fileout(f,"",n,w);    
+    outimage;
+    multi.fileout(f,"",n,w);
+    outimage;
+    inspect systemtime
+      when histotally do fileout(f," station time",n,w)
+      otherwise systemtime.fileout(f," station time",n,w);    
+    outimage;
+   end inspect;
+  end;
+  
+  ! no station life;
+
+end of station;
+
+!===================== Auxiliary Procedures ======================;
+
+  procedure evaluation_heading(f,title); text title;
+                             ref(outfile) f; ! f = sysout for screen;
+  begin
+    inspect f do begin
+     outtext("Evaluation of the model: " & title); outimage;
+     outtext("Date and time: " & datetime); outimage;
+	 outtext("CPU time [s] : "); outfix(cputime,2,13); outimage;
+     outtext("Model time   : "); outfix(time,2,13); outimage;
+    end inspect;
+    ! the same to screen together with file name:;
+    outtext("Model: " & title); outimage;
+    outtext("Date and time: " & datetime); outimage;
+	outtext("CPU time [s] : "); outfix(cputime,2,13); outimage;
+    outtext("Model time   : "); outfix(time,2,13); outimage;
+	outtext("Results saved in file " & f.filename); outimage;
+  end;
+  
+  procedure evaluation_screen(title); text title; ! heading to screen only;                         
+  begin
+    outtext("Model: " & title); outimage;
+    outtext("Date and time: " & datetime); outimage;
+	outtext("CPU time [s] : "); outfix(cputime,2,13); outimage;
+    outtext("Model time   : "); outfix(time,2,13); outimage;
+  end;
+
+end of quesim;

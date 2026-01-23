@@ -1,0 +1,55 @@
+! Active customer approach;
+Simulation Begin
+	Real  TrialDuration;	! Experiment length [min];
+	Ref(Head)  Queue;	! The queue;
+	Integer  Servers;	! Total number of servers;
+	Integer  BusyServers;	! Numbers of working servers;
+	Integer  TrialSeedG, TrialSeedS;	! Seeds of random generators;
+	Long Real  TotalTime, TimeSpent;	! Variables for statistics;
+	Integer  CustomersOut;	! Number of served customers;
+	Real  MinInt, MaxInt;	! Uniform interval between arrivals;
+	Real  SMean, SStd;	! Normal service duration;
+
+	Process Class Generator;
+	Begin
+		While true do begin
+			Activate New Customer(Time);
+				! Interval between arrivals: ;
+			Hold(Uniform(MinInt, MaxInt, TrialSeedG));
+		End While;
+	End of Generator;
+
+	Process Class Customer(Arrival);  Real Arrival;
+	Begin
+		Ref(Customer)  Next;
+		If not Queue.Empty or (BusyServers >= Servers) then
+			Wait(Queue);	! Has to wait in Queue;
+			! Service can start: ;
+		BusyServers := BusyServers + 1;
+			! This is the teller service: ;
+		Hold(Normal(SMean, SStd, TrialSeedS));
+		BusyServers := BusyServers - 1;
+		If not Queue.Empty then begin
+			Next :- Queue.First;
+			Next.Out;	! First from Queue served;
+			Activate Next after Current;
+		End If;
+		CustomersOut := CustomersOut + 1;	! Statistics;
+		TotalTime := TotalTime + Time - Arrival;
+	End of Customer;
+
+      ! MAIN program body: ;
+	TrialSeedG := 7;  TrialSeedS := 23;	! Seeds for random variables;
+        MinInt := 1; MaxInt := 3;               ! Min and Max intervals;
+        SMean := 8; SStd  := 2;                 ! Random normal servers;
+	OutText("Enter the number of Servers : "); OutRecord;
+	Servers := InInt;		        ! Initial numbers;
+	TrialDuration := 600;
+        Queue :- New Head;
+	Activate New Generator;
+	Hold(TrialDuration);	                ! Experiment duration;
+	TimeSpent := TotalTime/CustomersOut;
+	OutText("Average time spent in the system: ");
+	OutFix(TimeSpent, 3, 10); OutImage;
+End of program;
+

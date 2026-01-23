@@ -1,0 +1,80 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 61
+%
+%  PURPOSE:     Test remote access to attributes which are protected.
+%
+%  WRITTEN BY:  BEH   04/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Class A ;
+   begin
+      integer i ;
+      integer procedure vai ; vai := i ;
+   end ;
+
+   A Class B ;
+      Protected i ;
+   begin
+      integer i ;
+
+      integer procedure vbi ; vbi := i ;
+
+      procedure p ; x.i := 1 ;
+   end ;
+
+   ref (B) x ;
+
+   Outtext ("--- START Simula a.s. TEST 61") ;
+   Outimage ;
+   Outtext ("--- Test remote access to attributes which are protected.") ;
+   Outimage ; Outimage ;
+
+   x :- new B ;
+   x.p ;
+   x.i := 2 ;
+
+   if x.vai = 2 and x.vbi = 1 then
+   else
+   begin
+      Outtext ("*** ERROR : Visibility of protected attribute (1).") ;
+      Outimage ;
+      Outtext ("            Erroneus values : x.vai = ") ;
+      Outint (x.vai, 4) ;
+      Outimage ;
+      Outtext ("                              x.vbi = ") ;
+      Outint (x.vbi, 4) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   B begin
+      x.i := 3 ;
+      i := 4 ;
+
+      if x.vbi = 3 and vbi = 4 then
+      else
+      begin
+         Outtext  ("*** ERROR : Visibility of protected attribute (2).") ;
+         Outimage ;
+         Outtext ("             Erroneus values : x.vbi = ") ;
+         Outint (x.vbi, 4) ;
+         Outimage ;
+         Outtext ("                                 vbi = ") ;
+         Outint (vbi, 4) ;
+         Outimage ;
+         found_error := true
+      end ;
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 61") ;
+   Outimage
+ END

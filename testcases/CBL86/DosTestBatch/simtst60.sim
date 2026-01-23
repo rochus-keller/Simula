@@ -1,0 +1,59 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 60
+%
+%  PURPOSE:     Test visibility of protected attributes.
+%
+%  WRITTEN BY:  BEH   04/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Class A ;
+
+   begin
+      integer i ;
+      integer procedure vai ; vai := i ;
+   end ;
+
+   A Class B ;
+      Protected i ;
+   begin
+      integer i ;
+      integer procedure vbi ; vbi := i ;
+   end ;
+
+   ref (B) xb ;
+
+   Outtext ("--- START Simula a.s. TEST 60") ;
+   Outimage ;
+   Outtext ("--- Test visibility of protected attributes.") ;
+   Outimage ; Outimage ;
+
+   xb :- new B ;
+
+   xb.i := 5 ;
+
+   if xb.vai = 5 and xb.vbi = 0 then
+   else
+   begin
+      Outtext ("*** ERROR : Visibility of protected attribute.") ;
+      Outimage ;
+      Outtext ("            Erroneus values : vai = ") ;
+      Outint (xb.vai, 4) ;
+      Outimage ;
+      Outtext ("                              vbi = ") ;
+      Outint (xb.vbi, 4) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 60") ;
+   Outimage
+ END

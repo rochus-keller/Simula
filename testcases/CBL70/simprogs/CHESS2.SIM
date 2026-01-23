@@ -1,0 +1,44 @@
+! Chess control - Master and Two Slaves approach;
+Begin
+   Boolean Mate;
+   Ref(Player) White,Black,Winner;
+   Integer Seed;
+
+   Class Player(PName); Text PName;
+   Begin
+     Ref(Player) Opponent;
+     Integer Move;
+
+     ! The life follows;
+      Detach;
+      OutText(PName); OutText("'s First Move"); OutImage;
+      Detach;
+      OutText(PName); OutText("'s Second Move"); OutImage;
+      Detach;
+      Move := 2;
+      While true do begin
+         Move := Move+1;
+         OutText(PName); OutText("'s Move # ");
+         OutInt(Move,3); OutImage;
+         If Draw(0.05,Seed) then begin
+            Mate := true; Winner :- This Player;
+         end;
+         Detach;
+      End While;
+   End Player;
+
+   Begin
+      OutText("Creating Players, Starting the game"); OutImage;
+      White :- New Player("White");
+      Black :- New Player("Black");
+      White.Opponent :- Black;
+      Black.Opponent :- White;
+      Seed := 11;
+      While not Mate do begin
+         Call(White);
+         If not Mate then Call(Black)
+      End While;
+      OutText("Finish: "); OutText(Winner.PName);
+      OutText(" won in move"); OutInt(Winner.Move,3); OutImage;
+   End
+End;

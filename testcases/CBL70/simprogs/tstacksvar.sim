@@ -1,0 +1,85 @@
+! Stack implementation using the system class SIMSET;
+! Storing items of various types;
+
+External Class Stacks;
+Stacks Begin
+
+ Link Class NodeC(C); Character C;
+ !User defined character stack element;
+ begin
+   Procedure Show;
+     OutChar(C);
+ end;
+
+ Link Class NodeI(I); Integer I;
+ !User defined integer stack element;
+ begin
+   Procedure Show;
+     OutInt(I,4);
+ end;
+
+ Link Class NodeR(R); Real R;
+ !User defined real stack element;
+ begin
+   Procedure Show;
+     OutFix(R,2,8);
+ end;
+
+ Ref(Stack) S;
+ Ref(Link)  Item;
+ Ref(NodeC) ItemC;
+ Ref(NodeI) ItemI;
+ Ref(NodeR) ItemR;
+ Character C;
+ Integer J;
+ Real X;
+
+ !Program body;
+
+ S :- New Stack;	  !creating a stack;
+
+ OutText("Stack created, size = "); OutInt(S.Size,3); OutImage;
+
+ OutText("Enter a sentence, finish it by '.'"); OutImage;
+ C := ' ';
+ While C <> '.' do begin
+    C := InChar;
+    ItemC :- New NodeC(C);
+    S.Push(ItemC);
+ end while;
+
+ OutText("Enter integer numbers, finish by '0'"); OutImage;
+ J := -1;
+ While J <> 0 do begin
+    J := InInt;
+    ItemI :- New NodeI(J);
+    S.Push(ItemI);
+ end while;
+
+ OutText("Enter real numbers, finish by '0'"); OutImage;
+ X := -1;
+ While X <> 0 do begin
+    X := InReal;
+    ItemR :- New NodeR(X);
+    S.Push(ItemR);
+ end while;
+
+ OutText("Number of items in the stack:");
+ OutInt(S.Size,3);  OutImage;
+
+ OutText("One more Link pushed in the stack."); OutImage;
+ Item :- New Link;
+ S.Push(Item);
+
+ OutText("The whole sequence inverted:"); OutImage;
+
+ While not S.Empty do begin
+    Item :- S.Pop;
+    Inspect Item
+       When NodeC do Show
+       When NodeI do Show
+       When NodeR do Show
+       Otherwise OutText("Unknown item");
+ end while;
+ OutImage;
+end**of**program;

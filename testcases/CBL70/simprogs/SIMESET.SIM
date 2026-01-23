@@ -1,0 +1,109 @@
+!    Working with linked lists in the Simula language	 ;
+!							 ;
+!    The system class SIMSET of the Simula language	 ;
+!    contains a knowledge of two way linked lists.	 ;
+!    Two main terms (classes) are introduced:		 ;
+!	- HEAD is the "owner" of the list,		 ;
+!	- LINK is the "member" of the list.		 ;
+!    These two classes are used as prefixes when decla-  ;
+!    ring user lists (more specialized heads) and user	 ;
+!    elements (more specialized links). 		 ;
+!    For both classes a set of useful actions is	 ;
+!    available. 					 ;
+
+
+simset begin
+
+ !Global variables: ;
+
+ ref(head) group,gang;	 ! Two user lists - no more details;
+ ref(element1) a,b,c;
+ ref(element2) y,z,w;
+ integer j;
+
+ link class element1(i); integer i;  ! User defined list element;
+ begin
+   outtext("Element1 created i =");  ! life;
+   outint(i,4); outimage;
+ end--of--element1;
+
+ link class element2(x); real x;     ! Another list element;
+ begin
+   outtext("Element2 created x =");  ! life;
+   outfix(x,2,6); outimage;
+ end--of--element2;
+
+ ! Program body: ;
+
+ group :- new head;	  ! creating the two lists;
+ gang  :- new head;
+
+ a :- new element1(1);	  ! creating 3 instances (objects) of the ;
+ b :- new element1(2);	  ! "type" element1.			  ;
+ c :- new element1(3);
+
+ a.into(group); 	  ! storing the 3 objects to group;
+ b.into(group);
+ c.into(group);
+
+ outtext("Numbers of items in the two lists: ");
+ outint(group.cardinal,3);
+ outint(gang.cardinal ,3); outimage;
+
+ y :- new element2(5.0);  ! creating 3 objects of the "type" element2;
+ z :- new element2(6.0);
+ w :- new element2(7.5);
+
+ y.into(gang);		  ! storing the objects to gang;
+ z.into(gang);
+ w.into(gang);
+
+ outtext("Numbers of items in the two lists: ");
+ outint(group.cardinal,3);
+ outint(gang.cardinal ,3); outimage;
+
+ outtext("Items in group: ");
+ a :- group.first;	  ! the first element of group;
+ for j := 1,2,3 do
+ begin
+   outint(a.i,4);
+   a :- a.suc		  ! the successor of a;
+ end;
+ outimage;
+
+ outtext("Items in gang in reverse order: ");
+ y :- gang.last;	  ! the last element of gang;
+ for j := 1,2,3 do
+ begin
+   outfix(y.x,1,4);
+   y :- y.pred		  ! the predecessor of y;
+ end;
+ outimage;
+
+ outtext("2nd in group: ");
+ outint(group.first.suc Qua Element1.i,3);  ! the i of the 2nd of group;
+ outimage;
+
+ outtext("Last but one in gang: ");
+ outfix(gang.last.pred Qua Element2.x,1,4); ! the x of the last but one of gang;
+ outimage;
+
+ gang.last.pred.into(group);	 ! the last but one of gang is;
+				 ! moved to group as the last one;
+ outtext("The last but one of gang moved as the last to group: ");
+ outfix(group.last Qua Element2.x,1,4);
+ outimage;
+
+ group.first.suc.precede(gang.first); ! the 2nd of group is moved;
+				      ! to gang as the 1st one;
+ outtext("The 2nd of group moved as the 1st to gang: ");
+ outint(gang.first Qua Element1.i,3);
+ outimage;
+
+ group.first.follow(gang.first.suc);  ! the 1st of group is moved;
+				      ! to gang as the 3rd one;
+ outtext("The 1st of group moved as the 3rd to gang: ");
+ outint(gang.first.suc.suc Qua Element1.i,3); ! displaying the i of the;
+ outimage;			              ! 3rd element of gang;
+end**of**program;
+

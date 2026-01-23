@@ -1,0 +1,98 @@
+% ======================================   Main   program =============
+%  PROGRAM NAME:   SIMULA A/S - SIMULA TEST NO 19
+%
+%  PURPOSE:     Test text concatenation and text expression evaluation.
+%
+%  METHOD:      Examples.
+%
+%  WRITTEN BY:  BEH   14/07-86
+% ==============================================================
+BEGIN
+   Boolean found_error;
+
+   text t1, t2, t3;
+
+   Outtext ("--- START Simula a.s. TEST 19");
+   Outimage;
+   Outtext ("--- Test text concatenation and text expression evaluation.");
+   Outimage; Outimage;
+
+   t1 :- "abcde";
+   t2 :- "123"&t1&t3&"456"&t1.sub (3,3);
+
+   if     t2 = "123abcde456cde"
+      and not t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text concatenation (1).");
+      Outimage;
+      Outtext ("            Erroneus values :");
+      Outimage;
+      Outtext ("            "); Outtext (t2);
+      Outtext (if t2.constant then "            true" else "            false");
+      Outimage;
+      found_error := true
+   end;
+
+   t1 :- copy ("abcde");
+   t1.setpos (3);
+   (t1).putchar ('3');
+   t3 :- t1;
+   t2 :- t1.sub (2,2);
+
+   if     t1.pos = 3
+      and t1 = "ab3de"
+      and t3 = "ab3de"
+      and t2 = "b3"
+      and not t3.constant
+      and not t2.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text expression evaluation (2).");
+      Outimage;
+      Outtext ("            Erroneus values :");
+      Outtext ("            ");
+      Outtext (t1); Outtext ("   ");
+      Outtext (if t1.constant then "            true" else"            false");
+      Outimage;
+      Outtext ("            Erroneus values :");
+      Outtext ("            ");
+      Outtext (t2); Outtext ("   ");
+      Outtext (if t2.constant then "            true" else"            false");
+      Outimage;
+      Outtext ("            Erroneus values :");
+      Outtext ("            ");
+      Outtext (t3); Outtext ("   ");
+      Outtext (if t3.constant then "            true" else"            false");
+      Outimage;
+      Outimage;
+      found_error := true
+   end;
+
+   t1 :- if true then "1234" else notext;
+
+   if t1 = "1234" and t1.constant then
+   else
+   begin
+      Outtext ("*** ERROR : Text expression evaluation (3).");
+      Outimage;
+      Outtext ("            Erroneus values :");
+      Outtext ("            ");
+      Outtext (t1); Outtext ("   ");
+      Outtext (if t1.constant then "            true" else"            false");
+      Outimage;
+      Outimage;
+      found_error := true
+   end;
+
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END;
+
+   Outtext ("--- END Simula a.s. TEST 19");
+   Outimage
+ END

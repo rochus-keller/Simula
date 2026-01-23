@@ -139,16 +139,15 @@ private:
 		_T_VIRTUAL=118,
 		_T_WHEN=119,
 		_T_WHILE=120,
-		_T_is=121,
-		_T_Specials_=122,
-		_T_decimal_number=123,
-		_T_unsigned_integer=124,
-		_T_string=125,
-		_T_character=126,
-		_T_identifier=127,
-		_T_Comment=128,
-		_T_Eof=129,
-		_T_MaxToken_=130
+		_T_Specials_=121,
+		_T_decimal_number=122,
+		_T_unsigned_integer=123,
+		_T_string=124,
+		_T_character=125,
+		_T_identifier=126,
+		_T_Comment=127,
+		_T_Eof=128,
+		_T_MaxToken_=129
 	};
 	int maxT;
 

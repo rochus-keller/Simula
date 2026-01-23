@@ -1,0 +1,162 @@
+% ===============================================   Main   program =============
+%  PROGrAM NAME:   Simula a.s. - SIMULA TEST NO 55
+%
+%  PURPOSE:     Test virtual procedures.
+%
+%  WRITTEN BY:  BEH   01/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Class A ;
+      Virtual:        Procedure P ;
+              Integer Procedure iP ;
+              Real    Procedure rP ;
+              Ref (A) Procedure cP ;
+   BEGIN
+      Real    Procedure rP ; Outtext (" A.rP ") ;
+      Ref (A) Procedure cP ; Outtext (" A.cP ") ;
+   END ;
+
+   A Class B ;
+   BEGIN
+      Integer Procedure P ; Outtext (" B.P ") ;
+      Integer Procedure iP ; Outtext (" B.iP ") ;
+      Ref (C) Procedure cP ; Outtext (" B.cP ") ;
+   END ;
+
+   A Class C ;
+   BEGIN
+      Ref (A)   Procedure P ; Outtext (" C.P ") ;
+      Real      Procedure rP ; Outtext (" C.rP ") ;
+      Ref (B)   Procedure cP ; Outtext (" C.cP ") ;
+   END ;
+
+   A Class D ;
+   BEGIN
+      Procedure P ; Outtext (" D.P ") ;
+      Integer  Procedure iP ; Outtext (" D.iP ") ;
+      Ref (A)  Procedure cP ; Outtext (" D.cP ") ;
+   END ;
+
+   D Class E ;
+   BEGIN
+      Text    Procedure P ; Outtext (" E.P ") ;
+      Integer Procedure iP ; Outtext (" E.iP ") ;
+      Ref (C) Procedure cP ; Outtext (" E.cP ") ;
+   END ;
+
+   Ref (A) rA ;
+   Ref (B) rB ;
+   Ref (C) rC ;
+   Ref (D) rD ;
+   Ref (E) rE ;
+
+   Procedure Check (t, vt, errnr) ;
+      value t, vt ;
+      text t, vt ;
+      integer errnr ;
+   begin
+      sysout.image.setpos (1) ;
+      sysout.image := notext  ;
+
+      if t = vt then
+      else
+      begin
+         Outtext ("*** ERROR : Call on virtual procedure (") ;
+         Outint (errnr, if errnr < 10 then 1 else 2) ;
+         Outtext (").") ;
+         Outimage ;
+         Outtext ("            Erroneus calls :") ;
+         Outimage ;
+         Outtext (t) ;
+         Outimage ;
+         found_error := true
+      end
+   end pros. check ;
+
+
+   Outtext ("--- START Simula a.s. TEST 55") ;
+   Outimage ;
+   Outtext ("--- Test virtual procedures.") ;
+   Outimage ; Outimage ;
+
+   rA :- rB :- NEW B ;
+   rC :- NEW C ;
+   rD :- rE :- NEW E ;
+
+   rA.rP ;
+   rA.cP ;
+   rB.P ;
+   rB.iP ;
+   rB.cP ;
+   rC.P ;
+   rC.rP ;
+   rC.cP ;
+   rD.P ;
+   rD.iP ;
+   rD.cP ;
+   rE.P ;
+   rE.iP ;
+   rE.cP ;
+
+   Check (sysout.image.strip,
+          " A.rP  B.cP  B.P  B.iP  B.cP  C.P  C.rP "
+          " C.cP  E.P  E.iP  E.cP  E.P  E.iP  E.cP", 1) ;
+
+   rA QUA B.rP ;
+   rA QUA B.iP ;
+   rA QUA B.cP ;
+   rA :- NEW C ;
+   rA QUA C.rP ;
+   rA QUA C.cP ;
+   rA :- NEW E ;
+   rA QUA E.cP ;
+   rB QUA A.P ;
+   rB QUA A.rP ;
+   rB QUA A.cP ;
+
+   Check (sysout.image.strip,
+          " A.rP  B.iP  B.cP  C.rP  C.cP  E.cP  B.P  A.rP  B.cP", 2) ;
+
+   rC QUA A.rP ;
+   rC QUA A.cP ;
+   rD QUA A.P ;
+   rD QUA A.cP ;
+   rE QUA A.P ;
+   rE QUA A.iP ;
+   rE QUA A.cP ;
+   rE QUA D.P ;
+   rE QUA D.iP ;
+   rE QUA D.cP ;
+
+   Check (sysout.image.strip ,
+          " C.rP  C.cP  E.P  E.cP  E.P  E.iP  E.cP  E.P  E.iP  E.cP", 3) ;
+
+   rA :- rD :- NEW E ;
+   rD QUA E.P ;
+   rD QUA E.iP ;
+   rD QUA E.cP ;
+
+   Check (sysout.image.strip," E.P  E.iP  E.cP", 4) ;
+
+   rA.cP ;
+   rA QUA D.cP ;
+   rA QUA E.cP ;
+   rD.P ;
+   rD.cP ;
+   rD QUA E.iP ;
+
+   Check (sysout.image.strip, " E.cP  E.cP  E.cP  E.P  E.cP  E.iP", 5) ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 55") ;
+   Outimage
+ END
+

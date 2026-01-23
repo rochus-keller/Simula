@@ -1,0 +1,173 @@
+% ===============================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s. - SIMULA TEST NO 50
+%
+%  PURPOSE:     Test binding of when-clause and otherwise-clause in connection
+%               statement, and qualification of the connection block.
+%
+%  WRITTEN BY:  BEH   29/07-86
+% ==============================================================================
+BEGIN
+   Boolean found_error;
+
+   integer j;
+
+   Class A; begin integer i; end;
+
+   A Class B; begin integer i; end;
+
+   B Class C; begin integer i; end;
+
+   B Class D; begin integer i; end;
+
+   A Class E; begin integer i; end;
+
+   ref (A) ra;
+   ref (B) rb;
+   ref (C) rc;
+   ref (D) rd;
+   ref (E) re;
+
+   Outtext ("--- START Simula a.s. TEST 50");
+   Outimage;
+   Outtext ("--- Test binding of when-clause and otherwise-clause in ");
+   Outtext ("connection"); Outimage;
+   Outtext ("--- statement, and qualification of the ");
+   Outtext ("connection block.");
+   Outimage; Outimage;
+
+   rb :- new B;
+   ra :- new A;
+   re :- new E;
+
+   inspect rb when E do
+     inspect ra when C do j := 1
+        when B do j := 2
+        otherwise
+           inspect re when D do j := 3
+              when A do j := 4
+              otherwise j := 5;
+
+   if j = 0 then
+   else
+   begin
+     Outtext ("*** ERROR : Binding in connection statement (1).");
+     Outimage;
+     Outtext ("            Erroneus value : j = ");
+     Outint (j, 4);
+     Outimage;
+     j := 0;
+     found_error := true
+   end;
+
+
+   j := 0;
+   ra :- new B;
+
+   inspect ra when C do
+         begin i := 3; j := 3 end
+              when B do
+         begin i := 2; j := 2 end
+              when A do
+         begin i := 1; j := 1 end
+   otherwise
+         j := 4;
+
+
+   if     j = 2
+      and ra.i = 0
+      and ra qua B.i = 2 then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong clause selected (2).");
+      Outimage;
+      Outtext ("            Erroneus values : j          = ");
+      Outint (j, 3);
+      Outimage;
+      Outtext ("                              ra.i       = ");
+      Outint (ra.i, 3);
+      Outimage;
+      Outtext ("                              ra qua B.i = ");
+      Outint (ra qua B.i, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   rb :- ra;
+   ra.i := 0;
+   rb.i := 0;
+   j := 0;
+
+   inspect rb when d do
+      begin integer i; i := 5; j := 1 end
+              when a do
+      begin integer i; i := 6; j := 2 end
+   otherwise
+      j := 3;
+
+   if     j = 2
+      and ra.i = 0
+      and rb.i = 0 then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong clause selected or wrong variable");
+      Outimage;
+      Outtext ("            assigned (3).");
+      Outimage;
+      Outtext ("            Erroneus values : j    = ");
+      Outint (j, 3);
+      Outimage;
+      Outtext ("                              ra.i = ");
+      Outint (ra.i, 3);
+      Outimage;
+      Outtext ("                              rb.i = ");
+      Outint (rb.i, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   j := 0;
+   ra.i := 1;
+   rb.i := 1;
+
+   inspect rb when C do
+      inspect ra when D do begin i := 7; j := 1 end
+                 when B do begin i := 8; j := 2 end
+                 otherwise j := 3
+              when A do
+      inspect ra qua B do
+         begin i := 9; j := 4 end
+              otherwise j := 5;
+
+   if     j = 4
+      and ra.i = 1
+      and rb.i = 9 then
+   else
+   begin
+      Outtext ("*** ERROR : Wrong clause selected or wrong variable");
+      Outimage;
+      Outtext ("            assigned (4).");
+      Outimage;
+      Outtext ("            Erroneus values : j    = ");
+      Outint (j, 3);
+      Outimage;
+      Outtext ("                              ra.i = ");
+      Outint (ra.i, 3);
+      Outimage;
+      Outtext ("                              rb.i = ");
+      Outint (rb.i, 3);
+      Outimage;
+      found_error := true
+   end;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage
+   END;
+
+   Outtext ("--- END Simula a.s. TEST 50");
+   Outimage
+ END

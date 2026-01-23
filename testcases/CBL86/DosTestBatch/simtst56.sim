@@ -1,0 +1,88 @@
+% ===============================================   Main   program =============
+%  PROGRAM Name:   Simula a.s. - SIMULA TEST NO 56
+%
+%  PURPOSE:     Test virtual procedures.
+%
+%  WRITTEN BY:  BEH   01/08-86
+% ==============================================================================
+BEGIN
+   Boolean found_error ;
+
+   Ref (A) x ;   Real ar, br ;
+
+   Class A ;
+      Virtual:   Real Procedure   Q ;
+   BEGIN
+      Real Procedure   Q ;  Q:=2.5 ;
+
+      Procedure  T (R) ;
+         Name R ;
+         Real R ;
+      BEGIN
+         ar:=R*Q
+      END ;
+   END ;
+
+   Procedure  S (P, B) ;
+      Name P, B ;
+      Procedure P ;
+      Real B ;
+   BEGIN
+      P (x.Q) ;
+      br:=B*x.Q
+   END ;
+
+   A Class B ;
+   BEGIN
+      Real  Procedure  Q ;   Q:=2 ;
+   END ;
+
+
+   Outtext ("--- START Simula a.s. TEST 56") ;
+   Outimage ;
+   Outtext ("--- Test virtual procedures.") ;
+   Outimage ; Outimage ;
+
+   x:-New B ;
+   S (x.T, x.Q) ;
+
+   if ar-ar/1000 > 4 or ar+ar/1000 < 4 or
+      br-br/1000 > 4 or br+br/1000 < 4 then
+   begin
+      Outtext ("*** ERROR : Wrong matching procedure called (1).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :  ar = ") ;
+      Outfix (ar, 4, 8) ;
+      Outtext ("   br = ") ;
+      Outfix (br, 4, 8) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+
+   x:-New A ;
+   S (x.T, x.Q) ;
+
+   if ar-ar/1000 > 6.25 or ar+ar/1000 < 6.25 or
+      br-br/1000 > 6.25 or br+br/1000 < 6.25 then
+   begin
+      Outtext ("*** ERROR : Wrong matching procedure called (2).") ;
+      Outimage ;
+      Outtext ("            Erroneus values :  ar = ") ;
+      Outfix (ar, 4, 8) ;
+      Outtext ("   br = ") ;
+      Outfix (br, 4, 8) ;
+      Outimage ;
+      found_error := true
+   end ;
+
+   IF found_error THEN
+   ELSE
+   BEGIN
+      Outtext ("--- NO ERRORS FOUND IN THIS TEST") ;
+      Outimage
+   END ;
+
+   Outtext ("--- END Simula a.s. TEST 56") ;
+   Outimage
+ END

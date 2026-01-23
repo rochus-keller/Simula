@@ -1,0 +1,562 @@
+% ================================================   Main   program  ===========
+%  PROGRAM NAME:  SIMULA A/S - SIMULA TEST  NO 18
+%
+%  PURPOSE:  To test the put- and get-procedures for texts.
+%
+%  METHOD:  Use the procedures on various texts and with various parameters.
+%
+%  NOTE:  1. At lines commented with NOTE 1 : The expected result of the putreal
+%            operation must be edited into the text constant since this is
+%            implementation dependent.
+%         2. At line commented with NOTE 2 : The largest legal textconstant
+%            length on your implementation must be filled in.
+%         3. Lines commented with NOTE 3 are prefixed with % because of an
+%            error in the ND-500 RTS.
+%
+%  WRITTEN BY:  THE  17/10-83
+% ==============================================================================
+BEGIN
+BOOLEAN            found_error ;                 ! Set to true when errors are ;
+                                                 ! found.                      ;
+TEXT               txt ;                         ! To use the put- and get-    ;
+                                                 ! procedures on.              ;
+INTEGER            int ;                         ! To be used in the put- and  ;
+SHORT INTEGER      sho ;                         ! get-procedures.             ;
+REAL               rea ;                         !         -"-                 ;
+LONG REAL          lon ;                         !         -"-                 ;
+
+INTEGER            maxtext ;                     ! To contain max legal text   ;
+                                                 ! length.                     ;
+
+outtext ("--- START Simula a.s. TEST 18") ;
+outimage ;
+outtext ("--- Test the put- and get-procedures of text") ;
+outimage ;
+
+maxtext := 32000 ;                               !********* NOTE 2 ************;
+
+
+                                                 !*****************************;
+                                                 ! Test that put overflow is   ;
+                                                 ! handeled correct.           ;
+                                                 !*****************************;
+txt :- blanks (1) ;
+sho := 10 ;
+txt.putint (sho) ;
+
+IF txt <> "*" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (1).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- blanks (5) ;
+int := 123456 ;
+txt.putint (int) ;
+
+IF txt <> "*****" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (2).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- blanks (1) ;
+rea := 12.4 ;
+txt.putfix (rea, 0) ;
+
+IF txt <> "*" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (3).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- blanks (10) ;
+lon := 1 ;
+txt.putfix (lon, 10) ;
+
+IF txt <> "**********" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (4).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+rea := 3.14 ;
+txt.putreal (rea, 8) ;
+
+IF txt <> "**********" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (5).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- blanks (4) ;
+int := 1000 ;
+txt.putfrac (int, 2) ;
+
+IF txt <> "****" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (6).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+                                                 !*****************************;
+                                                 ! Test procedures on texts    ;
+                                                 ! that are just big enough to ;
+                                                 ! contain the result.         ;
+                                                 !*****************************;
+txt :- blanks (4) ;
+int := 1234 ;
+txt.putint (int) ;
+
+IF txt <> "1234" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (7).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+int := txt.getint ;
+
+IF int <> 1234 THEN
+   BEGIN
+   outtext ("*** ERROR : In get operation (8).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outint (int, 10) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- blanks (2) ;
+sho := 99 ;
+txt.putint (sho) ;
+
+IF txt <> "99" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (9).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+sho := txt.getint ;
+
+IF sho <> 99 THEN
+   BEGIN
+   outtext ("*** ERROR : In get operation (10).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outint (sho, 10) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("1000") ;
+rea := txt.getreal ;
+txt.putfix (rea, 0) ;
+
+IF txt <> "1000" THEN
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (11).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("2.22") ;
+lon := txt.getreal ;
+txt.putfix (lon, 2) ;
+
+IF txt <> "2.22" THEN
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (12).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("0000000") ;
+rea := txt.getreal ;
+txt.putreal (rea, 2) ;
+
+IF txt <> "0.0&+00" THEN                         !********* NOTE 1 ************;
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (13).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("1000.00") ;
+rea := txt.getreal ;
+txt.putreal (rea, 2) ;
+
+IF txt <> "1.0&+03" THEN                         !********* NOTE 1 ************;
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (14).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy (".0005670") ;
+lon := txt.getreal ;
+txt.putreal (lon, 2) ;
+
+IF txt <> "5.7&-004" THEN                       !********* NOTE 1 ************;
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (15).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("-.88&-01") ;
+rea := txt.getreal ;
+txt.putreal (rea, 2) ;
+
+IF txt <> "-8.8&-02" THEN                      !********* NOTE 1 ************;
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (16).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("12.34&20 ") ;
+lon := txt.getreal ;
+txt.putreal (lon, 3) ;
+
+IF txt <> "1.23&+021" THEN                      !********* NOTE 1 ************;
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (17).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("100 0 00") ;
+int := txt.getfrac ;
+
+IF int <> 100000 THEN
+   BEGIN
+   outtext ("*** ERROR : In get operation (18).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outint (int, 10) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt.putfrac (int, 2) ;
+
+IF txt <> "1 000.00" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (19).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("-1 23456") ;
+int := txt.getfrac ;
+
+IF int <> -123456 THEN
+   BEGIN
+   outtext ("*** ERROR : In get operation (20).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt.putfrac (int, 0) ;
+
+IF txt <> "-123 456" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (21).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+                                                 !*****************************;
+                                                 ! Test the procedures on texts;
+                                                 ! that are more than long     ;
+                                                 ! enough.                     ;
+                                                 !*****************************;
+txt :- blanks (5) ;
+txt.putint (1234) ;
+
+IF txt <> " 1234" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (22).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+int := txt.getint ;
+
+IF int <> 1234 THEN
+   BEGIN
+   outtext ("*** ERROR : In get operation (23).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outint (int, 10) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- blanks (20) ;
+sho := - 1 ;
+txt.putint (sho) ;
+
+IF txt <> "                  -1" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (24).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+sho := txt.getint ;
+
+IF sho <> -1 THEN
+   BEGIN
+   outtext ("*** ERROR : In get operation (25).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outint (sho, 10) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+                                     !**********  NOTE 3  **********;
+% txt :- blanks (maxtext) ;
+% txt.putint (999) ;
+% txt.setpos (1) ;
+% int := txt.getint ;
+
+% IF int <> 999 THEN
+%    BEGIN
+%    outtext ("*** ERROR : In put/get operation (26).") ;
+%    outimage ;
+%    outtext ("    The following result was not expected: ") ;
+%    outint (int, 10) ;
+%    outimage ;
+%    found_error := TRUE
+%    END ;
+
+txt :- copy ("123      ") ;
+rea := txt.getreal ;
+txt.putfix (rea, 0) ;
+
+IF txt <> "      123" THEN
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (27).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("   -  12.34&-10                   ") ;
+lon := txt.getreal ;
+txt.putfix (lon, 11) ;
+
+IF txt <> "                    -0.00000000123" THEN
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (28).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("1 abcdefgh") ;
+rea := txt.getreal ;
+txt.putreal (rea, 1) ;
+
+IF txt <> "     1&+00" THEN                      !********* NOTE 1 ************;
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (29).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("     33.3z") ;
+rea := txt.getreal ;
+txt.putfix (rea, 1) ;
+
+IF txt <> "      33.3" THEN
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (30).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("      -23.11111111111111&+02") ;
+lon := txt.getreal ;
+txt.putreal (lon, 10) ;
+
+IF txt <> "           -2.311111111&+003" THEN   !********* NOTE 1 ************;
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (31).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- blanks (15) ;
+txt.putfix (copy ("  -0&11  a'++ ").getreal, 1) ;
+
+IF txt <> "            0.0" THEN
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (32).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("   2 10 0 0  sa") ;
+int := txt.getfrac ;
+
+IF int <> 21000 THEN
+   BEGIN
+   outtext ("*** ERROR : In get operation (33).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outint (int, 10) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt.putfrac (int, 5) ;
+
+IF txt <> "       0.210 00" and
+   txt <> "        .210 00" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (34).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt.putfrac (copy ("1 234 5").getfrac, -800) ;
+
+IF txt <> "         12 345" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (35).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+                                                 !*****************************;
+                                                 ! Try some convertion.        ;
+                                                 !*****************************;
+txt :- blanks (10) ;
+txt.putint (2.67) ;
+
+IF txt <> "         3" THEN
+   BEGIN
+   outtext ("*** ERROR : In put operation (36).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+txt :- copy ("   1.23456") ;
+int := txt.getint ;
+txt.putfix (int, 2) ;
+
+IF txt <> "      1.00" THEN
+   BEGIN
+   outtext ("*** ERROR : In put/get operation (37).") ;
+   outimage ;
+   outtext ("    The following result was not expected: ") ;
+   outtext (txt) ;
+   outimage ;
+   found_error := TRUE
+   END ;
+
+
+IF found_error THEN
+ELSE
+   BEGIN
+   Outtext ("--- NO ERRORS FOUND IN THIS TEST") ; Outimage;
+   Outtext ("--- Six text edit overflows should be signaled.");
+   Outimage;
+   END ;
+
+outtext ("--- END Simula a.s. TEST 18") ;
+outimage
+
+END of program

@@ -1,0 +1,49 @@
+% =====================================   Main   program =============
+%  PROGRAM NAME:   Simula a.s - SIMULA TEST NO 92
+%
+%  PURPOSE:   Test virtual labels and procedures.
+%
+%
+%  COMPILED SUCCESSFULLY: YES
+%
+%  REWRITTEN BY:  BEH   05/01-87
+%
+% ====================================================================
+BEGIN Boolean found_error;
+
+      class C;
+      virtual: procedure P1,P2;
+               label EOP;
+               text procedure Q1,Q2;
+      begin  procedure P2;
+             begin found_error:=true; Outtext("*** ERROR (1).");
+                   outimage end;
+
+             text procedure Q2;
+             begin found_error:=true; Q2:-copy("*** ERROR (2).") end;
+
+             P2; outtext(Q2);
+             if sysout.image.strip<>"P2Q2" then begin
+                outimage; found_error:=true end
+             else sysout.setpos(1);
+             goto EOP;
+      end;
+
+      Outtext ("--- START Simula a.s TEST 92"); Outimage;
+      Outtext ("--- Test of virtual labels and procedures");
+      Outimage; Outimage;
+
+    C begin procedure P2;outtext("P2");
+            text procedure Q2;Q2:-"Q2";
+            found_error:=true;
+            Outtext("*** ERROR (3)."); Outimage;
+      EOP:
+      end;
+
+      if not found_error then
+      begin Outtext("--- NO ERRORS FOUND IN THIS TEST");
+            Outimage;
+      end;
+      Outtext("--- END Simula a.s TEST 92");
+      Outimage;
+end;

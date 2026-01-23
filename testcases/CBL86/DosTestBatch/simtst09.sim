@@ -1,0 +1,176 @@
+% ===========================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST  NO 9
+%
+%  PURPOSE:  To test the relops =, <, <=, >, >= and <> (eq, lt, le, gt, ge and
+%            ne) for characters, and the procedures CHAR, RANK, ISO-RANK,
+%            ISO-CHAR, LETTER and DIGIT.
+%
+%  METHOD:  Use the relops and procedures on various character constants and
+%           variables.
+%
+%  WRITTEN BY:  THE  07/11-83
+% ==========================================================
+BEGIN
+BOOLEAN            found_error;        ! Set to true when errors are ;
+                                       ! found.                      ;
+CHARACTER          c1;                 ! To be compared by the relops;
+CHARACTER          c2;                 ! To be compared by the relops;
+
+
+Outtext ("--- START Simula a.s. TEST 9");
+Outimage;
+Outtext ("--- Character relations etc.");
+Outimage; Outimage;
+                                       !*****************************;
+                                       ! Start testing of rel-ops.   ;
+                                       !*****************************;
+c1 := ' ';
+c2 := '!32!';
+
+IF   NOT  c1 EQ ' '
+  OR      c1 LT c2
+  OR NOT  c1 <= c2
+  OR      c1 >  c2
+  OR NOT  c1 >= '!32!'
+  OR      c1 <> c2   THEN
+   BEGIN
+   outtext ("*** ERROR : comparing characters (1).");
+   outimage;
+   found_error := TRUE
+   END;
+
+c1 := '1';
+c2 := '!55!';
+
+IF        c1 =  c2
+  OR NOT  c1 <  c2
+  OR NOT '6' LE c2
+  OR  '!48!' GT c2
+  OR      c1 >= c2
+  OR NOT  c1 <> c2   THEN
+   BEGIN
+   outtext ("*** ERROR : comparing characters (2).");
+   outimage;
+   found_error := TRUE
+   END;
+
+c1 := IF (IF c1 = '1' THEN c1 < '1' ELSE c1 >= '1') THEN 'B' ELSE '!90!';
+c2 := 'A';
+
+IF   NOT  c1 =  'Z'
+  OR      c1 <  c2
+  OR      c1 <= c2
+  OR NOT  c1 >  c2
+  OR NOT  c1 GE c2
+  OR  '!75!' NE 'K'  THEN
+   BEGIN
+   outtext ("*** ERROR : comparing characters (3).");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Test procedure DIGIT.       ;
+                                       !*****************************;
+c1 := '0';
+c2 := '!42!';
+
+IF   NOT digit (c1)
+  OR NOT digit ('5')
+  OR NOT digit ('!57!')
+  OR     digit (c2)
+  OR     digit ('a')
+  OR     digit ('!33!')  THEN
+   BEGIN
+   outtext ("*** ERROR : In procedure digit.");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Test procedure LETTER.      ;
+                                       !*****************************;
+c1 := 'd';
+c2 := '!32!';
+
+IF   NOT letter (c1)
+  OR NOT letter ('x')
+  OR NOT letter ('!65!')
+  OR     letter (c2)
+  OR     letter ('1')
+  OR     letter ('!61!')  THEN
+   BEGIN
+   outtext ("*** ERROR : In procedure letter.");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Test procedure ISORANK.     ;
+                                       !*****************************;
+c1 := '!0!';
+c2 := ' ';
+
+IF   isorank (c1) <> 0
+  OR isorank (c2) <> 32
+  OR isorank ('!127!') <> 127
+  OR isorank ('/') <> 47
+  OR isorank (IF isorank (c1) > 0 THEN '9' ELSE '!12!') <> 12   THEN
+   BEGIN
+   outtext ("*** ERROR : In procedure isorank.");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Test procedure ISOCHAR.     ;
+                                       !*****************************;
+c1 := '!127!';
+c2 := '-';
+
+IF   isochar (127) <> c1
+  OR isochar (45) <> c2
+  OR isochar (33) <> '!'
+  OR isochar (isorank (c1)) <> c1
+  OR isochar (IF isochar (62) >= '>' THEN 65 ELSE 32) <> 'A'  THEN
+   BEGIN
+   outtext ("*** ERROR : In procedure isochar.");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Test procedure RANK.        ;
+                                       !*****************************;
+c1 := '1';
+c2 := '2';
+
+IF   rank (c1) - rank ('0') <> 1
+  OR rank (c2) - rank ('0') <> 2
+  OR rank ('9') - rank ('0') <> 9
+  OR rank ('!55!') - rank ('0') <> 7   THEN
+   BEGIN
+   outtext ("*** ERROR : In procedure rank.");
+   outimage;
+   found_error := TRUE
+   END;
+                                       !*****************************;
+                                       ! Test procedure CHAR.        ;
+                                       !*****************************;
+c1 := 'A';
+c2 := 'Z';
+
+IF   char (rank (c1)) <> c1
+  OR char (rank (c2)) <> c2
+  OR char (rank ('9')) <> '9'
+  OR char (rank ('!55!')) <> '7'
+  OR char (1) >= char (2)
+  OR char (0) > char (rank ('B'))  THEN
+   BEGIN
+   outtext ("*** ERROR : In procedure char.");
+   outimage;
+   found_error := TRUE
+   END;
+
+
+IF found_error THEN  ELSE
+   begin Outtext ("--- NO ERRORS FOUND IN THIS TEST"); Outimage; end;
+outtext ("--- END Simula a.s. TEST 9");
+outimage
+
+END of program

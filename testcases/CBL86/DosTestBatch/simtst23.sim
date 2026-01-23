@@ -1,0 +1,898 @@
+% ======================================   Main   program  ===========
+%  PROGRAM NAME:  Simula a.s. - SIMULA TEST NO 23
+%
+%  PURPOSE:  To test all possible type conversions in connection with for
+%            step-until element.
+%
+%  METHOD:   Count number of times loops are iterated, and check the value of
+%            the controlled variable.
+%
+%  WRITTEN BY: BEH  16/07-86
+% =====f]============================================================
+BEGIN
+   Boolean found_error;
+
+   real eps;
+
+   integer i,n;
+   real r;
+   long real lr;
+
+   Outtext("--- START Simula a.s. TEST 23");
+   Outimage;
+   outtext("--- Test all possible type conversions in connection with");
+   outimage;
+   Outtext("--- step-until");
+   Outimage; Outimage;
+
+   eps := 0.01;
+
+   n := 1;
+
+   for i:= 3.14 step 1 until 6 do                   ! INT INT INT;
+   begin
+      if i <> n+2 or n > 4 then
+      begin
+         Outtext("*** ERROR: Iteration - int int int(1).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outint(i, 3);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1;
+   end;
+
+   if i <> 7 or n <> 5 then
+   begin
+      Outtext("*** ERROR: Number of iterations or value of controlled");
+      Outimage;
+      Outtext("***         variable - int int int(2).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outint(i, 3);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+   n := 1;
+
+   for r:= 3.14 step 1.0 until 6.0 do               ! REAL REAL REAL;
+   begin
+      if r < n+2.14-eps or r > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - real real real(3).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(r, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n:=n+1;
+   end;
+
+   if n <> 4 or r < 6.14-eps or r > 6.14+eps then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variabel - real real real(4).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(r, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+   n := 1;
+
+   for lr:= 3.14 step 1&&0 until 6&&0 do        ! LREAL LREAL LREAL;
+   begin
+      if lr < n+2.14-eps or lr > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - lreal lreal lreal(5).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(lr, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n:=n+1;
+   end;
+
+   if lr < 6.14-eps or lr > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - lreal lreal lreal(6).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(lr, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+   n := 1;
+
+   for i:= 3.14 step 1 until 6.0 do                   ! INT INT REAL;
+   begin
+      if i <> n+2 or n > 4 then
+      begin
+         Outtext("*** ERROR: Iteration - int int real(7).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outint(i, 3);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n:=n+1;
+   end;
+
+   if i <> 7 or n <> 5 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - int int real(8).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outint(i, 3);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for i:= 3.14 step 1.0 until 6 do                 ! INT REAL INT;
+   begin
+      if i <> n+2 or n > 4 then
+      begin
+         Outtext("*** ERROR: Iteration - int real int(9).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outint(i, 3);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1;
+   end;
+
+   if i <> 7 or n <> 5 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - int real int(10).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outint(i, 3);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for r:= 3.14 step 1 until 6 do                   ! REAL INT INT;
+   begin
+      if r < n+2.14-eps or r > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - real int int(11).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(r, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n:=n+1;
+   end;
+
+   if r < 6.14-eps or r > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations - real int int(12).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(r, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for i:= 3.14 step 1 until 6&&0 do              ! INT INT LREAL;
+   begin
+      if i <> n+2 or n > 4 then
+      begin
+         Outtext("*** ERROR: Iteration - int int lreal(13).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outint(i, 3);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1;
+   end;
+
+   if i <> 7 or n <> 5 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - int int lreal(14).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outint(i, 3);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for i:= 3.14 step 1&&0 until 6 do                 ! INT LREAL INT;
+   begin
+      if i <> n+2 or n > 4 then
+      begin
+         Outtext("*** ERROR: Iteration - int lreal int(15).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outint(i, 3);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1;
+   end;
+
+   if i <> 7 or n <> 5 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of  ");
+      Outimage;
+      Outtext("***         controlled variable - int lreal int(16).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outint(i, 3);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for lr:= 3.14 step 1 until 6 do                   ! LREAL INT INT;
+   begin
+      if lr < n+2.14-eps or lr > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - lreal int int(18).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(lr, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if lr < 6.14-eps or lr > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - lreal int int(19).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(lr, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for i:= 3.14 step 1.0 until 6&&0 do            ! INT REAL LREAL;
+   begin
+      if i <> n+2 or n > 4 then
+      begin
+         Outtext("*** ERROR: Iteration - int real lreal(20).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outint(i, 3);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if i <> 7 or n <> 5 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of " );
+      Outimage;
+      Outtext("***         controlled variable - int real lreal(21).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outint(i, 3);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for i:= 3.14 step 1&&0 until 6.0 do            ! INT LREAL REAL;
+   begin
+      if i <> n+2 or n > 4 then
+      begin
+         Outtext("*** ERROR: Iteration - int lreal real(22).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outint(i, 3);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if i <> 7 or n <> 5 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - int lreal real(23).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outint(i, 3);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for r:= 3.14 step 1 until 6&&0 do              ! REAL INT LREAL;
+   begin
+      if r < n+2.14-eps or r > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - real int lreal(24).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(r, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if r < 6.14-eps or r > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - real int lreal(25).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(r, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for r:= 3.14 step 1&&0 until 6 do              ! REAL LREAL INT;
+   begin
+      if r < n+2.14-eps or r > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - real lreal int(26).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(r, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if r < 6.14-eps or r > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - real lreal int(27).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(r, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for lr:= 3.14 step 1 until 6.0 do                ! LREAL INT REAL;
+   begin
+      if lr < n+2.14-eps or lr > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - lreal int real(28).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(lr, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if lr < 6.14-eps or lr > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - lreal int real(29).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(lr, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for lr:= 3.14 step 1.0 until 6 do                ! LREAL REAL INT;
+   begin
+      if lr < n+2.14-eps or lr > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - lreal real int(30).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(lr, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if lr < 6.14-eps or lr > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - lreal real int(31).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(lr, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for r:= 3.14 step 1.0 until 6 do                   ! REAL REAL INT;
+   begin
+      if r < n+2.14-eps or r > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - real real int(32).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(r, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if r < 6.14-eps or r > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - real real int(33).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(r, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for r:= 3.14 step 1 until 6.0 do                 ! REAL INT REAL;
+   begin
+      if r < n+2.14-eps or r > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - real int real(34).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(r, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if r < 6.14-eps or r > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - real int real(35).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(r, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for i:= 3.14 step 1.0 until 6.0 do                   ! INT REAL REAL;
+   begin
+      if i <> n+2 or n > 4 then
+      begin
+         Outtext("*** ERROR: Iteration - int real real(36).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outint(i, 3);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if i <> 7 or n <> 5 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - int real real(37).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outint(i, 3);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for r:= 3.14 step 1.0 until 6&&0 do            ! REAL REAL LREAL;
+   begin
+      if r < n+2.14-eps or r > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - real real lreal(38).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(r, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if r < 6.14-eps or r > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of ");
+      Outimage;
+      Outtext("***         controlled variable - real real lreal(39).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(r, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for r:= 3.14 step 1&&0 until 6.0 do            ! REAL LREAL REAL;
+   begin
+      if r < n+2.14-eps or r > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - real lreal real(40).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(r, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if r < 6.14-eps or r > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - real lreal real(41).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(r, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for lr:= 3.14 step 1.0 until 6.0 do              ! LREAL REAL REAL;
+   begin
+      if lr < n+2.14-eps or lr > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - lreal real real(42).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(lr, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if lr < 6.14-eps or lr > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - lreal real real(43).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(lr, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for lr:= 3.14 step 1&&0 until 6 do             ! LREAL LREAL INT;
+   begin
+      if lr < n+2.14-eps or lr > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - lreal lreal int(44).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(lr, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if lr < 6.14-eps or lr > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - lreal lreal int(45).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(lr, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for lr:= 3.14 step 1 until 6&&0 do             ! LREAL INT LREAL;
+   begin
+      if lr < n+2.14-eps or lr > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - lreal int lreal(46).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(lr, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if lr < 6.14-eps or lr > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - lreal int lreal(47).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(lr, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for i:= 3.14 step 1&&0 until 6&&0 do         ! INT LREAL LREAL;
+   begin
+      if i <> n+2 or n > 4 then
+      begin
+         Outtext("*** ERROR: Iteration - int lreal lreal(48).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outint(i, 3);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if i <> 7 or n <> 5 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - int lreal lreal(49).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outint(i, 3);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for lr:= 3.14 step 1&&0 until 6.0 do             ! LREAL LREAL REAL;
+   begin
+      if lr < n+2.14-eps or lr > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - lreal lreal real(50).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(lr, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if lr < 6.14-eps or lr > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - lreal lreal real(51).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(lr, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for lr:= 3.14 step 1.0 until 6&&0 do             ! LREAL REAL LREAL;
+   begin
+      if lr < n+2.14-eps or lr > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - lreal real lreal(52).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(lr, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if lr < 6.14-eps or lr > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - lreal real lreal(53).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(lr, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   n := 1;
+
+   for r:= 3.14 step 1&&0 until 6&&0 do         ! REAL LREAL LREAL;
+   begin
+      if r < n+2.14-eps or r > n+2.14+eps or n > 3 then
+      begin
+         Outtext("*** ERROR: Iteration - real lreal lreal(54).");
+         Outimage;
+         Outtext("            Erroneous values :");
+         Outreal(r, 4, 11);
+         Outint(n, 3);
+         Outimage;
+         found_error := true
+      end;
+
+      n := n+1
+   end;
+
+   if r < 6.14-eps or r > 6.14+eps or n <> 4 then
+   begin
+      Outtext("*** ERROR: Number of iterations or final value of");
+      Outimage;
+      Outtext("***         controlled variable - real lreal lreal(55).");
+      Outimage;
+      Outtext("            Erroneous values :");
+      Outreal(r, 4, 11);
+      Outint(n, 3);
+      Outimage;
+      found_error := true
+   end;
+
+
+   if not found_error then
+   begin
+      Outtext("--- NO ERRORS FOUND IN THIS TEST");
+      Outimage;
+   end;
+
+   Outtext("--- END Simula a.s. TEST 23");
+   Outimage;
+
+END
