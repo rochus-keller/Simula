@@ -26,7 +26,8 @@
 #include <QThread>
 #include "SimErrors.h"
 #include "SimParser.h"
-#include "SimParser2.h"
+#include "SimParser3.h"
+#include "SimAst.h"
 
 static QStringList collectFiles( const QDir& dir )
 {
@@ -76,21 +77,6 @@ static void dumpTree( Sim::SynTree* node, int level = 0)
     foreach( Sim::SynTree* sub, node->d_children )
         dumpTree( sub, level + 1 );
 }
-
-class Lex : public Sim::Scanner
-{
-public:
-    Sim::Lexer lex;
-    Sim::Token next()
-    {
-        return lex.nextToken();
-    }
-
-    Sim::Token peek(int offset)
-    {
-        return lex.peekToken(offset);
-    }
-};
 
 int main(int argc, char *argv[])
 {
@@ -161,16 +147,17 @@ int main(int argc, char *argv[])
     Sim::Errors err;
     err.setReportToConsole(true);
 
+    Sim::AstModel mdl;
     foreach( const QString& path, files )
     {
         qDebug() << "processing" << path;
 
-#if 0
         Sim::Lexer lex;
         lex.setStream(path);
         lex.setErrors(&err);
         lex.setIgnoreComments(true);
         lex.setPackComments(true);
+#if 0
     #if 0
         Sim::Token t = lex.nextToken();
         while( t.isValid() )
@@ -185,19 +172,13 @@ int main(int argc, char *argv[])
             dumpTree( &p.d_root );
     #endif
 #else
-        Lex lex;
-        lex.lex.setStream(path);
-        lex.lex.setErrors(&err);
-        lex.lex.setIgnoreComments(true);
-        lex.lex.setPackComments(true);
-        Sim::Parser2 p(&lex);
-        p.RunParser();
+        Sim::Parser3 p(&lex, &mdl);
+        p.parseModule();
         {
-            if( !p.errors.isEmpty() )
+            if( !p.errors().isEmpty() )
             {
-                foreach( const Sim::Parser2::Error& e, p.errors )
-                    qCritical() << e.path << e.row << e.col << e.msg;
-                p.errors.clear();
+                foreach( const Sim::Parser3::ParseError& e, p.errors() )
+                    qCritical() << e.got.d_sourcePath << e.got.d_lineNr << e.got.d_colNr << e.message;
             }
         }
 
