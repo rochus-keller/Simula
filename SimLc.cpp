@@ -78,6 +78,14 @@ static void dumpTree( Sim::SynTree* node, int level = 0)
         dumpTree( sub, level + 1 );
 }
 
+class Lex : public Sim::Scanner {
+public:
+    Sim::Lexer lex;
+    virtual Sim::Token next() { return lex.nextToken(); }
+    virtual Sim::Token peek(int offset) { return lex.peekToken(offset); }
+    virtual QString source() const { return lex.sourcePath(); }
+};
+
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
@@ -152,12 +160,12 @@ int main(int argc, char *argv[])
     {
         qDebug() << "processing" << path;
 
+#if 1
         Sim::Lexer lex;
         lex.setStream(path);
         lex.setErrors(&err);
         lex.setIgnoreComments(true);
         lex.setPackComments(true);
-#if 0
     #if 0
         Sim::Token t = lex.nextToken();
         while( t.isValid() )
@@ -172,13 +180,18 @@ int main(int argc, char *argv[])
             dumpTree( &p.d_root );
     #endif
 #else
+        Lex lex;
+        lex.lex.setStream(path);
+        lex.lex.setErrors(&err);
+        lex.lex.setIgnoreComments(true);
+        lex.lex.setPackComments(true);
         Sim::Parser3 p(&lex, &mdl);
-        p.parseModule();
+        p.RunParser();
         {
-            if( !p.errors().isEmpty() )
+            if( !p.errors.isEmpty() )
             {
-                foreach( const Sim::Parser3::ParseError& e, p.errors() )
-                    qCritical() << e.got.d_sourcePath << e.got.d_lineNr << e.got.d_colNr << e.message;
+                foreach( const Sim::Parser3::Error& e, p.errors )
+                    qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
             }
         }
 

@@ -43,6 +43,8 @@ namespace Sim
         void setIgnoreComments( bool b ) { d_ignoreComments = b; }
         void setPackComments( bool b ) { d_packComments = b; }
 
+        const QString& sourcePath() const { return d_sourcePath; }
+
         Token nextToken();
         Token peekToken(quint8 lookAhead = 1);
         QList<Token> tokens( const QString& code );

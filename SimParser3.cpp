@@ -18,1317 +18,3219 @@
 */
 
 #include "SimParser3.h"
+#include <QtDebug>
+using namespace Sim;
 
-#include <Simula/SimLexer.h>
-#include <Simula/SimErrors.h>
+// FIRST set helper functions (from SimParser2.cpp)
 
-namespace Sim
-{
-    static inline QString tokName(const Token& t)
-    {
-        return QString::fromLatin1(t.getName());
+static inline bool FIRST_module(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_BEGIN:
+    case Tok_CHARACTER:
+    case Tok_TEXT:
+    case Tok_CLASS:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_EXTERNAL:
+    case Tok_REF:
+    case Tok_PROCEDURE:
+    case Tok_identifier:
+        return true;
+    default: return false;
     }
+}
 
-    static inline RowCol toPos(const Token& t)
-    {
-        return RowCol(t.d_lineNr, t.d_colNr);
+static inline bool FIRST_module_body_(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_BEGIN:
+    case Tok_CHARACTER:
+    case Tok_TEXT:
+    case Tok_CLASS:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_REF:
+    case Tok_PROCEDURE:
+    case Tok_identifier:
+        return true;
+    default: return false;
     }
+}
 
-    Parser3::Parser3(Lexer* lexer, AstModel *model)
-        : d_lexer(lexer), d_ast(model), d_errSink(0), d_root(0)
-    {
+static inline bool FIRST_external_head(int tt) {
+    return tt == Tok_EXTERNAL;
+}
+
+static inline bool FIRST_program(int tt) {
+    return tt == Tok_BEGIN || tt == Tok_identifier;
+}
+
+static inline bool FIRST_while_statement(int tt) {
+    return tt == Tok_WHILE;
+}
+
+static inline bool FIRST_block(int tt) {
+    return tt == Tok_BEGIN || tt == Tok_identifier;
+}
+
+static inline bool FIRST_block_prefix(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_actual_parameter_part(int tt) {
+    return tt == Tok_Lpar;
+}
+
+static inline bool FIRST_main_block(int tt) {
+    return tt == Tok_BEGIN;
+}
+
+static inline bool FIRST_compound_tail(int tt) {
+    switch(tt){
+    case Tok_BEGIN:
+    case Tok_NEW:
+    case Tok_GOTO:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_GO:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_FOR:
+    case Tok_THIS:
+    case Tok_REACTIVATE:
+    case Tok_ACTIVATE:
+    case Tok_IF:
+    case Tok_WHILE:
+    case Tok_character:
+    case Tok_INSPECT:
+    case Tok_END:
+    case Tok_FALSE:
+    case Tok_Semi:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
     }
+}
 
-    Token Parser3::la(int k) const
-    {
-        if (!d_lexer)
-            return Token(Tok_Invalid);
-        if (k < 1)
-            k = 1;
-        return d_lexer->peekToken(quint8(k));
+static inline bool FIRST_declaration(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_ARRAY:
+    case Tok_CHARACTER:
+    case Tok_TEXT:
+    case Tok_SWITCH:
+    case Tok_CLASS:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_EXTERNAL:
+    case Tok_REF:
+    case Tok_PROCEDURE:
+    case Tok_identifier:
+        return true;
+    default: return false;
     }
+}
 
-    Token Parser3::take()
-    {
-        if (!d_lexer)
-            return Token(Tok_Invalid);
-        return d_lexer->nextToken();
+static inline bool FIRST_class_declaration(int tt) {
+    return tt == Tok_CLASS || tt == Tok_identifier;
+}
+
+static inline bool FIRST_prefix(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_main_part(int tt) {
+    return tt == Tok_CLASS;
+}
+
+static inline bool FIRST_protection_part(int tt) {
+    return tt == Tok_PROTECTED || tt == Tok_HIDDEN;
+}
+
+static inline bool FIRST_protection_specification(int tt) {
+    return tt == Tok_PROTECTED || tt == Tok_HIDDEN;
+}
+
+static inline bool FIRST_class_body(int tt) {
+    switch(tt){
+    case Tok_BEGIN:
+    case Tok_NEW:
+    case Tok_GOTO:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_GO:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_FOR:
+    case Tok_THIS:
+    case Tok_REACTIVATE:
+    case Tok_ACTIVATE:
+    case Tok_IF:
+    case Tok_WHILE:
+    case Tok_character:
+    case Tok_INSPECT:
+    case Tok_FALSE:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
     }
+}
 
-    bool Parser3::accept(TokenType t)
-    {
-        if (la().d_type == t) {
-            take();
-            return true;
-        }
+static inline bool FIRST_virtual_part(int tt) {
+    return tt == Tok_VIRTUAL;
+}
+
+static inline bool FIRST_virtual_spec(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_CHARACTER:
+    case Tok_ARRAY:
+    case Tok_TEXT:
+    case Tok_SWITCH:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_REF:
+    case Tok_PROCEDURE:
+    case Tok_LABEL:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_procedure_declaration(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_CHARACTER:
+    case Tok_TEXT:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_REF:
+    case Tok_PROCEDURE:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_procedure_heading(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_mode_part(int tt) {
+    return tt == Tok_NAME || tt == Tok_VALUE;
+}
+
+static inline bool FIRST_value_part(int tt) {
+    return tt == Tok_VALUE;
+}
+
+static inline bool FIRST_name_part(int tt) {
+    return tt == Tok_NAME;
+}
+
+static inline bool FIRST_formal_parameter_part(int tt) {
+    return tt == Tok_Lpar;
+}
+
+static inline bool FIRST_formal_parameter_list(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_formal_parameter(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_procedure_body(int tt) {
+    switch(tt){
+    case Tok_BEGIN:
+    case Tok_NEW:
+    case Tok_GOTO:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_GO:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_FOR:
+    case Tok_THIS:
+    case Tok_REACTIVATE:
+    case Tok_ACTIVATE:
+    case Tok_IF:
+    case Tok_WHILE:
+    case Tok_character:
+    case Tok_INSPECT:
+    case Tok_FALSE:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_statement(int tt) {
+    switch(tt){
+    case Tok_BEGIN:
+    case Tok_NEW:
+    case Tok_GOTO:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_GO:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_FOR:
+    case Tok_THIS:
+    case Tok_REACTIVATE:
+    case Tok_ACTIVATE:
+    case Tok_IF:
+    case Tok_WHILE:
+    case Tok_character:
+    case Tok_INSPECT:
+    case Tok_FALSE:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_unconditional_statement(int tt) {
+    switch(tt){
+    case Tok_BEGIN:
+    case Tok_NEW:
+    case Tok_GOTO:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_GO:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_REACTIVATE:
+    case Tok_ACTIVATE:
+    case Tok_character:
+    case Tok_INSPECT:
+    case Tok_FALSE:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_Common_Base_statement(int tt) {
+    switch(tt){
+    case Tok_BEGIN:
+    case Tok_NEW:
+    case Tok_GOTO:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_GO:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_FOR:
+    case Tok_THIS:
+    case Tok_REACTIVATE:
+    case Tok_ACTIVATE:
+    case Tok_IF:
+    case Tok_character:
+    case Tok_INSPECT:
+    case Tok_FALSE:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_Common_Base_conditional_statement(int tt) {
+    return tt == Tok_IF;
+}
+
+static inline bool FIRST_for_statement(int tt) {
+    return tt == Tok_FOR;
+}
+
+static inline bool FIRST_for_clause(int tt) {
+    return tt == Tok_FOR;
+}
+
+static inline bool FIRST_for_right_part(int tt) {
+    return tt == Tok_ColonEq || tt == Tok_ColonMinus;
+}
+
+static inline bool FIRST_value_for_list(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_IF:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_object_for_list(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_IF:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_go_to_statement(int tt) {
+    return tt == Tok_GOTO || tt == Tok_GO;
+}
+
+static inline bool FIRST_unlabelled_basic_statement(int tt) {
+    switch(tt){
+    case Tok_BEGIN:
+    case Tok_NEW:
+    case Tok_GOTO:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_GO:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_REACTIVATE:
+    case Tok_ACTIVATE:
+    case Tok_character:
+    case Tok_INSPECT:
+    case Tok_FALSE:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_when_clause(int tt) {
+    return tt == Tok_WHEN;
+}
+
+static inline bool FIRST_otherwise_clause(int tt) {
+    return tt == Tok_OTHERWISE;
+}
+
+static inline bool FIRST_connection_part(int tt) {
+    return tt == Tok_WHEN;
+}
+
+static inline bool FIRST_connection_statement(int tt) {
+    return tt == Tok_INSPECT;
+}
+
+static inline bool FIRST_activator(int tt) {
+    return tt == Tok_REACTIVATE || tt == Tok_ACTIVATE;
+}
+
+static inline bool FIRST_activation_clause(int tt) {
+    return tt == Tok_REACTIVATE || tt == Tok_ACTIVATE;
+}
+
+static inline bool FIRST_simple_timing_clause(int tt) {
+    return tt == Tok_AT || tt == Tok_DELAY;
+}
+
+static inline bool FIRST_timing_clause(int tt) {
+    return tt == Tok_AT || tt == Tok_DELAY;
+}
+
+static inline bool FIRST_scheduling_clause(int tt) {
+    return tt == Tok_AT || tt == Tok_BEFORE || tt == Tok_DELAY || tt == Tok_AFTER;
+}
+
+static inline bool FIRST_activation_statement(int tt) {
+    return tt == Tok_REACTIVATE || tt == Tok_ACTIVATE;
+}
+
+static inline bool FIRST_specifier(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_CHARACTER:
+    case Tok_ARRAY:
+    case Tok_TEXT:
+    case Tok_SWITCH:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_REF:
+    case Tok_PROCEDURE:
+    case Tok_LABEL:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_specification_part(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_CHARACTER:
+    case Tok_ARRAY:
+    case Tok_TEXT:
+    case Tok_SWITCH:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_REF:
+    case Tok_PROCEDURE:
+    case Tok_LABEL:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_procedure_specification(int tt) {
+    return tt == Tok_IS;
+}
+
+static inline bool FIRST_external_item(int tt) {
+    return tt == Tok_identifier || tt == Tok_string;
+}
+
+static inline bool FIRST_external_list(int tt) {
+    return tt == Tok_identifier || tt == Tok_string;
+}
+
+static inline bool FIRST_external_declaration(int tt) {
+    return tt == Tok_EXTERNAL;
+}
+
+static inline bool FIRST_switch_declaration(int tt) {
+    return tt == Tok_SWITCH;
+}
+
+static inline bool FIRST_switch_list(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_IF:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_type_list_element(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_type_list(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_type_declaration(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_CHARACTER:
+    case Tok_TEXT:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_REF:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_array_list(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_array_segment(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_bound_pair_list(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_IF:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_array_declaration(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_ARRAY:
+    case Tok_CHARACTER:
+    case Tok_TEXT:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_REF:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_type(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_CHARACTER:
+    case Tok_TEXT:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+    case Tok_REF:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_value_type(int tt) {
+    switch(tt){
+    case Tok_SHORT:
+    case Tok_INTEGER:
+    case Tok_CHARACTER:
+    case Tok_BOOLEAN:
+    case Tok_LONG:
+    case Tok_REAL:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_reference_type(int tt) {
+    return tt == Tok_TEXT || tt == Tok_REF;
+}
+
+static inline bool FIRST_object_reference(int tt) {
+    return tt == Tok_REF;
+}
+
+static inline bool FIRST_if_clause(int tt) {
+    return tt == Tok_IF;
+}
+
+static inline bool FIRST_local_object(int tt) {
+    return tt == Tok_THIS;
+}
+
+static inline bool FIRST_object_generator(int tt) {
+    return tt == Tok_NEW;
+}
+
+static inline bool FIRST_actual_parameter_list(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_IF:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_expression(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_IF:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_quaternary_(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_tertiary_(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_equivalence_(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_equiv_sym_(int tt) {
+    return tt == Tok_EQUIV || tt == Tok_Ueq || tt == Tok_2Eq || tt == Tok_EQV;
+}
+
+static inline bool FIRST_implication(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_impl_sym_(int tt) {
+    return tt == Tok_IMPL || tt == Tok_Uimpl || tt == Tok_MinusGt || tt == Tok_IMP;
+}
+
+static inline bool FIRST_simple_expression_(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_adding_operator(int tt) {
+    return tt == Tok_Plus || tt == Tok_Minus;
+}
+
+static inline bool FIRST_or_sym_(int tt) {
+    return tt == Tok_OR || tt == Tok_Uor || tt == Tok_Bar;
+}
+
+static inline bool FIRST_term(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_multiplying_operator(int tt) {
+    switch(tt){
+    case Tok_Star:
+    case Tok_Slash:
+    case Tok_Percent:
+    case Tok_Udiv:
+    case Tok_Umul:
+    case Tok_2Slash:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_and_sym_(int tt) {
+    return tt == Tok_Uand || tt == Tok_Amp || tt == Tok_AND;
+}
+
+static inline bool FIRST_factor(int tt) {
+    switch(tt){
+    case Tok_unsigned_integer:
+    case Tok_NOT:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Bang:
+    case Tok_TRUE:
+    case Tok_decimal_number:
+    case Tok_THIS:
+    case Tok_NONE:
+    case Tok_Lpar:
+    case Tok_NOTEXT:
+    case Tok_character:
+    case Tok_identifier:
+    case Tok_Minus:
+    case Tok_NEW:
+    case Tok_string:
+    case Tok_Plus:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_power_sym_(int tt) {
+    return tt == Tok_2Star || tt == Tok_Uexp || tt == Tok_Hat || tt == Tok_POWER;
+}
+
+static inline bool FIRST_secondary(int tt) {
+    switch(tt){
+    case Tok_unsigned_integer:
+    case Tok_NOT:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Bang:
+    case Tok_TRUE:
+    case Tok_THIS:
+    case Tok_decimal_number:
+    case Tok_NONE:
+    case Tok_Lpar:
+    case Tok_NOTEXT:
+    case Tok_character:
+    case Tok_identifier:
+    case Tok_Minus:
+    case Tok_NEW:
+    case Tok_string:
+    case Tok_Plus:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_not_sym_(int tt) {
+    return tt == Tok_NOT || tt == Tok_Unot || tt == Tok_Bang;
+}
+
+static inline bool FIRST_primary(int tt) {
+    switch(tt){
+    case Tok_unsigned_integer:
+    case Tok_FALSE:
+    case Tok_TRUE:
+    case Tok_decimal_number:
+    case Tok_THIS:
+    case Tok_NONE:
+    case Tok_Lpar:
+    case Tok_NOTEXT:
+    case Tok_character:
+    case Tok_identifier:
+    case Tok_NEW:
+    case Tok_string:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_primary_nlr_(int tt) {
+    switch(tt){
+    case Tok_NE:
+    case Tok_BangEq:
+    case Tok_LE:
+    case Tok_QUA:
+    case Tok_Dot:
+    case Tok_Lpar:
+    case Tok_Uleq:
+    case Tok_NOTGREATER:
+    case Tok_Geq:
+    case Tok_Lt:
+    case Tok_Uneq:
+    case Tok_GE:
+    case Tok_IS:
+    case Tok_LESS:
+    case Tok_Gt:
+    case Tok_EQ:
+    case Tok_Eq:
+    case Tok_LtGt:
+    case Tok_NOTEQUAL:
+    case Tok_Lbrack:
+    case Tok_2Eq:
+    case Tok_EqSlashEq:
+    case Tok_GREATER:
+    case Tok_HatEq:
+    case Tok_GT:
+    case Tok_IN:
+    case Tok_Leq:
+    case Tok_LT:
+    case Tok_Ugeq:
+    case Tok_NOTLESS:
+    case Tok_EQUAL:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_relation_(int tt) {
+    switch(tt){
+    case Tok_NE:
+    case Tok_BangEq:
+    case Tok_LE:
+    case Tok_Uleq:
+    case Tok_NOTGREATER:
+    case Tok_Geq:
+    case Tok_Lt:
+    case Tok_Uneq:
+    case Tok_GE:
+    case Tok_IS:
+    case Tok_LESS:
+    case Tok_Gt:
+    case Tok_EQ:
+    case Tok_Eq:
+    case Tok_LtGt:
+    case Tok_NOTEQUAL:
+    case Tok_2Eq:
+    case Tok_EqSlashEq:
+    case Tok_GREATER:
+    case Tok_HatEq:
+    case Tok_GT:
+    case Tok_IN:
+    case Tok_Leq:
+    case Tok_LT:
+    case Tok_Ugeq:
+    case Tok_NOTLESS:
+    case Tok_EQUAL:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_qualified_(int tt) {
+    return tt == Tok_QUA;
+}
+
+static inline bool FIRST_selector_(int tt) {
+    return tt == Tok_Lbrack || tt == Tok_Dot || tt == Tok_Lpar;
+}
+
+static inline bool FIRST_relational_operator(int tt) {
+    switch(tt){
+    case Tok_NE:
+    case Tok_BangEq:
+    case Tok_LE:
+    case Tok_Uleq:
+    case Tok_NOTGREATER:
+    case Tok_Geq:
+    case Tok_Lt:
+    case Tok_Uneq:
+    case Tok_GE:
+    case Tok_IS:
+    case Tok_LESS:
+    case Tok_Gt:
+    case Tok_EQ:
+    case Tok_Eq:
+    case Tok_LtGt:
+    case Tok_NOTEQUAL:
+    case Tok_2Eq:
+    case Tok_EqSlashEq:
+    case Tok_GREATER:
+    case Tok_HatEq:
+    case Tok_GT:
+    case Tok_IN:
+    case Tok_Leq:
+    case Tok_LT:
+    case Tok_Ugeq:
+    case Tok_NOTLESS:
+    case Tok_EQUAL:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_logical_value(int tt) {
+    return tt == Tok_FALSE || tt == Tok_TRUE;
+}
+
+static inline bool FIRST_unsigned_number(int tt) {
+    return tt == Tok_unsigned_integer || tt == Tok_decimal_number;
+}
+
+static inline bool FIRST_class_identifier(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_identifier_list(int tt) {
+    return tt == Tok_identifier;
+}
+
+static inline bool FIRST_subscript_list(int tt) {
+    switch(tt){
+    case Tok_NEW:
+    case Tok_Lpar:
+    case Tok_string:
+    case Tok_NOTEXT:
+    case Tok_Bang:
+    case Tok_Plus:
+    case Tok_unsigned_integer:
+    case Tok_NONE:
+    case Tok_TRUE:
+    case Tok_identifier:
+    case Tok_THIS:
+    case Tok_NOT:
+    case Tok_IF:
+    case Tok_character:
+    case Tok_Unot:
+    case Tok_FALSE:
+    case Tok_Minus:
+    case Tok_decimal_number:
+        return true;
+    default: return false;
+    }
+}
+
+static inline bool FIRST_string_(int tt) {
+    return tt == Tok_string;
+}
+
+// Parser implementation
+
+Parser3::Parser3(Scanner* s, AstModel* m) : scanner(s), mdl(m), thisMod(0) {
+}
+
+Parser3::~Parser3() {
+    if (thisMod)
+        Declaration::deleteAll(thisMod);
+}
+
+Declaration* Parser3::RunParser() {
+    errors.clear();
+    next();
+    return module();
+}
+
+Declaration* Parser3::takeResult() {
+    Declaration* res = thisMod;
+    thisMod = 0;
+    return res;
+}
+
+void Parser3::next() {
+    cur = la;
+    la = scanner->next();
+    while (la.d_type == Tok_Invalid) {
+        errors << Error(la.d_val, toRowCol(la), la.d_sourcePath);
+        la = scanner->next();
+    }
+}
+
+Token Parser3::peek(int off) {
+    if (off == 1)
+        return la;
+    else if (off == 0)
+        return cur;
+    else
+        return scanner->peek(off - 1);
+}
+
+void Parser3::error(const Token& t, const QString& msg) {
+    errors << Error(msg, toRowCol(t), t.d_sourcePath);
+}
+
+void Parser3::invalid(const char* what) {
+    errors << Error(QString("invalid %1").arg(what), toRowCol(la), la.d_sourcePath);
+}
+
+bool Parser3::expect(int tt, bool pkw, const char* where) {
+    if (la.d_type == tt) {
+        next();
+        return true;
+    } else {
+        errors << Error(QString("'%1' expected in %2").arg(tokenTypeString(tt)).arg(where),
+                       toRowCol(la), la.d_sourcePath);
         return false;
     }
+}
 
-    bool Parser3::expect(TokenType t, const char* what, const char* rule)
-    {
-        if (accept(t))
-            return true;
+RowCol Parser3::toRowCol(const Token& t) const {
+    return RowCol(t.d_lineNr, t.d_colNr);
+}
 
-        const Token got = la();
-        QString msg;
-        if (what && *what) {
-            msg = QString("Expected %1, got %2.")
-                      .arg(QString::fromLatin1(what), tokName(got));
-        } else {
-            msg = QString("Expected %1, got %2.")
-                      .arg(QString::fromLatin1(Token(t).getName()), tokName(got));
-        }
-
-        addError(msg, {t}, rule, got);
+bool Parser3::versionCheck(SimulaVersion minVersion, const char* feature) {
+    // Check if current version supports this feature (requires at least minVersion)
+    // Returns true if OK, false if version too old
+    // Note: Sim70 < Sim75 < Sim86
+    SimulaVersion currentVersion = mdl ? Sim86 : Sim86; // TODO: get from mdl
+    if (currentVersion < minVersion) {
+        if (feature)
+            error(la, QString("'%1' requires Simula %2 or later").arg(feature).arg(
+                minVersion == Sim75 ? "75" : "86"));
         return false;
     }
+    return true;
+}
 
-    void Parser3::addError(const QString& msg,
-                           const QVector<TokenType>& expected,
-                           const char* rule,
-                           const Token& at)
-    {
-        const Token locTok = at.isValid() ? at : la();
-        const QString r = rule ? QString::fromLatin1(rule) : QString();
+bool Parser3::versionMax(SimulaVersion maxVersion, const char* feature) {
+    // Check if current version allows this feature (requires at most maxVersion)
+    // Returns true if OK, false if version too new
+    SimulaVersion currentVersion = mdl ? Sim86 : Sim86; // TODO: get from mdl
+    if (currentVersion > maxVersion) {
+        if (feature)
+            error(la, QString("'%1' is not available in Simula %2").arg(feature).arg(
+                currentVersion == Sim75 ? "75" : "86"));
+        return false;
+    }
+    return true;
+}
 
-        d_errors.append(ParseError(msg, locTok, expected, r));
+// Module parsing
 
-        if (d_errSink) {
-            d_errSink->error(Errors::Syntax,
-                             locTok.d_sourcePath,
-                             int(locTok.d_lineNr),
-                             int(locTok.d_colNr),
-                             msg);
+Declaration* Parser3::module() {
+    Declaration* m = new Declaration(Declaration::Module);
+    if (thisMod)
+        Declaration::deleteAll(thisMod);
+    thisMod = m;
+    
+    ModuleData md;
+    md.sourcePath = scanner->source();
+    m->data = QVariant::fromValue(md);
+    
+    mdl->openScope(m);
+    
+    if (FIRST_external_head(la.d_type)) {
+        external_head();
+    }
+    
+    Declaration* body = module_body_();
+    if (body) {
+        m->body = body->body;
+        body->body = 0;
+        // Transfer any declarations from body to module
+    }
+    
+    while (la.d_type == Tok_Semi) {
+        expect(Tok_Semi, false, "module");
+        if (FIRST_module_body_(la.d_type)) {
+            Declaration* nextBody = module_body_();
+            // Additional module bodies are additional declarations
         }
     }
+    
+    mdl->closeScope();
+    return m;
+}
 
-    void Parser3::synchronize()
-    {
-        for (;;) {
-            const Token t = la();
-            if (!t.isValid() || t.d_type == Tok_Eof)
-                return;
+Declaration* Parser3::module_body_() {
+    if ((peek(1).d_type == Tok_CLASS || peek(1).d_type == Tok_identifier) &&
+        (peek(2).d_type == Tok_CLASS || peek(2).d_type == Tok_identifier)) {
+        return class_declaration();
+    } else if (FIRST_procedure_declaration(la.d_type)) {
+        return procedure_declaration();
+    } else if (FIRST_program(la.d_type)) {
+        return program();
+    } else {
+        invalid("module_body_");
+        return 0;
+    }
+}
 
-            switch (t.d_type) {
-            case Tok_Semi:
-            case Tok_END:
-            case Tok_ELSE:
-            case Tok_WHEN:
-            case Tok_OTHERWISE:
-                return;
-            default:
-                take();
+void Parser3::external_head() {
+    Declaration* ext = external_declaration();
+    expect(Tok_Semi, false, "external_head");
+    while (FIRST_external_declaration(la.d_type)) {
+        ext = external_declaration();
+        expect(Tok_Semi, false, "external_head");
+    }
+}
+
+Declaration* Parser3::program() {
+    Declaration* prog = new Declaration(Declaration::Scope);
+    prog->name = "program";
+    prog->pos = toRowCol(la);
+    
+    // Handle labels
+    while ((peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Colon)) {
+        QByteArray lbl = label();
+        expect(Tok_Colon, false, "program");
+        // Create label declaration
+        Declaration* lblDecl = mdl->addDecl(lbl, Declaration::LabelDecl);
+        lblDecl->pos = toRowCol(cur);
+    }
+    
+    prog->body = block();
+    return prog;
+}
+
+// Statement parsing
+
+Statement* Parser3::while_statement() {
+    expect(Tok_WHILE, false, "while_statement");
+    RowCol pos = toRowCol(cur);
+    
+    Expression* cond = expression();
+    expect(Tok_DO, false, "while_statement");
+    Statement* body = statement();
+    
+    Statement* stmt = new Statement(Statement::While, pos);
+    stmt->expr = cond;
+    stmt->body = body;
+    return stmt;
+}
+
+Statement* Parser3::block() {
+    QByteArray prefixName;
+    QList<Expression*> args;
+    
+    if (FIRST_block_prefix(la.d_type)) {
+        block_prefix(prefixName, args);
+    }
+    return main_block(prefixName, args);
+}
+
+void Parser3::block_prefix(QByteArray& prefixName, QList<Expression*>& args) {
+    prefixName = class_identifier();
+    if (FIRST_actual_parameter_part(la.d_type)) {
+        actual_parameter_part(args);
+    }
+}
+
+void Parser3::actual_parameter_part(QList<Expression*>& args) {
+    expect(Tok_Lpar, false, "actual_parameter_part");
+    actual_parameter_list(args);
+    expect(Tok_Rpar, false, "actual_parameter_part");
+}
+
+Statement* Parser3::main_block(const QByteArray& prefixName, const QList<Expression*>& args) {
+    expect(Tok_BEGIN, false, "main_block");
+    RowCol pos = toRowCol(cur);
+    
+    Statement* blk = new Statement(Statement::Block, pos);
+    
+    // Store prefix info if present
+    if (!prefixName.isEmpty()) {
+        Expression* prefixExpr = new Expression(Expression::Identifier, pos);
+        prefixExpr->val = prefixName;
+        blk->expr = prefixExpr;
+        // Args would be stored in a call-like structure
+    }
+    
+    // Open a new scope for the block
+    Declaration* blockScope = new Declaration(Declaration::Scope);
+    blockScope->pos = pos;
+    mdl->openScope(blockScope);
+    
+    // Parse declarations
+    if (((peek(1).d_type == Tok_ARRAY || peek(1).d_type == Tok_BOOLEAN ||
+          peek(1).d_type == Tok_CHARACTER || peek(1).d_type == Tok_CLASS ||
+          peek(1).d_type == Tok_EXTERNAL || peek(1).d_type == Tok_INTEGER ||
+          peek(1).d_type == Tok_LONG || peek(1).d_type == Tok_PROCEDURE ||
+          peek(1).d_type == Tok_REAL || peek(1).d_type == Tok_REF ||
+          peek(1).d_type == Tok_SHORT || peek(1).d_type == Tok_SWITCH ||
+          peek(1).d_type == Tok_TEXT) ||
+         (peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_CLASS))) {
+        declaration();
+        while ((peek(1).d_type == Tok_Semi &&
+                ((peek(2).d_type == Tok_ARRAY || peek(2).d_type == Tok_BOOLEAN ||
+                  peek(2).d_type == Tok_CHARACTER || peek(2).d_type == Tok_CLASS ||
+                  peek(2).d_type == Tok_EXTERNAL || peek(2).d_type == Tok_INTEGER ||
+                  peek(2).d_type == Tok_LONG || peek(2).d_type == Tok_PROCEDURE ||
+                  peek(2).d_type == Tok_REAL || peek(2).d_type == Tok_REF ||
+                  peek(2).d_type == Tok_SHORT || peek(2).d_type == Tok_SWITCH ||
+                  peek(2).d_type == Tok_TEXT) ||
+                 (peek(2).d_type == Tok_identifier && peek(3).d_type == Tok_CLASS)))) {
+            expect(Tok_Semi, false, "main_block");
+            declaration();
+        }
+        expect(Tok_Semi, false, "main_block");
+    }
+    
+    blk->body = compound_tail();
+    
+    mdl->closeScope();
+    return blk;
+}
+
+Statement* Parser3::compound_tail() {
+    Statement* first = 0;
+    Statement* last = 0;
+    
+    if (FIRST_statement(la.d_type) ||
+        (peek(1).d_type == Tok_Semi && !(peek(2).d_type == Tok_END) && !(peek(2).d_type == Tok_INNER))) {
+        first = statement();
+        last = first;
+        while ((peek(1).d_type == Tok_Semi && !(peek(2).d_type == Tok_END) && !(peek(2).d_type == Tok_INNER))) {
+            expect(Tok_Semi, false, "compound_tail");
+            Statement* s = statement();
+            if (s) {
+                if (last)
+                    last->append(s);
+                else
+                    first = s;
+                last = s;
+            }
+        }
+    }
+    
+    // Handle INNER
+    if ((peek(1).d_type == Tok_Semi && peek(2).d_type == Tok_INNER)) {
+        expect(Tok_Semi, false, "compound_tail");
+        expect(Tok_INNER, false, "compound_tail");
+        Statement* inner = new Statement(Statement::Inner, toRowCol(cur));
+        if (last)
+            last->append(inner);
+        else
+            first = inner;
+        last = inner;
+        
+        while ((peek(1).d_type == Tok_Semi && !(peek(2).d_type == Tok_END))) {
+            expect(Tok_Semi, false, "compound_tail");
+            Statement* s = statement();
+            if (s) {
+                last->append(s);
+                last = s;
+            }
+        }
+    }
+    
+    if (la.d_type == Tok_Semi) {
+        expect(Tok_Semi, false, "compound_tail");
+    }
+    expect(Tok_END, false, "compound_tail");
+    
+    return first;
+}
+
+// Declaration parsing
+
+void Parser3::declaration() {
+    if (FIRST_switch_declaration(la.d_type)) {
+        switch_declaration();
+    } else if (FIRST_external_declaration(la.d_type)) {
+        external_declaration();
+    } else if (((peek(1).d_type == Tok_PROCEDURE || peek(2).d_type == Tok_PROCEDURE ||
+                 (peek(1).d_type == Tok_SHORT || peek(1).d_type == Tok_LONG) && peek(3).d_type == Tok_PROCEDURE ||
+                 peek(1).d_type == Tok_REF && peek(5).d_type == Tok_PROCEDURE))) {
+        procedure_declaration();
+    } else if (((peek(1).d_type == Tok_ARRAY || peek(2).d_type == Tok_ARRAY ||
+                 (peek(1).d_type == Tok_SHORT || peek(1).d_type == Tok_LONG) && peek(3).d_type == Tok_ARRAY ||
+                 peek(1).d_type == Tok_REF && peek(5).d_type == Tok_ARRAY))) {
+        array_declaration();
+    } else if (((peek(1).d_type == Tok_CLASS || peek(2).d_type == Tok_CLASS))) {
+        class_declaration();
+    } else if (FIRST_type_declaration(la.d_type)) {
+        type_declaration();
+    } else {
+        invalid("declaration");
+    }
+}
+
+Declaration* Parser3::class_declaration() {
+    QByteArray prefixName = prefix();
+    
+    Declaration* classDecl = new Declaration(Declaration::Class);
+    classDecl->pos = toRowCol(la);
+    
+    main_part(classDecl);
+    
+    // Link prefix if present
+    if (!prefixName.isEmpty()) {
+        // Will be resolved during semantic analysis
+        classDecl->data = prefixName;
+    }
+    
+    return classDecl;
+}
+
+QByteArray Parser3::prefix() {
+    if (FIRST_class_identifier(la.d_type)) {
+        return class_identifier();
+    }
+    return QByteArray();
+}
+
+void Parser3::main_part(Declaration* classDecl) {
+    expect(Tok_CLASS, false, "main_part");
+    
+    expect(Tok_identifier, false, "main_part");
+    classDecl->name = cur.d_val;
+    classDecl->pos = toRowCol(cur);
+    
+    // Add to current scope
+    mdl->currentScope()->appendMember(classDecl);
+    classDecl->outer = mdl->currentScope();
+    
+    mdl->openScope(classDecl);
+    
+    formal_parameter_part(classDecl);
+    expect(Tok_Semi, false, "main_part");
+    
+    if (FIRST_value_part(la.d_type)) {
+        value_part(classDecl);
+    }
+    
+    while (((peek(1).d_type == Tok_ARRAY || peek(1).d_type == Tok_BOOLEAN ||
+             peek(1).d_type == Tok_CHARACTER || peek(1).d_type == Tok_INTEGER ||
+             peek(1).d_type == Tok_LABEL || peek(1).d_type == Tok_LONG ||
+             peek(1).d_type == Tok_PROCEDURE || peek(1).d_type == Tok_REAL ||
+             peek(1).d_type == Tok_REF || peek(1).d_type == Tok_SHORT ||
+             peek(1).d_type == Tok_SWITCH || peek(1).d_type == Tok_TEXT) &&
+            (peek(2).d_type == Tok_ARRAY || peek(2).d_type == Tok_INTEGER ||
+             peek(2).d_type == Tok_Lpar || peek(2).d_type == Tok_PROCEDURE ||
+             peek(2).d_type == Tok_REAL || peek(2).d_type == Tok_identifier))) {
+        specification_part(classDecl);
+    }
+    
+    if (FIRST_protection_part(la.d_type)) {
+        if (!versionCheck(Sim75, "HIDDEN/PROTECTED")) {
+            // Skip but continue parsing
+        }
+        protection_part(classDecl);
+        expect(Tok_Semi, false, "main_part");
+    }
+    
+    virtual_part(classDecl);
+    classDecl->body = class_body();
+    
+    mdl->closeScope();
+}
+
+void Parser3::protection_part(Declaration* classDecl) {
+    protection_specification(classDecl);
+    while ((peek(1).d_type == Tok_Semi && (peek(2).d_type == Tok_HIDDEN || peek(2).d_type == Tok_PROTECTED))) {
+        expect(Tok_Semi, false, "protection_part");
+        protection_specification(classDecl);
+    }
+}
+
+void Parser3::protection_specification(Declaration* classDecl) {
+    Declaration::Visi visi = Declaration::NA;
+    bool hidden = false;
+    bool prot = false;
+    
+    if (la.d_type == Tok_HIDDEN) {
+        expect(Tok_HIDDEN, false, "protection_specification");
+        hidden = true;
+        if (la.d_type == Tok_PROTECTED) {
+            expect(Tok_PROTECTED, false, "protection_specification");
+            prot = true;
+        }
+    } else if (la.d_type == Tok_PROTECTED) {
+        expect(Tok_PROTECTED, false, "protection_specification");
+        prot = true;
+        if (la.d_type == Tok_HIDDEN) {
+            expect(Tok_HIDDEN, false, "protection_specification");
+            hidden = true;
+        }
+    } else {
+        invalid("protection_specification");
+        return;
+    }
+    
+    if (hidden)
+        visi = Declaration::Hidden;
+    else if (prot)
+        visi = Declaration::Protected;
+    
+    QList<QByteArray> ids = identifier_list();
+    // Mark the identified members with visibility
+    // This will be resolved during semantic analysis
+}
+
+Statement* Parser3::class_body() {
+    if (FIRST_statement(la.d_type)) {
+        return statement();
+    }
+    return 0;
+}
+
+void Parser3::virtual_part(Declaration* classDecl) {
+    if (la.d_type == Tok_VIRTUAL) {
+        expect(Tok_VIRTUAL, false, "virtual_part");
+        expect(Tok_Colon, false, "virtual_part");
+        virtual_spec(classDecl);
+        expect(Tok_Semi, false, "virtual_part");
+        while (((peek(1).d_type == Tok_ARRAY || peek(1).d_type == Tok_BOOLEAN ||
+                 peek(1).d_type == Tok_CHARACTER || peek(1).d_type == Tok_INTEGER ||
+                 peek(1).d_type == Tok_LABEL || peek(1).d_type == Tok_LONG ||
+                 peek(1).d_type == Tok_PROCEDURE || peek(1).d_type == Tok_REAL ||
+                 peek(1).d_type == Tok_REF || peek(1).d_type == Tok_SHORT ||
+                 peek(1).d_type == Tok_SWITCH || peek(1).d_type == Tok_TEXT) &&
+                (peek(2).d_type == Tok_ARRAY || peek(2).d_type == Tok_INTEGER ||
+                 peek(2).d_type == Tok_Lpar || peek(2).d_type == Tok_PROCEDURE ||
+                 peek(2).d_type == Tok_REAL || peek(2).d_type == Tok_Semi ||
+                 peek(2).d_type == Tok_identifier))) {
+            virtual_spec(classDecl);
+            expect(Tok_Semi, false, "virtual_part");
+        }
+    }
+}
+
+void Parser3::virtual_spec(Declaration* classDecl) {
+    bool isArray = false;
+    bool isProcedure = false;
+    Type* t = specifier(isArray, isProcedure);
+    
+    QList<QByteArray> ids = identifier_list();
+    
+    for (int i = 0; i < ids.size(); i++) {
+        Declaration* virtDecl = new Declaration(Declaration::VirtualSpec);
+        virtDecl->name = ids[i];
+        virtDecl->pos = toRowCol(cur);
+        virtDecl->isVirtual = true;
+        virtDecl->setType(t);
+        classDecl->appendMember(virtDecl);
+        virtDecl->outer = classDecl;
+    }
+    
+    if (FIRST_procedure_specification(la.d_type)) {
+        // SIM86 feature
+        if (versionCheck(Sim86, "IS procedure_specification")) {
+            // procedure_specification will be parsed
+        }
+        // For now, skip the procedure specification parsing
+        // as it's complex and version-specific
+        if (la.d_type == Tok_IS) {
+            expect(Tok_IS, false, "virtual_spec");
+            procedure_declaration();
+        }
+    }
+}
+
+Declaration* Parser3::procedure_declaration() {
+    Type* retType = 0;
+    if (FIRST_type(la.d_type)) {
+        retType = type();
+    }
+    
+    expect(Tok_PROCEDURE, false, "procedure_declaration");
+    RowCol pos = toRowCol(cur);
+    
+    Declaration* procDecl = new Declaration(Declaration::Procedure);
+    procDecl->pos = pos;
+    procDecl->setType(retType ? retType : mdl->getType(Type::NoType));
+    
+    procedure_heading(procDecl);
+    
+    // Add to current scope
+    mdl->currentScope()->appendMember(procDecl);
+    procDecl->outer = mdl->currentScope();
+    
+    mdl->openScope(procDecl);
+    procDecl->body = procedure_body();
+    mdl->closeScope();
+    
+    return procDecl;
+}
+
+void Parser3::procedure_heading(Declaration* procDecl) {
+    expect(Tok_identifier, false, "procedure_heading");
+    procDecl->name = cur.d_val;
+    procDecl->pos = toRowCol(cur);
+    
+    formal_parameter_part(procDecl);
+    expect(Tok_Semi, false, "procedure_heading");
+    
+    if (FIRST_mode_part(la.d_type)) {
+        mode_part(procDecl);
+    }
+    
+    while (((peek(1).d_type == Tok_ARRAY || peek(1).d_type == Tok_BOOLEAN ||
+             peek(1).d_type == Tok_CHARACTER || peek(1).d_type == Tok_INTEGER ||
+             peek(1).d_type == Tok_LABEL || peek(1).d_type == Tok_LONG ||
+             peek(1).d_type == Tok_PROCEDURE || peek(1).d_type == Tok_REAL ||
+             peek(1).d_type == Tok_REF || peek(1).d_type == Tok_SHORT ||
+             peek(1).d_type == Tok_SWITCH || peek(1).d_type == Tok_TEXT) &&
+            (peek(2).d_type == Tok_ARRAY || peek(2).d_type == Tok_INTEGER ||
+             peek(2).d_type == Tok_Lpar || peek(2).d_type == Tok_PROCEDURE ||
+             peek(2).d_type == Tok_REAL || peek(2).d_type == Tok_identifier))) {
+        specification_part(procDecl);
+    }
+}
+
+void Parser3::mode_part(Declaration* procDecl) {
+    if (la.d_type == Tok_NAME) {
+        name_part(procDecl);
+        if (FIRST_value_part(la.d_type)) {
+            value_part(procDecl);
+        }
+    } else if (la.d_type == Tok_VALUE) {
+        value_part(procDecl);
+        if (FIRST_name_part(la.d_type)) {
+            name_part(procDecl);
+        }
+    }
+}
+
+void Parser3::value_part(Declaration* procDecl) {
+    expect(Tok_VALUE, false, "value_part");
+    QList<QByteArray> ids = identifier_list();
+    expect(Tok_Semi, false, "value_part");
+    
+    // Mark parameters as value mode
+    Declaration* param = procDecl->link;
+    while (param) {
+        for (int i = 0; i < ids.size(); i++) {
+            if (param->name == ids[i]) {
+                param->mode = Declaration::ModeValue;
                 break;
             }
         }
+        param = param->next;
     }
-
-
-
-
-
-    void Parser3::type()
-    {
-        // Minimal: [SHORT|LONG] (INTEGER|REAL|BOOLEAN|CHARACTER|TEXT|REF class_identifier)
-        if (TT(this) == Tok_SHORT) take();
-        else if (TT(this) == Tok_LONG) take();
-
-        if (TT(this) == Tok_INTEGER || TT(this) == Tok_REAL || TT(this) == Tok_BOOLEAN ||
-            TT(this) == Tok_CHARACTER || TT(this) == Tok_TEXT) {
-            take();
-            return;
-        }
-
-        if (TT(this) == Tok_REF) {
-            take();
-            class_identifier(); // minimal identifier for now
-            return;
-        }
-
-        addError(QString("type not implemented for token %1.").arg(tokName(la())), {}, "type");
-        synchronize();
-    }
-
-    void Parser3::variable_identifier()
-    {
-        expect(Tok_identifier, "identifier", "variable_identifier");
-    }
-
-    void Parser3::parameter_delimiter()
-    {
-        expect(Tok_Comma, "','", "parameter_delimiter");
-    }
-
-    void Parser3::relation_()
-    {
-        relational_operator();
-        simple_expression_();
-    }
-
-    void Parser3::qualified_()
-    {
-        expect(Tok_QUA, "QUA", "qualified_");
-        class_identifier();
-    }
-
-    Expression* Parser3::newExpr(Expression::Kind k)
-    {
-        RowCol pos;
-        if (d_lexer)
-            pos = toPos(d_lexer->peekToken(1));
-        Expression* e = new Expression(k, pos);
-        // In a full implementation, we would link e into d_ast or a cleaner mechanism
-        return e;
-    }
-
-    Expression* Parser3::newExpr(Expression::Kind k, Expression* lhs, Expression* rhs)
-    {
-        Expression* e = newExpr(k);
-        e->lhs = lhs;
-        e->rhs = rhs;
-        return e;
-    }
-
-    Expression* Parser3::newExprVal(Expression::Kind k, const Token& t)
-    {
-        Expression* e = new Expression(k, toPos(t));
-        e->val = t.d_val; // Store literal string/value
-        return e;
-    }
-
-    Expression* Parser3::expression()
-    {
-        // expression ::= quaternary_ | if_clause quaternary_ ELSE expression 
-        if (TT(this) == Tok_IF) {
-            Expression* cond = if_clause();
-            Expression* thenExpr = quaternary_();
-            expect(Tok_ELSE, "ELSE", "expression");
-            Expression* elseExpr = expression();
-
-            Expression* ifNode = newExpr(Expression::IfExpr);
-            ifNode->condition = cond;
-            ifNode->lhs = thenExpr;
-            ifNode->rhs = elseExpr;
-            return ifNode;
-        }
-        return quaternary_();
-    }
-
-    Expression* Parser3::if_clause()
-    {
-        expect(Tok_IF, "IF", "if_clause");
-        Expression* cond = expression();
-        expect(Tok_THEN, "THEN", "if_clause");
-        return cond;
-    }
-
-    Expression* Parser3::quaternary_()
-    {
-        // quaternary_ ::= tertiary_ { OR_ELSE tertiary_ }
-        Expression* lhs = tertiary_();
-        while (TT(this) == Tok_OR_ELSE) {
-            expect(Tok_OR_ELSE, "OR ELSE", "quaternary_");
-            Expression* rhs = tertiary_();
-            // SimAst might not have ORELSE kind, usually mapped to Or with short-circuit semantics
-            lhs = newExpr(Expression::Or, lhs, rhs);
-        }
-        return lhs;
-    }
-
-    Expression* Parser3::tertiary_()
-    {
-        // tertiary_ ::= equivalence_ { AND_THEN equivalence_ }
-        Expression* lhs = equivalence_();
-        while (TT(this) == Tok_AND_THEN) {
-            expect(Tok_AND_THEN, "AND THEN", "tertiary_");
-            Expression* rhs = equivalence_();
-            lhs = newExpr(Expression::And, lhs, rhs);
-        }
-        return lhs;
-    }
-
-    Expression* Parser3::equivalence_()
-    {
-        Expression* lhs = implication();
-        while (true) {
-            Expression::Kind op = equiv_sym_();
-            if (op == Expression::Invalid) break;
-            Expression* rhs = implication();
-            lhs = newExpr(op, lhs, rhs);
-        }
-        return lhs;
-    }
-
-    Expression* Parser3::implication()
-    {
-        Expression* lhs = simple_expression_();
-        while (true) {
-            Expression::Kind op = impl_sym_();
-            if (op == Expression::Invalid) break;
-            Expression* rhs = simple_expression_();
-            lhs = newExpr(op, lhs, rhs);
-        }
-        return lhs;
-    }
-
-    Expression* Parser3::simple_expression_()
-    {
-        Expression* lhs = term();
-        while (true) {
-            Expression::Kind op = adding_operator();
-            if (op == Expression::Invalid) op = or_sym_();
-
-            if (op == Expression::Invalid) break;
-
-            Expression* rhs = term();
-            lhs = newExpr(op, lhs, rhs);
-        }
-        return lhs;
-    }
-
-    Expression* Parser3::term()
-    {
-        Expression* lhs = factor();
-        while (true) {
-            Expression::Kind op = multiplying_operator();
-            if (op == Expression::Invalid) op = and_sym_();
-
-            if (op == Expression::Invalid) break;
-
-            Expression* rhs = factor();
-            lhs = newExpr(op, lhs, rhs);
-        }
-        return lhs;
-    }
-
-    Expression* Parser3::factor()
-    {
-        Expression* lhs = secondary();
-        while (true) {
-            Expression::Kind op = power_sym_();
-            if (op == Expression::Invalid) break;
-
-            Expression* rhs = secondary();
-            lhs = newExpr(op, lhs, rhs);
-        }
-        return lhs;
-    }
-
-    Expression* Parser3::secondary()
-    {
-        Expression::Kind unaryOp = not_sym_(); // Check NOT
-        if (unaryOp == Expression::Invalid) {
-            // Check Unary Plus/Minus
-            Expression::Kind addOp = adding_operator();
-            if (addOp == Expression::Plus) unaryOp = Expression::Invalid; // Unary plus is no-op usually
-            else if (addOp == Expression::Minus) unaryOp = Expression::Minus; // Unary minus
-        }
-
-        Expression* node = primary();
-
-        if (unaryOp != Expression::Invalid) {
-            // For unary minus, we might treat it as 0 - node or a specific UnaryMinus kind
-            // SimAst has Not. It doesn't seem to have explicit UnaryMinus, often handled as Minus with null LHS or 0.
-            // Let's use Minus with null LHS for now, or newExpr(Minus, nullptr, node).
-            node = newExpr(unaryOp, nullptr, node);
-        }
-        return node;
-    }
-
-    Expression* Parser3::primary()
-    {
-        Expression* head = nullptr;
-        const int t = TT(this);
-
-        if (t == Tok_unsigned_integer || t == Tok_decimal_number) {
-            head = unsigned_number();
-        } else if (t == Tok_TRUE || t == Tok_FALSE) {
-            head = logical_value();
-        } else if (t == Tok_character) {
-            Token tok = take();
-            head = newExprVal(Expression::CharConst, tok);
-        } else if (t == Tok_string) {
-            head = string_();
-        } else if (t == Tok_NOTEXT) {
-            take();
-            head = newExpr(Expression::TextConst); // Val remains empty/null
-        } else if (t == Tok_NONE) {
-            take();
-            head = newExpr(Expression::RefEq); // Placeholder: NONE is a value, maybe use Ref with null?
-            // SimAst doesn't have explicit None kind, use Identifier "NONE" or similar?
-            // Let's use Invalid/Custom for now or RefEq check context.
-            // Actually, usually handled as a special Identifier or null pointer literal.
-            head = newExprVal(Expression::Identifier, Token(Tok_NONE, 0,0,0, "NONE"));
-        } else if (t == Tok_THIS) {
-            head = local_object();
-        } else if (t == Tok_NEW) {
-            head = object_generator();
-        } else if (t == Tok_Lpar) {
-            expect(Tok_Lpar, "'('", "primary");
-            head = expression();
-            expect(Tok_Rpar, "')'", "primary");
-        } else if (t == Tok_identifier) {
-            Token tok = take();
-            head = newExprVal(Expression::Identifier, tok);
-        } else {
-            addError(QString("primary: unexpected %1.").arg(tokName(la())), {}, "primary");
-            return newExpr(Expression::Invalid);
-        }
-
-        // Postfix loop (dot, subscript, qua, etc.)
-        for (;;) {
-            if (TT(this) == Tok_Dot || TT(this) == Tok_Lbrack || TT(this) == Tok_Lpar) {
-                selector_(head);
-            } else if (TT(this) == Tok_QUA) {
-                qualified_(head);
-            } else {
-                Expression::Kind relOp = relational_operator();
-                if (relOp != Expression::Invalid) {
-                    Expression* rhs = simple_expression_();
-                    head = newExpr(relOp, head, rhs);
-                    // Relations are non-associative in Simula (cannot chain a < b < c directly in grammar logic usually)
-                    // The EBNF implies they wrap the whole primary_nlr, essentially ending the chain or continuing?
-                    // "primary_nlr_ ::= relation_ ..."
-                    // Parser2: "relation_(); primary_nlr_();" -> structural recursion.
-                    // This means a < b = c is parsed as a < (b = c)? No, relations usually lowest precedence.
-                    // We'll assume relation terminates the primary chain for this level.
-                    return head;
-                } else {
-                    break;
-                }
-            }
-        }
-        return head;
-    }
-
-    void Parser3::selector_(Expression*& lhs)
-    {
-        if (TT(this) == Tok_Dot) {
-            expect(Tok_Dot, "'.'", "selector_");
-            Expression* id = attribute_identifier();
-            lhs = newExpr(Expression::Dot, lhs, id);
-        } else if (TT(this) == Tok_Lbrack) {
-            expect(Tok_Lbrack, "'['", "selector_");
-            QList<Expression*> subs = subscript_list();
-            expect(Tok_Rbrack, "']'", "selector_");
-
-            // Build subscript node: Dot/Subscript kind?
-            // SimAst has Subscript.
-            // We need to attach list. Expression structure usually binary.
-            // A common way: lhs = Subscript(lhs, ListExpr)
-            Expression* listNode = nullptr;
-            for (int i=subs.size()-1; i>=0; --i) {
-                Expression* e = subs[i];
-                e->next = listNode;
-                listNode = e;
-            }
-            lhs = newExpr(Expression::Subscript, lhs, listNode);
-        } else if (TT(this) == Tok_Lpar) {
-            actual_parameter_part(lhs);
-        }
-    }
-
-    void Parser3::qualified_(Expression*& lhs)
-    {
-        expect(Tok_QUA, "QUA", "qualified_");
-        // class_identifier is just an identifier, we need it as an expression or type?
-        // simple hack: parse identifier, wrap in Qua
-        Token tok = take(); // Identifier
-        Expression* clsId = newExprVal(Expression::Identifier, tok);
-        lhs = newExpr(Expression::Qua, lhs, clsId);
-    }
-
-    void Parser3::actual_parameter_part(Expression*& lhs)
-    {
-        expect(Tok_Lpar, "'('", "actual_parameter_part");
-        QList<Expression*> params = actual_parameter_list();
-        expect(Tok_Rpar, "')'", "actual_parameter_part");
-
-        // Convert lhs (Identifier or Dot) into a Call
-        Expression* listNode = nullptr;
-        for (int i=params.size()-1; i>=0; --i) {
-            Expression* e = params[i];
-            e->next = listNode;
-            listNode = e;
-        }
-        lhs = newExpr(Expression::Call, lhs, listNode);
-    }
-
-    Expression::Kind Parser3::adding_operator()
-    {
-        if (accept(Tok_Plus)) return Expression::Plus;
-        if (accept(Tok_Minus)) return Expression::Minus;
-        return Expression::Invalid;
-    }
-
-    Expression::Kind Parser3::multiplying_operator()
-    {
-        if (accept(Tok_Star)) return Expression::Mul;
-        if (accept(Tok_Slash)) return Expression::Div;
-        if (accept(Tok_2Slash)) return Expression::IntDiv;
-        return Expression::Invalid;
-    }
-
-    Expression::Kind Parser3::relational_operator()
-    {
-        int t = TT(this);
-        Expression::Kind k = Expression::Invalid;
-        switch(t) {
-            case Tok_Lt: k = Expression::Lt; break;
-            case Tok_Leq: k = Expression::Leq; break;
-            case Tok_Eq: k = Expression::Eq; break;
-            case Tok_Geq: k = Expression::Geq; break;
-            case Tok_Gt: k = Expression::Gt; break;
-            case Tok_NE: k = Expression::Neq; break;
-            case Tok_2Eq: k = Expression::RefEq; break;
-            case Tok_EqSlashEq: k = Expression::RefNeq; break;
-            default: return Expression::Invalid;
-        }
-        take();
-        return k;
-    }
-
-    Expression::Kind Parser3::or_sym_() { return accept(Tok_OR) || accept(Tok_Uor) || accept(Tok_Bar) ? Expression::Or : Expression::Invalid; }
-    Expression::Kind Parser3::and_sym_() { return accept(Tok_AND) || accept(Tok_Uand) || accept(Tok_Amp) ? Expression::And : Expression::Invalid; }
-    Expression::Kind Parser3::not_sym_() { return accept(Tok_NOT) || accept(Tok_Unot) || accept(Tok_Bang) ? Expression::Not : Expression::Invalid; }
-
-    Expression::Kind Parser3::equiv_sym_() { return accept(Tok_EQUIV) ? Expression::Eqv : Expression::Invalid; } // Simplified
-    Expression::Kind Parser3::impl_sym_() { return accept(Tok_IMPL) ? Expression::Imp : Expression::Invalid; }   // Simplified
-    Expression::Kind Parser3::power_sym_() { return accept(Tok_POWER) || accept(Tok_Hat) ? Expression::Exp : Expression::Invalid; }
-
-    Expression* Parser3::unsigned_number() { return newExprVal(Expression::NumConst, take()); }
-    Expression* Parser3::string_() { return newExprVal(Expression::TextConst, take()); }
-    Expression* Parser3::attribute_identifier() { return newExprVal(Expression::Identifier, take()); }
-    Expression* Parser3::logical_value() { return newExprVal(Expression::NumConst, take()); } // Bool as num/const
-
-    Expression* Parser3::local_object()
-    {
-        expect(Tok_THIS, "THIS", "local_object");
-        Token cls = take();
-        Expression* clsNode = newExprVal(Expression::Identifier, cls);
-        return newExpr(Expression::This, nullptr, clsNode);
-    }
-
-    Expression* Parser3::object_generator()
-    {
-        expect(Tok_NEW, "NEW", "object_generator");
-        Token cls = take();
-        Expression* clsNode = newExprVal(Expression::Identifier, cls);
-        Expression* gen = newExpr(Expression::New, nullptr, clsNode);
-        if (TT(this) == Tok_Lpar) { // Optional arguments NEW C(...)
-             actual_parameter_part(gen); // This transforms gen (New) into Call(New, args)
-        }
-        return gen;
-    }
-
-    QList<Expression*> Parser3::actual_parameter_list()
-    {
-        QList<Expression*> list;
-        list.append(actual_parameter());
-        while (TT(this) == Tok_Comma) {
-            take();
-            list.append(actual_parameter());
-        }
-        return list;
-    }
-
-    Expression* Parser3::actual_parameter()
-    {
-        return expression();
-    }
-
-    QList<Expression*> Parser3::subscript_list()
-    {
-        QList<Expression*> list;
-        list.append(subscript_expression());
-        while (TT(this) == Tok_Comma) {
-            take();
-            list.append(subscript_expression());
-        }
-        return list;
-    }
-
-    Expression* Parser3::subscript_expression()
-    {
-        return expression();
-    }
-
-    // Stub implementations for declarations to keep linker happy
-    Expression* Parser3::lower_bound() { return expression(); }
-    Expression* Parser3::upper_bound() { return expression(); }
-
-
-    Statement* Parser3::newStmt(Statement::Kind k)
-    {
-        Statement* s = new Statement(k, d_lexer ? toPos(d_lexer->peekToken(1)) : RowCol());
-        // In full impl, might link to AST model if needed
-        return s;
-    }
-
-    Declaration* Parser3::newDecl(const QByteArray& name, Declaration::Kind k)
-    {
-        // Use AstModel to create/register decl if available
-        if (d_ast) return d_ast->addDecl(name, k);
-        return new Declaration(k); // Fallback
-    }
-
-    Statement* Parser3::statement()
-    {
-        // statement ::= { label ':' } [ Common_Base_statement | while_statement ]
-        // Labels are usually attached to the statement.
-        // For simplicity here, we parse labels but don't strictly attach them yet
-        // (SimAst Statement has no explicit label list, might need Declaration::Label).
-
-        while (TT(this) == Tok_identifier && TT(this, 2) == Tok_Colon) {
-            label();
-            expect(Tok_Colon, "':'", "statement");
-        }
-
-        // dummy-statement
-        if (TT(this) == Tok_Semi || TT(this) == Tok_END || TT(this) == Tok_INNER || TT(this) == Tok_Eof)
-            return newStmt(Statement::Dummy);
-
-        if (TT(this) == Tok_WHILE) {
-            return while_statement();
-        }
-
-        return Common_Base_statement();
-    }
-
-    Statement* Parser3::while_statement()
-    {
-        // WHILE expression DO statement
-        Statement* s = newStmt(Statement::While);
-        expect(Tok_WHILE, "WHILE", "while_statement");
-        s->expr = expression(); // Condition
-        expect(Tok_DO, "DO", "while_statement");
-        s->body = statement();
-        return s;
-    }
-
-    Statement* Parser3::Common_Base_statement()
-    {
-        if (TT(this) == Tok_IF) {
-            return Common_Base_conditional_statement();
-        } else if (TT(this) == Tok_FOR) {
-            return for_statement();
-        } else {
-            return unconditional_statement();
-        }
-    }
-
-    Statement* Parser3::Common_Base_conditional_statement()
-    {
-        // IF expression THEN ...
-        Statement* s = newStmt(Statement::If);
-        s->expr = if_clause(); // Condition
-
-        // Labels inside IF...
-        while (TT(this) == Tok_identifier && TT(this, 2) == Tok_Colon) {
-            label();
-            expect(Tok_Colon, "':'", "Common_Base_conditional_statement");
-        }
-
-        // True branch
-        if (TT(this) == Tok_FOR) {
-            s->body = for_statement();
-        } else if (TT(this) == Tok_WHILE) {
-            s->body = while_statement();
-        } else if (TT(this) == Tok_ELSE) {
-            // "IF cond THEN ELSE stmt" - Empty true branch (Dummy)
-            s->body = newStmt(Statement::Dummy);
-        } else {
-            s->body = unconditional_statement();
-        }
-
-        // False branch
-        if (TT(this) == Tok_ELSE) {
-            expect(Tok_ELSE, "ELSE", "Common_Base_conditional_statement");
-            s->elseStmt = statement();
-        }
-
-        return s;
-    }
-
-    Statement* Parser3::unconditional_statement()
-    {
-        return unlabelled_basic_statement();
-    }
-
-    Statement* Parser3::unlabelled_basic_statement()
-    {
-        if (TT(this) == Tok_GOTO || TT(this) == Tok_GO) {
-            return go_to_statement();
-        }
-
-        if (TT(this) == Tok_ACTIVATE || TT(this) == Tok_REACTIVATE) {
-            return activation_statement();
-        }
-
-        if (TT(this) == Tok_INSPECT) {
-            return connection_statement();
-        }
-
-        if (TT(this) == Tok_BEGIN) {
-            return main_block(); // Returns Compound/Block statement
-        }
-
-        // Expression-based statements (Assignments, Procedure Calls)
-        if (!isPrimaryStart(TT(this))) {
-            addError(QString("unlabelled_basic_statement: unexpected %1.").arg(tokName(la())), {}, "unlabelled_basic_statement");
-            synchronize();
-            return newStmt(Statement::Invalid);
-        }
-
-        Expression* lhs = primary();
-
-        // Prefixed Block: C BEGIN ...
-        if (TT(this) == Tok_BEGIN) {
-            // lhs is class identifier (prefix)
-            // SimAst doesn't have explicit PrefixedBlock, usually Block with 'prefix' pointer?
-            // For now, treat as Block.
-            return main_block();
-        }
-
-        // Assignments: lhs := rhs
-        if (TT(this) == Tok_ColonEq) {
-            Statement* head = nullptr;
-            Statement* curr = nullptr;
-
-            do {
-                expect(Tok_ColonEq, "':='", "unlabelled_basic_statement");
-                Expression* rhs = expression();
-                Statement* assign = newStmt(Statement::Assign);
-                assign->expr = lhs; // LHS
-                assign->body = (Statement*)rhs; // Hack: Store RHS in body pointer? Or cast?
-                // Actually SimAst Statement has expr (Cond/LHS).
-                // Assignment is tricky in this specific AST node design.
-                // Usually: Assign statement has lhs and rhs expressions.
-                // SimAst Statement has `Expression* expr`.
-                // Let's assume we treat Assignment as an Expression (AssignVal/AssignRef kind) wrapped in a Statement?
-                // Or create a Call-like statement.
-                // Let's wrap it in an Expression for now (Expression Statement).
-
-                Expression* assignExpr = newExpr(Expression::AssignVal, lhs, rhs);
-                Statement* s = newStmt(Statement::Call); // Call/Eval
-                s->expr = assignExpr;
-
-                if (!head) head = s;
-                else curr->next = s;
-                curr = s;
-
-                // For chain a := b := c, 'b' becomes LHS for next?
-                // Simula assignment is right-associative? "a := (b := c)"
-                // But loop structure here implies "a := b; := c" which is wrong.
-                // Standard: variable := expression.
-                // If expression is assignment, it works.
-                // But "variable := variable := expression" is allowed.
-                // Let's simplify: only simple assignment for now.
-                lhs = nullptr; // Stop chaining logic for this snippet
-            } while (TT(this) == Tok_ColonEq);
-            return head;
-        }
-
-        // Reference Assignment: lhs :- rhs
-        if (TT(this) == Tok_ColonMinus) {
-            expect(Tok_ColonMinus, "':-'", "unlabelled_basic_statement");
-            Expression* rhs = expression();
-            Expression* assignExpr = newExpr(Expression::AssignRef, lhs, rhs);
-            Statement* s = newStmt(Statement::Call);
-            s->expr = assignExpr;
-            return s;
-        }
-
-        // Procedure statement (Call)
-        // lhs is the call expression (already built by primary -> actual_parameter_part -> Call)
-        Statement* s = newStmt(Statement::Call);
-        s->expr = lhs;
-        return s;
-    }
-
-    Statement* Parser3::go_to_statement()
-    {
-        Statement* s = newStmt(Statement::Goto);
-        if (TT(this) == Tok_GOTO) {
-            expect(Tok_GOTO, "GOTO", "go_to_statement");
-        } else {
-            expect(Tok_GO, "GO", "go_to_statement");
-            expect(Tok_TO, "TO", "go_to_statement");
-        }
-        s->expr = expression(); // Target
-        return s;
-    }
-
-    Statement* Parser3::for_statement()
-    {
-        Statement* s = newStmt(Statement::For);
-        for_clause(s);
-        s->body = statement();
-        return s;
-    }
-
-    void Parser3::for_clause(Statement* loop)
-    {
-        expect(Tok_FOR, "FOR", "for_clause");
-        simple_variable(); // TODO: Bind loop variable
-        for_right_part(loop);
-        expect(Tok_DO, "DO", "for_clause");
-    }
-
-    void Parser3::for_right_part(Statement* loop)
-    {
-        if (TT(this) == Tok_ColonEq) {
-            expect(Tok_ColonEq, "':='", "for_right_part");
-            value_for_list(loop);
-        } else if (TT(this) == Tok_ColonMinus) {
-            expect(Tok_ColonMinus, "':-'", "for_right_part");
-            object_for_list(loop);
-        } else {
-            addError("for_right_part expected := or :-");
-            synchronize();
-        }
-    }
-
-    void Parser3::value_for_list(Statement* loop)
-    {
-        value_for_list_element(loop);
-        while (TT(this) == Tok_Comma) {
-            take();
-            value_for_list_element(loop);
-        }
-    }
-
-    void Parser3::value_for_list_element(Statement* loop)
-    {
-        // Store these elements in loop->connections or similar list?
-        // SimAst For logic might need list of iterators.
-        // We'll just parse for now.
-        Expression* e1 = expression();
-
-        if (TT(this) == Tok_STEP) {
-            expect(Tok_STEP, "STEP", "value_for_list_element");
-            Expression* e2 = expression();
-            expect(Tok_UNTIL, "UNTIL", "value_for_list_element");
-            Expression* e3 = expression();
-            // Create StepIterator(e1, e2, e3)
-        } else if (TT(this) == Tok_WHILE) {
-            expect(Tok_WHILE, "WHILE", "value_for_list_element");
-            Expression* e2 = expression();
-            // Create WhileIterator(e1, e2)
-        } else {
-            // Single value e1
-        }
-    }
-
-    // ... (Repeat pattern for object_for_list) ...
-    void Parser3::object_for_list(Statement* loop) { object_for_list_element(loop); }
-    void Parser3::object_for_list_element(Statement* loop) { expression(); if(TT(this)==Tok_WHILE) { take(); expression(); } }
-
-    Statement* Parser3::activation_statement()
-    {
-        Statement* s = newStmt(Statement::Activate);
-        activation_clause(s);
-        if (TT(this) == Tok_AT || TT(this) == Tok_DELAY || TT(this) == Tok_BEFORE || TT(this) == Tok_AFTER) {
-            scheduling_clause(s);
-        }
-        return s;
-    }
-
-    void Parser3::activation_clause(Statement* stmt)
-    {
-        Token t = activator(); // ACTIVATE/REACTIVATE
-        stmt->isReactivate = (t.d_type == Tok_REACTIVATE);
-        stmt->expr = expression(); // Object to activate
-    }
-
-    Token Parser3::activator()
-    {
-        if (TT(this) == Tok_ACTIVATE || TT(this) == Tok_REACTIVATE) return take();
-        addError("Expected ACTIVATE or REACTIVATE");
-        return Token(Tok_Invalid);
-    }
-
-    void Parser3::scheduling_clause(Statement* stmt)
-    {
-        if (TT(this) == Tok_BEFORE) {
-            take();
-            stmt->beforeAfterExpr = expression(); // Before
-            // Flag 'before' vs 'after' maybe needed in AST?
-        } else if (TT(this) == Tok_AFTER) {
-            take();
-            stmt->beforeAfterExpr = expression(); // After
-        } else {
-            timing_clause(stmt);
-        }
-    }
-
-    void Parser3::timing_clause(Statement* stmt)
-    {
-        simple_timing_clause(stmt);
-        if (TT(this) == Tok_PRIOR) {
-            take();
-            stmt->prior = true;
-        }
-    }
-
-    void Parser3::simple_timing_clause(Statement* stmt)
-    {
-        if (TT(this) == Tok_AT) {
-            take();
-            stmt->atExpr = expression();
-        } else if (TT(this) == Tok_DELAY) {
-            take();
-            stmt->delayExpr = expression();
-        }
-    }
-
-    Statement* Parser3::connection_statement()
-    {
-        Statement* s = newStmt(Statement::Inspect);
-        expect(Tok_INSPECT, "INSPECT", "connection_statement");
-        s->expr = expression(); // Inspect object
-
-        if (TT(this) == Tok_WHEN) {
-            connection_part(s); // Fills s->connections list
-        } else if (TT(this) == Tok_DO) {
-            expect(Tok_DO, "DO", "connection_statement");
-            s->body = statement();
-        }
-
-        if (TT(this) == Tok_OTHERWISE) {
-            s->elseStmt = otherwise_clause();
-        }
-        return s;
-    }
-
-    void Parser3::connection_part(Statement* inspect)
-    {
-        when_clause(inspect);
-        while (TT(this) == Tok_WHEN) {
-            when_clause(inspect);
-        }
-    }
-
-    void Parser3::when_clause(Statement* inspect)
-    {
-        expect(Tok_WHEN, "WHEN", "when_clause");
-        Token cls = class_identifier();
-        expect(Tok_DO, "DO", "when_clause");
-        Statement* body = statement();
-
-        // SimAst has 'Connection' node for this.
-        // But Statement::connections is Statement*?
-        // Actually SimAst Connection class exists:
-        // class Connection : public Node { QByteArray className; Declaration* classDecl; Statement* body; Connection* next; };
-        // We need to link this to the Inspect statement.
-        // Assuming we can't easily change Ast definition here, we might need a workaround or assume 'connections' points to a specific structure.
-    }
-
-    Statement* Parser3::otherwise_clause()
-    {
-        expect(Tok_OTHERWISE, "OTHERWISE", "otherwise_clause");
-        return statement();
-    }
-
-    Statement* Parser3::main_block()
-    {
-        // BEGIN [Decls] [Stmts] END
-        expect(Tok_BEGIN, "BEGIN", "main_block");
-
-        // In full AST, we'd open a scope here.
-        // d_ast->openScope(...) if it's a block with decls.
-
-        if (declStartAt(this, 1)) {
-            declaration();
-            while (TT(this) == Tok_Semi && declStartAt(this, 2)) {
-                take();
-                declaration();
-            }
-            expect(Tok_Semi, "';'", "main_block");
-        }
-
-        Statement* body = compound_tail();
-
-        // d_ast->closeScope();
-        return body;
-    }
-
-    Statement* Parser3::compound_tail()
-    {
-        Statement* head = nullptr;
-        Statement* curr = nullptr;
-
-        auto append = [&](Statement* s) {
-            if (!s) return;
-            if (!head) head = s;
-            else curr->next = s;
-            curr = s;
-        };
-
-        if (TT(this) != Tok_END && TT(this) != Tok_INNER) {
-            append(statement());
-            while (TT(this) == Tok_Semi && TT(this, 2) != Tok_END && TT(this, 2) != Tok_INNER) {
-                take();
-                append(statement());
-            }
-        }
-
-        if (TT(this) == Tok_Semi && TT(this, 2) == Tok_INNER) {
-            take();
-            expect(Tok_INNER, "INNER", "compound_tail");
-            append(newStmt(Statement::Inner));
-            while (TT(this) == Tok_Semi && TT(this, 2) != Tok_END) {
-                take();
-                append(statement());
-            }
-        }
-
-        if (TT(this) == Tok_Semi) take();
-        expect(Tok_END, "END", "compound_tail");
-
-        // Wrap list in Compound statement?
-        Statement* compound = newStmt(Statement::Compound);
-        compound->body = head;
-        return compound;
-    }
-
-    Token Parser3::class_identifier() { return take(); }
-    void Parser3::identifier_list() { take(); while(TT(this)==Tok_Comma){take(); take();} }
-    void Parser3::label() { take(); }
-    void Parser3::simple_variable() { take(); }
-
-    Declaration* Parser3::declaration()
-    {
-        // Matches Parser2 dispatch logic
-        if (TT(this) == Tok_SWITCH) {
-            switch_declaration();
-            return nullptr; // switch_declaration() currently void, need to update if we want AST
-        }
-        if (TT(this) == Tok_EXTERNAL) {
-            external_declaration();
-            return nullptr; // external_declaration() void
-        }
-
-        if (looksLikeProcedureDecl(this)) {
-            return procedure_declaration();
-        }
-        if (looksLikeArrayDecl(this)) {
-            array_declaration();
-            return nullptr; // array_declaration() currently void
-        }
-        if (looksLikeClassDecl(this)) {
-            return class_declaration();
-        }
-        if (isTypeStart(TT(this))) {
-            type_declaration();
-            return nullptr; // type_declaration() currently void
-        }
-
-        addError("declaration not recognized");
-        synchronize();
-        return nullptr;
-    }
-
-    Declaration* Parser3::class_declaration()
-    {
-        // class_declaration ::= prefix main_part
-        prefix();
-        main_part();
-        // The AST node is created/registered inside main_part (via newDecl(Class))
-        // But main_part updates d_ast->currentScope().
-        // We typically return the declaration object itself.
-        // Assuming main_part() creates it.
-        // Let's refactor slightly: main_part should *return* the decl or we retrieve it?
-        // Better: class_declaration calls prefix, then main_part creates the decl.
-        return d_ast ? d_ast->currentScope() : nullptr; // Rough approximation
-    }
-
-    void Parser3::prefix()
-    {
-        if (TT(this) == Tok_identifier) {
-            Token t = class_identifier();
-            // TODO: Store prefix link in next class declaration
-        }
-    }
-
-    void Parser3::main_part()
-    {
-        expect(Tok_CLASS, "CLASS", "main_part");
-        Token name = class_identifier();
-
-        Declaration* cls = newDecl(name.d_val, Declaration::Class);
-        if (d_ast) d_ast->openScope(cls);
-
-        formal_parameter_part();
-        expect(Tok_Semi, "';'", "main_part");
-
-        if (TT(this) == Tok_VALUE) value_part();
-        while (isSpecifierStart(TT(this))) specification_part();
-        if (isProtectionStart(TT(this))) {
-            protection_part();
-            expect(Tok_Semi, "';'", "main_part");
-        }
-        virtual_part();
-
-        cls->body = class_body();
-
-        if (d_ast) d_ast->closeScope();
-    }
-
-    Statement* Parser3::class_body()
-    {
-        // [ statement ]
-        if (TT(this) == Tok_Eof || TT(this) == Tok_Semi || TT(this) == Tok_END)
-            return nullptr;
-
-        // statement() handles BEGIN...END blocks internally
-        return statement();
-    }
-
-    Declaration* Parser3::procedure_declaration()
-    {
-        // [ type ] PROCEDURE procedure_heading procedure_body
-        // Note: 'type' is optional return type
-        if (isTypeStart(TT(this))) {
-            // type(); // consume type tokens, TODO: store in proc decl
-            type_declaration(); // Reuse or separate type parser?
-            // Actually 'type' rule just consumes tokens.
-            // Let's allow skipping for now or assume type_declaration covers it?
-            // No, type_declaration parses "type list...", here we have "type PROCEDURE..."
-            // We need a helper "parseType()" returning Type*.
-            // For now, skip tokens manually or use minimal logic:
-            if (TT(this)==Tok_REF) { take(); take(); } // REF Class
-            else take(); // Basic type
-        }
-
-        expect(Tok_PROCEDURE, "PROCEDURE", "procedure_declaration");
-
-        // procedure_heading handles name, params, specs
-        // We need the name *before* we open scope fully?
-        // Parser2: procedure_heading() calls identifier(), params(), etc.
-        // Let's peek identifier to create Decl first?
-        Token nameToken = la(1); // Usually identifier
-        Declaration* proc = newDecl(nameToken.d_val, Declaration::Procedure);
-        if (d_ast) d_ast->openScope(proc);
-
-        procedure_heading(proc);
-        proc->body = procedure_body();
-
-        if (d_ast) d_ast->closeScope();
-        return proc;
-    }
-
-    void Parser3::procedure_heading(Declaration* proc)
-    {
-        procedure_identifier(); // Consumes name
-        formal_parameter_part();
-        expect(Tok_Semi, "';'", "procedure_heading");
-
-        if (TT(this) == Tok_NAME || TT(this) == Tok_VALUE) mode_part();
-        while (isSpecifierStart(TT(this))) specification_part();
-    }
-
-    Statement* Parser3::procedure_body()
-    {
-        return statement();
-    }
-
-    void Parser3::formal_parameter_part()
-    {
-        if (TT(this) == Tok_Lpar) {
-            take();
-            formal_parameter_list();
-            expect(Tok_Rpar, "')'", "formal_parameter_part");
-        }
-    }
-
-    void Parser3::formal_parameter_list()
-    {
-        formal_parameter();
-        while (TT(this) == Tok_Comma) {
-            take();
-            formal_parameter();
-        }
-    }
-
-    void Parser3::formal_parameter()
-    {
-        Token t = take(); // Identifier
-        // In a real implementation, add Parameter decl to current scope
-        if (d_ast) d_ast->addDecl(t.d_val, Declaration::Parameter);
-    }
-
-    void Parser3::type_declaration() { /* type(); type_list(); */ take(); type_list(); }
-    void Parser3::type_list() { type_list_element(); while(TT(this)==Tok_Comma){take(); type_list_element();} }
-    void Parser3::type_list_element() { simple_variable(); if(TT(this)==Tok_Eq){take(); expression();} }
-
-    void Parser3::array_declaration() {
-        // [type] ARRAY ...
-        if (isTypeStart(TT(this))) {
-             if(TT(this)==Tok_REF){take();take();} else take();
-        }
-        expect(Tok_ARRAY, "ARRAY", "array_declaration");
-        array_list();
-    }
-    void Parser3::array_list() { array_segment(); while(TT(this)==Tok_Comma){take(); array_segment();} }
-    void Parser3::array_segment() {
-        take(); // identifier
-        while(TT(this)==Tok_Comma){take(); take();} // , identifier
-        if(TT(this)==Tok_Lbrack){take(); bound_pair_list(); expect(Tok_Rbrack,"]");}
-        else if(TT(this)==Tok_Lpar){take(); bound_pair_list(); expect(Tok_Rpar,")");}
-    }
-    void Parser3::bound_pair_list() { bound_pair(); while(TT(this)==Tok_Comma){take(); bound_pair();} }
-    void Parser3::bound_pair() { lower_bound(); expect(Tok_Colon,":"); upper_bound(); }
-
-    void Parser3::switch_declaration() {
-        expect(Tok_SWITCH, "SWITCH");
-        switch_identifier();
-        expect(Tok_ColonEq, ":=");
-        switch_list();
-    }
-    void Parser3::switch_identifier() { take(); }
-    void Parser3::switch_list() { expression(); while(TT(this)==Tok_Comma){take(); expression();} }
-
-    void Parser3::procedure_identifier() { take(); }
-    void Parser3::mode_part() {
-        if(TT(this)==Tok_NAME){ name_part(); if(TT(this)==Tok_VALUE) value_part(); }
-        else if(TT(this)==Tok_VALUE){ value_part(); if(TT(this)==Tok_NAME) name_part(); }
-    }
-    void Parser3::value_part() { expect(Tok_VALUE,"VALUE"); identifier_list(); expect(Tok_Semi,";"); }
-    void Parser3::name_part() { expect(Tok_NAME,"NAME"); identifier_list(); expect(Tok_Semi,";"); }
-    void Parser3::specification_part() { specifier(); identifier_list(); expect(Tok_Semi,";"); }
-    void Parser3::procedure_specification() { expect(Tok_IS,"IS"); procedure_declaration(); }
-
-    void Parser3::specifier() {
-        if(TT(this)==Tok_SWITCH || TT(this)==Tok_LABEL) { take(); return; }
-        // Type [ARRAY|PROCEDURE]
-        if (isTypeStart(TT(this))) {
-            if(TT(this)==Tok_REF){take();take();} else take();
-        }
-        if(TT(this)==Tok_ARRAY || TT(this)==Tok_PROCEDURE) take();
-    }
-
-    void Parser3::protection_part() {
-        protection_specification();
-        while(TT(this)==Tok_Semi && isProtectionStart(TT(this,2))) { take(); protection_specification(); }
-    }
-    void Parser3::protection_specification() {
-        if(TT(this)==Tok_HIDDEN) { take(); if(TT(this)==Tok_PROTECTED) take(); }
-        else if(TT(this)==Tok_PROTECTED) { take(); if(TT(this)==Tok_HIDDEN) take(); }
-        identifier_list();
-    }
-    void Parser3::virtual_part() {
-        if(TT(this)!=Tok_VIRTUAL) return;
-        take(); expect(Tok_Colon,":");
-        virtual_spec(); expect(Tok_Semi,";");
-        while(isSpecifierStart(TT(this))) { virtual_spec(); expect(Tok_Semi,";"); }
-    }
-    void Parser3::virtual_spec() {
-        specifier(); identifier_list();
-        if(TT(this)==Tok_IS) procedure_specification();
-    }
-
-    void Parser3::external_head() { external_declaration(); expect(Tok_Semi,";"); while(TT(this)==Tok_EXTERNAL){external_declaration(); expect(Tok_Semi,";");} }
-    void Parser3::external_declaration() { expect(Tok_EXTERNAL,"EXTERNAL"); identifier_list(); /* equals? */ }
-
-    Declaration* Parser3::parseModule()
-    {
-        d_errors.clear();
-
-        // Ensure we have a root scope/module to put things in
-        Declaration* moduleDecl = newDecl("ROOT_MODULE", Declaration::Module);
-        if (d_ast) {
-            d_ast->openScope(moduleDecl);
-            d_root = moduleDecl;
-        }
-
-        if (!d_lexer) {
-            addError("Parser3 has no lexer.");
-            return nullptr;
-        }
-
-        // Start parsing
-        module();
-
-        // Finalize
-        if (d_ast) d_ast->closeScope();
-
-        // Check for trailing garbage
-        const Token t = la();
-        if (t.d_type != Tok_Eof) {
-            addError(QString("Unexpected token at end of module: %1.").arg(tokName(t)));
-        }
-
-        return d_errors.isEmpty() ? d_root : nullptr;
-    }
-
-    void Parser3::module()
-    {
-        // module ::= [ external_head ] module_body_ { ';' [ module_body_ ] }
-        if (TT(this) == Tok_EXTERNAL) {
-            external_head();
-        }
-
-        module_body_();
-
-        while (TT(this) == Tok_Semi) {
-            expect(Tok_Semi, "';'", "module");
-            if (TT(this) != Tok_Semi && TT(this) != Tok_Eof) {
-                module_body_();
-            }
-        }
-    }
-
-    void Parser3::module_body_()
-    {
-        // Dispatch to class, procedure, or program (main block)
-        // We don't return the individual decls here to a list yet,
-        // but they attach themselves to the current scope via d_ast->addDecl().
-
-        if (looksLikeClassDecl(this)) {
-            class_declaration();
-        } else if (looksLikeProcedureDecl(this)) {
-            procedure_declaration();
-        } else {
-            program();
-        }
-    }
-
-    void Parser3::program()
-    {
-        // program ::= { label ':' } block
-        // Labels at program level are rare/weird in Simula but allowed by grammar
-        while (TT(this) == Tok_identifier && TT(this, 2) == Tok_Colon) {
-            label();
-            expect(Tok_Colon, "':'", "program");
-        }
-        block();
-    }
-
-    Declaration* Parser3::block()
-    {
-        // block ::= [ block_prefix ] main_block
-        if (TT(this) != Tok_BEGIN && TT(this) != Tok_Eof) {
-            block_prefix();
-        }
-        // main_block returns a Statement* (Compound), but at top level
-        // we often treat it as the "body" of the module/program.
-        // We can attach it to the current scope root.
-        Statement* body = main_block();
-        if (d_ast && d_ast->currentScope()) {
-            d_ast->currentScope()->body = body;
-        }
-        return nullptr; // No specific decl for "block", it modifies the parent
-    }
-
-    void Parser3::block_prefix()
-    {
-        class_identifier();
-        if (TT(this) == Tok_Lpar) {
-            Expression* dummy = nullptr;
-            actual_parameter_part(dummy); // Parsing arguments
-        }
-    }
-
 }
 
+void Parser3::name_part(Declaration* procDecl) {
+    expect(Tok_NAME, false, "name_part");
+    QList<QByteArray> ids = identifier_list();
+    expect(Tok_Semi, false, "name_part");
+    
+    // Mark parameters as name mode
+    Declaration* param = procDecl->link;
+    while (param) {
+        for (int i = 0; i < ids.size(); i++) {
+            if (param->name == ids[i]) {
+                param->mode = Declaration::ModeName;
+                break;
+            }
+        }
+        param = param->next;
+    }
+}
+
+void Parser3::formal_parameter_part(Declaration* procDecl) {
+    if (FIRST_formal_parameter_part(la.d_type)) {
+        expect(Tok_Lpar, false, "formal_parameter_part");
+        if (FIRST_formal_parameter_list(la.d_type)) {
+            formal_parameter_list(procDecl);
+        }
+        expect(Tok_Rpar, false, "formal_parameter_part");
+    }
+}
+
+void Parser3::formal_parameter_list(Declaration* procDecl) {
+    formal_parameter(procDecl);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "formal_parameter_list");
+        formal_parameter(procDecl);
+    }
+}
+
+void Parser3::formal_parameter(Declaration* procDecl) {
+    expect(Tok_identifier, false, "formal_parameter");
+    
+    Declaration* param = new Declaration(Declaration::Parameter);
+    param->name = cur.d_val;
+    param->pos = toRowCol(cur);
+    param->outer = procDecl;
+    procDecl->appendMember(param);
+}
+
+Statement* Parser3::procedure_body() {
+    return statement();
+}
+
+Statement* Parser3::statement() {
+    // Handle labels
+    while ((peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Colon)) {
+        QByteArray lbl = label();
+        expect(Tok_Colon, false, "statement");
+        // Create label declaration in current scope
+        Declaration* lblDecl = mdl->addDecl(lbl, Declaration::LabelDecl);
+        lblDecl->pos = toRowCol(cur);
+    }
+    
+    if (FIRST_Common_Base_statement(la.d_type)) {
+        return Common_Base_statement();
+    } else if (FIRST_while_statement(la.d_type)) {
+        return while_statement();
+    }
+    
+    // Dummy statement (empty)
+    return new Statement(Statement::Dummy, toRowCol(la));
+}
+
+Statement* Parser3::unconditional_statement() {
+    return unlabelled_basic_statement();
+}
+
+Statement* Parser3::Common_Base_statement() {
+    if (FIRST_unconditional_statement(la.d_type)) {
+        return unconditional_statement();
+    } else if (FIRST_Common_Base_conditional_statement(la.d_type)) {
+        return Common_Base_conditional_statement();
+    } else if (FIRST_for_statement(la.d_type)) {
+        return for_statement();
+    } else {
+        invalid("Common_Base_statement");
+        return 0;
+    }
+}
+
+Statement* Parser3::Common_Base_conditional_statement() {
+    Expression* cond = if_clause();
+    RowCol pos = cond ? cond->pos : toRowCol(la);
+    
+    // Handle labels after IF
+    while ((peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Colon)) {
+        QByteArray lbl = label();
+        expect(Tok_Colon, false, "Common_Base_conditional_statement");
+    }
+    
+    Statement* ifStmt = new Statement(Statement::If, pos);
+    ifStmt->expr = cond;
+    
+    if (FIRST_unconditional_statement(la.d_type)) {
+        ifStmt->body = unconditional_statement();
+        if (la.d_type == Tok_ELSE) {
+            expect(Tok_ELSE, false, "Common_Base_conditional_statement");
+            ifStmt->elseStmt = statement();
+        }
+    } else if (la.d_type == Tok_ELSE) {
+        // Empty then part
+        expect(Tok_ELSE, false, "Common_Base_conditional_statement");
+        ifStmt->elseStmt = statement();
+    } else if (FIRST_for_statement(la.d_type)) {
+        ifStmt->body = for_statement();
+    } else if (FIRST_while_statement(la.d_type)) {
+        ifStmt->body = while_statement();
+    } else {
+        invalid("Common_Base_conditional_statement");
+    }
+    
+    return ifStmt;
+}
+
+Statement* Parser3::for_statement() {
+    Expression* varExpr = 0;
+    bool isRefAssign = false;
+    QList<Expression*> forList;
+    
+    for_clause(varExpr, isRefAssign, forList);
+    
+    Statement* forStmt = new Statement(Statement::For, varExpr ? varExpr->pos : toRowCol(la));
+    forStmt->expr = varExpr;
+    
+    // Store for list elements - we'll use connections field to store iteration info
+    // The forList contains the iteration expressions
+    
+    forStmt->body = statement();
+    return forStmt;
+}
+
+void Parser3::for_clause(Expression*& varExpr, bool& isRefAssign, QList<Expression*>& forList) {
+    expect(Tok_FOR, false, "for_clause");
+    
+    expect(Tok_identifier, false, "for_clause");
+    varExpr = new Expression(Expression::Identifier, toRowCol(cur));
+    varExpr->val = cur.d_val;
+    
+    for_right_part(isRefAssign, forList);
+    expect(Tok_DO, false, "for_clause");
+}
+
+void Parser3::for_right_part(bool& isRefAssign, QList<Expression*>& forList) {
+    if (la.d_type == Tok_ColonEq) {
+        expect(Tok_ColonEq, false, "for_right_part");
+        isRefAssign = false;
+        value_for_list(forList);
+    } else if (la.d_type == Tok_ColonMinus) {
+        expect(Tok_ColonMinus, false, "for_right_part");
+        isRefAssign = true;
+        object_for_list(forList);
+    } else {
+        invalid("for_right_part");
+    }
+}
+
+void Parser3::value_for_list(QList<Expression*>& forList) {
+    Expression* elem = value_for_list_element();
+    if (elem) forList.append(elem);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "value_for_list");
+        elem = value_for_list_element();
+        if (elem) forList.append(elem);
+    }
+}
+
+void Parser3::object_for_list(QList<Expression*>& forList) {
+    Expression* elem = object_for_list_element();
+    if (elem) forList.append(elem);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "object_for_list");
+        elem = object_for_list_element();
+        if (elem) forList.append(elem);
+    }
+}
+
+Expression* Parser3::value_for_list_element() {
+    Expression* expr = expression();
+    
+    if (la.d_type == Tok_STEP) {
+        expect(Tok_STEP, false, "value_for_list_element");
+        Expression* step = expression();
+        expect(Tok_UNTIL, false, "value_for_list_element");
+        Expression* until = expression();
+        // Create a compound expression for STEP...UNTIL
+        // We'll store this as: expr with step in rhs and until in next
+        if (expr) {
+            expr->rhs = step;
+            expr->next = until;
+        }
+    } else if (la.d_type == Tok_WHILE) {
+        expect(Tok_WHILE, false, "value_for_list_element");
+        Expression* whileCond = expression();
+        if (expr) {
+            expr->condition = whileCond;
+        }
+    }
+    
+    return expr;
+}
+
+Expression* Parser3::object_for_list_element() {
+    Expression* expr = expression();
+    
+    if (la.d_type == Tok_WHILE) {
+        expect(Tok_WHILE, false, "object_for_list_element");
+        Expression* whileCond = expression();
+        if (expr) {
+            expr->condition = whileCond;
+        }
+    }
+    
+    return expr;
+}
+
+Statement* Parser3::go_to_statement() {
+    if (la.d_type == Tok_GOTO) {
+        expect(Tok_GOTO, false, "go_to_statement");
+    } else if (la.d_type == Tok_GO) {
+        expect(Tok_GO, false, "go_to_statement");
+        expect(Tok_TO, false, "go_to_statement");
+    } else {
+        invalid("go_to_statement");
+        return 0;
+    }
+    
+    RowCol pos = toRowCol(cur);
+    Expression* target = expression();
+    
+    Statement* stmt = new Statement(Statement::Goto, pos);
+    stmt->expr = target;
+    return stmt;
+}
+
+Statement* Parser3::unlabelled_basic_statement() {
+    if (FIRST_go_to_statement(la.d_type)) {
+        return go_to_statement();
+    } else if (FIRST_activation_statement(la.d_type)) {
+        return activation_statement();
+    } else if (FIRST_connection_statement(la.d_type)) {
+        return connection_statement();
+    } else if (FIRST_main_block(la.d_type)) {
+        return main_block(QByteArray(), QList<Expression*>());
+    } else if (FIRST_primary(la.d_type)) {
+        RowCol pos = toRowCol(la);
+        Expression* prim = primary();
+        
+        // Check for prefixed block: identifier BEGIN or identifier(args) BEGIN
+        if (la.d_type == Tok_BEGIN && prim) {
+            QByteArray prefixName;
+            QList<Expression*> args;
+            
+            if (prim->kind == Expression::Identifier) {
+                // Simple prefix: identifier BEGIN
+                prefixName = prim->val.toByteArray();
+            } else if (prim->kind == Expression::Call && prim->lhs && 
+                       prim->lhs->kind == Expression::Identifier) {
+                // Prefix with parameters: identifier(args) BEGIN
+                prefixName = prim->lhs->val.toByteArray();
+                // Collect args from the call expression
+                Expression* arg = prim->rhs;
+                while (arg) {
+                    Expression* nextArg = arg->next;
+                    arg->next = 0; // Detach from chain
+                    args.append(arg);
+                    arg = nextArg;
+                }
+                prim->rhs = 0; // Prevent deletion of args
+                prim->lhs = 0; // Prevent deletion of lhs
+            }
+            
+            if (!prefixName.isEmpty()) {
+                delete prim;
+                return main_block(prefixName, args);
+            }
+        }
+        
+        if (la.d_type == Tok_ColonEq) {
+            // Value assignment
+            expect(Tok_ColonEq, false, "unlabelled_basic_statement");
+            Expression* rhs = expression();
+            
+            // Handle multiple assignments (SIM75+)
+            while (la.d_type == Tok_ColonEq) {
+                if (!versionCheck(Sim75, "multiple assignment")) {
+                    break;
+                }
+                expect(Tok_ColonEq, false, "unlabelled_basic_statement");
+                Expression* next = expression();
+                // Chain assignments
+                Expression* assign = new Expression(Expression::AssignVal, pos);
+                assign->lhs = rhs;
+                assign->rhs = next;
+                rhs = assign;
+            }
+            
+            Statement* stmt = new Statement(Statement::Assign, pos);
+            stmt->expr = new Expression(Expression::AssignVal, pos);
+            stmt->expr->lhs = prim;
+            stmt->expr->rhs = rhs;
+            return stmt;
+        } else if (la.d_type == Tok_ColonMinus) {
+            // Reference assignment
+            expect(Tok_ColonMinus, false, "unlabelled_basic_statement");
+            Expression* rhs = expression();
+            
+            // Handle multiple assignments (SIM75+)
+            while (la.d_type == Tok_ColonMinus) {
+                if (!versionCheck(Sim75, "multiple assignment")) {
+                    break;
+                }
+                expect(Tok_ColonMinus, false, "unlabelled_basic_statement");
+                Expression* next = expression();
+                Expression* assign = new Expression(Expression::AssignRef, pos);
+                assign->lhs = rhs;
+                assign->rhs = next;
+                rhs = assign;
+            }
+            
+            Statement* stmt = new Statement(Statement::Assign, pos);
+            stmt->expr = new Expression(Expression::AssignRef, pos);
+            stmt->expr->lhs = prim;
+            stmt->expr->rhs = rhs;
+            return stmt;
+        } else {
+            // Procedure call or just an expression statement
+            Statement* stmt = new Statement(Statement::Call, pos);
+            stmt->expr = prim;
+            return stmt;
+        }
+    } else {
+        invalid("unlabelled_basic_statement");
+        return 0;
+    }
+}
+
+Connection* Parser3::when_clause() {
+    expect(Tok_WHEN, false, "when_clause");
+    RowCol pos = toRowCol(cur);
+    
+    QByteArray className = class_identifier();
+    expect(Tok_DO, false, "when_clause");
+    Statement* body = statement();
+    
+    Connection* conn = new Connection();
+    conn->pos = pos;
+    conn->className = className;
+    conn->body = body;
+    return conn;
+}
+
+Statement* Parser3::otherwise_clause() {
+    expect(Tok_OTHERWISE, false, "otherwise_clause");
+    return statement();
+}
+
+Statement* Parser3::connection_part() {
+    Connection* first = when_clause();
+    Connection* last = first;
+    
+    while (FIRST_when_clause(la.d_type)) {
+        Connection* conn = when_clause();
+        last->next = conn;
+        last = conn;
+    }
+    
+    // Return as a statement with connections
+    Statement* stmt = new Statement(Statement::Inspect, first->pos);
+    // Store connections - we need to cast or use a different approach
+    // For now, store the first connection's body
+    stmt->body = first->body;
+    first->body = 0;
+    delete first;
+    return stmt;
+}
+
+Statement* Parser3::connection_statement() {
+    expect(Tok_INSPECT, false, "connection_statement");
+    RowCol pos = toRowCol(cur);
+    
+    Expression* obj = expression();
+    
+    Statement* stmt = new Statement(Statement::Inspect, pos);
+    stmt->expr = obj;
+    
+    if (FIRST_connection_part(la.d_type)) {
+        // WHEN clauses
+        Connection* first = when_clause();
+        Connection* last = first;
+        while (FIRST_when_clause(la.d_type)) {
+            Connection* conn = when_clause();
+            last->next = conn;
+            last = conn;
+        }
+        // Store connections in the statement
+        // We'll use a special approach - store first connection
+        stmt->connections = new Statement(Statement::Dummy, first->pos);
+        stmt->connections->body = first->body;
+        first->body = 0;
+        // TODO: properly handle connection chain
+    } else if (la.d_type == Tok_DO) {
+        expect(Tok_DO, false, "connection_statement");
+        stmt->body = statement();
+    }
+    
+    if (FIRST_otherwise_clause(la.d_type)) {
+        stmt->elseStmt = otherwise_clause();
+    }
+    
+    return stmt;
+}
+
+bool Parser3::activator() {
+    if (la.d_type == Tok_ACTIVATE) {
+        expect(Tok_ACTIVATE, false, "activator");
+        return false;
+    } else if (la.d_type == Tok_REACTIVATE) {
+        expect(Tok_REACTIVATE, false, "activator");
+        return true;
+    }
+    invalid("activator");
+    return false;
+}
+
+Statement* Parser3::activation_statement() {
+    bool isReactivate = activator();
+    RowCol pos = toRowCol(cur);
+    
+    Expression* obj = expression();
+    
+    Statement* stmt = new Statement(Statement::Activate, pos);
+    stmt->expr = obj;
+    stmt->isReactivate = isReactivate;
+    
+    if (FIRST_scheduling_clause(la.d_type)) {
+        scheduling_clause(stmt);
+    }
+    
+    return stmt;
+}
+
+void Parser3::simple_timing_clause(Statement* stmt) {
+    if (la.d_type == Tok_AT) {
+        expect(Tok_AT, false, "simple_timing_clause");
+        stmt->atExpr = expression();
+    } else if (la.d_type == Tok_DELAY) {
+        expect(Tok_DELAY, false, "simple_timing_clause");
+        stmt->delayExpr = expression();
+    } else {
+        invalid("simple_timing_clause");
+    }
+}
+
+void Parser3::timing_clause(Statement* stmt) {
+    simple_timing_clause(stmt);
+    if (la.d_type == Tok_PRIOR) {
+        expect(Tok_PRIOR, false, "timing_clause");
+        stmt->prior = true;
+    }
+}
+
+void Parser3::scheduling_clause(Statement* stmt) {
+    if (FIRST_timing_clause(la.d_type)) {
+        timing_clause(stmt);
+    } else if (la.d_type == Tok_BEFORE) {
+        expect(Tok_BEFORE, false, "scheduling_clause");
+        stmt->beforeAfterExpr = expression();
+    } else if (la.d_type == Tok_AFTER) {
+        expect(Tok_AFTER, false, "scheduling_clause");
+        stmt->beforeAfterExpr = expression();
+    } else {
+        invalid("scheduling_clause");
+    }
+}
+
+Type* Parser3::specifier(bool& isArray, bool& isProcedure) {
+    isArray = false;
+    isProcedure = false;
+    
+    if (la.d_type == Tok_SWITCH) {
+        expect(Tok_SWITCH, false, "specifier");
+        return mdl->newType(Type::Switch);
+    } else if (la.d_type == Tok_LABEL) {
+        expect(Tok_LABEL, false, "specifier");
+        return mdl->getType(Type::Label);
+    } else if (((peek(1).d_type == Tok_PROCEDURE || peek(2).d_type == Tok_PROCEDURE ||
+                 peek(1).d_type == Tok_REF && peek(5).d_type == Tok_PROCEDURE ||
+                 peek(1).d_type == Tok_ARRAY || peek(2).d_type == Tok_ARRAY ||
+                 peek(1).d_type == Tok_REF && peek(5).d_type == Tok_ARRAY))) {
+        Type* t = 0;
+        if (FIRST_type(la.d_type)) {
+            t = type();
+        }
+        if (la.d_type == Tok_ARRAY) {
+            expect(Tok_ARRAY, false, "specifier");
+            isArray = true;
+        } else if (la.d_type == Tok_PROCEDURE) {
+            expect(Tok_PROCEDURE, false, "specifier");
+            isProcedure = true;
+        } else {
+            invalid("specifier");
+        }
+        return t;
+    } else if (FIRST_type(la.d_type)) {
+        return type();
+    } else {
+        invalid("specifier");
+        return 0;
+    }
+}
+
+void Parser3::specification_part(Declaration* parent) {
+    bool isArray = false;
+    bool isProcedure = false;
+    Type* t = specifier(isArray, isProcedure);
+    
+    QList<QByteArray> ids = identifier_list();
+    expect(Tok_Semi, false, "specification_part");
+    
+    // Update parameter types
+    for (int i = 0; i < ids.size(); i++) {
+        Declaration* param = parent->link;
+        while (param) {
+            if (param->name == ids[i]) {
+                if (isArray) {
+                    Type* arrType = mdl->newType(Type::Array);
+                    arrType->setType(t);
+                    param->setType(arrType);
+                    param->kind = Declaration::Array;
+                } else if (isProcedure) {
+                    Type* procType = mdl->newType(Type::Procedure);
+                    procType->setType(t);
+                    param->setType(procType);
+                } else {
+                    param->setType(t);
+                }
+                break;
+            }
+            param = param->next;
+        }
+    }
+}
+
+void Parser3::procedure_specification(Declaration* virtSpec) {
+    expect(Tok_IS, false, "procedure_specification");
+    Declaration* proc = procedure_declaration();
+    // Link the procedure to the virtual spec
+}
+
+void Parser3::external_item(Declaration* extDecl) {
+    QByteArray localName;
+    if ((peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Eq)) {
+        expect(Tok_identifier, false, "external_item");
+        localName = cur.d_val;
+        expect(Tok_Eq, false, "external_item");
+    }
+    
+    QByteArray extName = external_identifier();
+    
+    Declaration* item = new Declaration(Declaration::External);
+    item->name = localName.isEmpty() ? extName : localName;
+    item->pos = toRowCol(cur);
+    item->data = extName;
+    extDecl->appendMember(item);
+    item->outer = extDecl;
+}
+
+void Parser3::external_list(Declaration* extDecl) {
+    external_item(extDecl);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "external_list");
+        external_item(extDecl);
+    }
+}
+
+Declaration* Parser3::external_declaration() {
+    expect(Tok_EXTERNAL, false, "external_declaration");
+    RowCol pos = toRowCol(cur);
+    
+    Declaration* extDecl = new Declaration(Declaration::External);
+    extDecl->pos = pos;
+    
+    if (la.d_type == Tok_identifier || FIRST_type(la.d_type) || la.d_type == Tok_PROCEDURE) {
+        // SIM86: optional kind identifier
+        if (la.d_type == Tok_identifier && peek(2).d_type != Tok_Eq) {
+            if (versionCheck(Sim86, "external kind")) {
+                expect(Tok_identifier, false, "external_declaration");
+                // Store kind
+            }
+        }
+        
+        Type* t = 0;
+        if (FIRST_type(la.d_type)) {
+            t = type();
+        }
+        extDecl->setType(t);
+        
+        expect(Tok_PROCEDURE, false, "external_declaration");
+        external_list(extDecl);
+        
+        if (FIRST_procedure_specification(la.d_type)) {
+            if (versionCheck(Sim86, "IS procedure_specification")) {
+                procedure_specification(extDecl);
+            }
+        }
+    } else if (la.d_type == Tok_CLASS) {
+        expect(Tok_CLASS, false, "external_declaration");
+        external_list(extDecl);
+    } else {
+        invalid("external_declaration");
+    }
+    
+    // Add to current scope
+    mdl->currentScope()->appendMember(extDecl);
+    extDecl->outer = mdl->currentScope();
+    
+    return extDecl;
+}
+
+QByteArray Parser3::external_identifier() {
+    if (la.d_type == Tok_identifier) {
+        expect(Tok_identifier, false, "external_identifier");
+        return cur.d_val;
+    } else if (la.d_type == Tok_string) {
+        if (!versionCheck(Sim86, "string external identifier")) {
+            // Still parse it
+        }
+        expect(Tok_string, false, "external_identifier");
+        return cur.d_val;
+    } else {
+        invalid("external_identifier");
+        return QByteArray();
+    }
+}
+
+Declaration* Parser3::switch_declaration() {
+    expect(Tok_SWITCH, false, "switch_declaration");
+    RowCol pos = toRowCol(cur);
+    
+    expect(Tok_identifier, false, "switch_declaration");
+    QByteArray name = cur.d_val;
+    
+    expect(Tok_ColonEq, false, "switch_declaration");
+    
+    Declaration* switchDecl = new Declaration(Declaration::Switch);
+    switchDecl->name = name;
+    switchDecl->pos = pos;
+    switchDecl->setType(mdl->newType(Type::Switch));
+    
+    switch_list(switchDecl);
+    
+    // Add to current scope
+    mdl->currentScope()->appendMember(switchDecl);
+    switchDecl->outer = mdl->currentScope();
+    
+    return switchDecl;
+}
+
+void Parser3::switch_list(Declaration* switchDecl) {
+    Expression* first = expression();
+    Expression* last = first;
+    
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "switch_list");
+        Expression* e = expression();
+        if (last) {
+            last->next = e;
+            last = e;
+        } else {
+            first = e;
+            last = e;
+        }
+    }
+    
+    // Store the switch list - we could use a special field or the data field
+    // For now, we'll need to extend the Declaration or use data
+}
+
+void Parser3::type_list_element(Type* t) {
+    expect(Tok_identifier, false, "type_list_element");
+    QByteArray name = cur.d_val;
+    RowCol pos = toRowCol(cur);
+    
+    Declaration* varDecl = new Declaration(Declaration::Variable);
+    varDecl->name = name;
+    varDecl->pos = pos;
+    varDecl->setType(t);
+    
+    if (la.d_type == Tok_Eq) {
+        // SIM86 feature: initializer
+        if (versionCheck(Sim86, "variable initializer")) {
+            expect(Tok_Eq, false, "type_list_element");
+            Expression* init = expression();
+            // Store initializer - could use data field
+            varDecl->data = QVariant::fromValue(init);
+        }
+    }
+    
+    // Add to current scope
+    mdl->currentScope()->appendMember(varDecl);
+    varDecl->outer = mdl->currentScope();
+}
+
+void Parser3::type_list(Type* t) {
+    type_list_element(t);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "type_list");
+        type_list_element(t);
+    }
+}
+
+void Parser3::type_declaration() {
+    Type* t = type();
+    type_list(t);
+}
+
+void Parser3::array_list(Type* elemType) {
+    array_segment(elemType);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "array_list");
+        array_segment(elemType);
+    }
+}
+
+void Parser3::array_segment(Type* elemType) {
+    QList<QByteArray> names;
+    
+    expect(Tok_identifier, false, "array_segment");
+    names.append(cur.d_val);
+    RowCol pos = toRowCol(cur);
+    
+    // Collect all identifiers that share the same bounds
+    // Grammar: array_segment ::= identifier { ',' identifier } bounds
+    // Continue while we see ", identifier" followed by comma, '[', or '('
+    // (bounds come at the end, shared by all identifiers)
+    while (la.d_type == Tok_Comma && peek(2).d_type == Tok_identifier) {
+        int tt3 = peek(3).d_type;
+        // If identifier is followed by comma, '[', or '(' it's part of this segment
+        if (tt3 == Tok_Comma || tt3 == Tok_Lbrack || tt3 == Tok_Lpar) {
+            expect(Tok_Comma, false, "array_segment");
+            expect(Tok_identifier, false, "array_segment");
+            names.append(cur.d_val);
+        } else {
+            // Something else follows - not part of this segment
+            break;
+        }
+    }
+    
+    QList<Expression*> bounds;
+    
+    if (la.d_type == Tok_Lbrack) {
+        expect(Tok_Lbrack, false, "array_segment");
+        bound_pair_list(bounds);
+        expect(Tok_Rbrack, false, "array_segment");
+    } else if (la.d_type == Tok_Lpar) {
+        // SIM75+ feature
+        if (!versionCheck(Sim75, "() array bounds")) {
+            // Still parse it
+        }
+        expect(Tok_Lpar, false, "array_segment");
+        bound_pair_list(bounds);
+        expect(Tok_Rpar, false, "array_segment");
+    } else {
+        invalid("array_segment");
+    }
+    
+    // Create array declarations for each name
+    for (int i = 0; i < names.size(); i++) {
+        Declaration* arrDecl = new Declaration(Declaration::Array);
+        arrDecl->name = names[i];
+        arrDecl->pos = pos;
+        
+        Type* arrType = mdl->newType(Type::Array);
+        arrType->setType(elemType);
+        // Store bounds in the type
+        if (!bounds.isEmpty()) {
+            arrType->expr = bounds[0]; // First bound pair's lower bound
+        }
+        arrDecl->setType(arrType);
+        
+        mdl->currentScope()->appendMember(arrDecl);
+        arrDecl->outer = mdl->currentScope();
+    }
+}
+
+void Parser3::bound_pair_list(QList<Expression*>& bounds) {
+    bound_pair(bounds);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "bound_pair_list");
+        bound_pair(bounds);
+    }
+}
+
+void Parser3::bound_pair(QList<Expression*>& bounds) {
+    Expression* lower = expression();
+    expect(Tok_Colon, false, "bound_pair");
+    Expression* upper = expression();
+    
+    bounds.append(lower);
+    bounds.append(upper);
+}
+
+Declaration* Parser3::array_declaration() {
+    Type* elemType = 0;
+    if (FIRST_type(la.d_type)) {
+        elemType = type();
+    }
+    
+    expect(Tok_ARRAY, false, "array_declaration");
+    array_list(elemType);
+    
+    return 0; // Arrays are added directly to scope
+}
+
+Type* Parser3::type() {
+    if (FIRST_value_type(la.d_type)) {
+        return value_type();
+    } else if (FIRST_reference_type(la.d_type)) {
+        return reference_type();
+    } else {
+        invalid("type");
+        return 0;
+    }
+}
+
+Type* Parser3::value_type() {
+    if (la.d_type == Tok_INTEGER) {
+        expect(Tok_INTEGER, false, "value_type");
+        return mdl->getType(Type::Integer);
+    } else if (la.d_type == Tok_REAL) {
+        expect(Tok_REAL, false, "value_type");
+        return mdl->getType(Type::Real);
+    } else if (la.d_type == Tok_SHORT) {
+        expect(Tok_SHORT, false, "value_type");
+        if (!versionCheck(Sim75, "SHORT INTEGER")) {
+            // Still parse it
+        }
+        expect(Tok_INTEGER, false, "value_type");
+        return mdl->getType(Type::ShortInteger);
+    } else if (la.d_type == Tok_LONG) {
+        expect(Tok_LONG, false, "value_type");
+        if (!versionCheck(Sim75, "LONG REAL")) {
+            // Still parse it
+        }
+        expect(Tok_REAL, false, "value_type");
+        return mdl->getType(Type::LongReal);
+    } else if (la.d_type == Tok_BOOLEAN) {
+        expect(Tok_BOOLEAN, false, "value_type");
+        return mdl->getType(Type::Boolean);
+    } else if (la.d_type == Tok_CHARACTER) {
+        expect(Tok_CHARACTER, false, "value_type");
+        return mdl->getType(Type::Character);
+    } else {
+        invalid("value_type");
+        return 0;
+    }
+}
+
+Type* Parser3::reference_type() {
+    if (FIRST_object_reference(la.d_type)) {
+        return object_reference();
+    } else if (la.d_type == Tok_TEXT) {
+        expect(Tok_TEXT, false, "reference_type");
+        return mdl->getType(Type::Text);
+    } else {
+        invalid("reference_type");
+        return 0;
+    }
+}
+
+Type* Parser3::object_reference() {
+    expect(Tok_REF, false, "object_reference");
+    expect(Tok_Lpar, false, "object_reference");
+    QByteArray qual = qualification();
+    expect(Tok_Rpar, false, "object_reference");
+    
+    Type* refType = mdl->newType(Type::Ref);
+    // Store qualification for later resolution
+    // We could create a temporary declaration or use the data field
+    return refType;
+}
+
+QByteArray Parser3::qualification() {
+    return class_identifier();
+}
+
+QByteArray Parser3::label() {
+    expect(Tok_identifier, false, "label");
+    return cur.d_val;
+}
+
+Expression* Parser3::if_clause() {
+    expect(Tok_IF, false, "if_clause");
+    Expression* cond = expression();
+    expect(Tok_THEN, false, "if_clause");
+    return cond;
+}
+
+Expression* Parser3::local_object() {
+    expect(Tok_THIS, false, "local_object");
+    RowCol pos = toRowCol(cur);
+    QByteArray className = class_identifier();
+    
+    Expression* expr = new Expression(Expression::This, pos);
+    expr->val = className;
+    return expr;
+}
+
+Expression* Parser3::object_generator() {
+    expect(Tok_NEW, false, "object_generator");
+    RowCol pos = toRowCol(cur);
+    QByteArray className = class_identifier();
+    
+    Expression* expr = new Expression(Expression::New, pos);
+    expr->val = className;
+    return expr;
+}
+
+void Parser3::actual_parameter_list(QList<Expression*>& args) {
+    Expression* arg = actual_parameter();
+    if (arg) args.append(arg);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "actual_parameter_list");
+        arg = actual_parameter();
+        if (arg) args.append(arg);
+    }
+}
+
+Expression* Parser3::actual_parameter() {
+    return expression();
+}
+
+// Expression parsing
+
+Expression* Parser3::expression() {
+    if (FIRST_quaternary_(la.d_type)) {
+        return quaternary_();
+    } else if (FIRST_if_clause(la.d_type)) {
+        Expression* cond = if_clause();
+        Expression* thenExpr = quaternary_();
+        expect(Tok_ELSE, false, "expression");
+        Expression* elseExpr = expression();
+        
+        Expression* ifExpr = new Expression(Expression::IfExpr, cond ? cond->pos : toRowCol(la));
+        ifExpr->condition = cond;
+        ifExpr->lhs = thenExpr;
+        ifExpr->rhs = elseExpr;
+        return ifExpr;
+    } else {
+        invalid("expression");
+        return 0;
+    }
+}
+
+Expression* Parser3::quaternary_() {
+    Expression* left = tertiary_();
+    while (la.d_type == Tok_OR_ELSE) {
+        expect(Tok_OR_ELSE, false, "quaternary_");
+        if (!versionCheck(Sim86, "OR ELSE")) {
+            // Still parse it
+        }
+        Expression* right = tertiary_();
+        Expression* op = new Expression(Expression::Or, left ? left->pos : toRowCol(cur));
+        op->lhs = left;
+        op->rhs = right;
+        left = op;
+    }
+    return left;
+}
+
+Expression* Parser3::tertiary_() {
+    Expression* left = equivalence_();
+    while (la.d_type == Tok_AND_THEN) {
+        expect(Tok_AND_THEN, false, "tertiary_");
+        if (!versionCheck(Sim86, "AND THEN")) {
+            // Still parse it
+        }
+        Expression* right = equivalence_();
+        Expression* op = new Expression(Expression::And, left ? left->pos : toRowCol(cur));
+        op->lhs = left;
+        op->rhs = right;
+        left = op;
+    }
+    return left;
+}
+
+Expression* Parser3::equivalence_() {
+    Expression* left = implication();
+    while (FIRST_equiv_sym_(la.d_type)) {
+        Expression::Kind kind = equiv_sym_();
+        Expression* right = implication();
+        Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
+        op->lhs = left;
+        op->rhs = right;
+        left = op;
+    }
+    return left;
+}
+
+Expression::Kind Parser3::equiv_sym_() {
+    if (la.d_type == Tok_EQUIV) {
+        expect(Tok_EQUIV, false, "equiv_sym_");
+    } else if (la.d_type == Tok_Ueq) {
+        expect(Tok_Ueq, false, "equiv_sym_");
+    } else if (la.d_type == Tok_2Eq) {
+        expect(Tok_2Eq, false, "equiv_sym_");
+    } else if (la.d_type == Tok_EQV) {
+        expect(Tok_EQV, false, "equiv_sym_");
+    } else {
+        invalid("equiv_sym_");
+    }
+    return Expression::Eqv;
+}
+
+Expression* Parser3::implication() {
+    Expression* left = simple_expression_();
+    while (FIRST_impl_sym_(la.d_type)) {
+        Expression::Kind kind = impl_sym_();
+        Expression* right = simple_expression_();
+        Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
+        op->lhs = left;
+        op->rhs = right;
+        left = op;
+    }
+    return left;
+}
+
+Expression::Kind Parser3::impl_sym_() {
+    if (la.d_type == Tok_IMPL) {
+        expect(Tok_IMPL, false, "impl_sym_");
+    } else if (la.d_type == Tok_Uimpl) {
+        expect(Tok_Uimpl, false, "impl_sym_");
+    } else if (la.d_type == Tok_MinusGt) {
+        expect(Tok_MinusGt, false, "impl_sym_");
+    } else if (la.d_type == Tok_IMP) {
+        expect(Tok_IMP, false, "impl_sym_");
+    } else {
+        invalid("impl_sym_");
+    }
+    return Expression::Imp;
+}
+
+Expression* Parser3::simple_expression_() {
+    Expression* left = term();
+    while (FIRST_adding_operator(la.d_type) || FIRST_or_sym_(la.d_type)) {
+        Expression::Kind kind;
+        if (FIRST_adding_operator(la.d_type)) {
+            kind = adding_operator();
+        } else {
+            kind = or_sym_();
+        }
+        Expression* right = term();
+        Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
+        op->lhs = left;
+        op->rhs = right;
+        left = op;
+    }
+    return left;
+}
+
+Expression::Kind Parser3::adding_operator() {
+    if (la.d_type == Tok_Plus) {
+        expect(Tok_Plus, false, "adding_operator");
+        return Expression::Plus;
+    } else if (la.d_type == Tok_Minus) {
+        expect(Tok_Minus, false, "adding_operator");
+        return Expression::Minus;
+    } else {
+        invalid("adding_operator");
+        return Expression::Invalid;
+    }
+}
+
+Expression::Kind Parser3::or_sym_() {
+    if (la.d_type == Tok_OR) {
+        expect(Tok_OR, false, "or_sym_");
+    } else if (la.d_type == Tok_Uor) {
+        expect(Tok_Uor, false, "or_sym_");
+    } else if (la.d_type == Tok_Bar) {
+        expect(Tok_Bar, false, "or_sym_");
+    } else {
+        invalid("or_sym_");
+    }
+    return Expression::Or;
+}
+
+Expression* Parser3::term() {
+    Expression* left = factor();
+    while (FIRST_multiplying_operator(la.d_type) || FIRST_and_sym_(la.d_type)) {
+        Expression::Kind kind;
+        if (FIRST_multiplying_operator(la.d_type)) {
+            kind = multiplying_operator();
+        } else {
+            kind = and_sym_();
+        }
+        Expression* right = factor();
+        Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
+        op->lhs = left;
+        op->rhs = right;
+        left = op;
+    }
+    return left;
+}
+
+Expression::Kind Parser3::multiplying_operator() {
+    if (la.d_type == Tok_Star) {
+        expect(Tok_Star, false, "multiplying_operator");
+        return Expression::Mul;
+    } else if (la.d_type == Tok_Slash) {
+        expect(Tok_Slash, false, "multiplying_operator");
+        return Expression::Div;
+    } else if (la.d_type == Tok_Percent) {
+        expect(Tok_Percent, false, "multiplying_operator");
+        return Expression::IntDiv;
+    } else if (la.d_type == Tok_Udiv) {
+        expect(Tok_Udiv, false, "multiplying_operator");
+        return Expression::Div;
+    } else if (la.d_type == Tok_Umul) {
+        expect(Tok_Umul, false, "multiplying_operator");
+        return Expression::Mul;
+    } else if (la.d_type == Tok_2Slash) {
+        expect(Tok_2Slash, false, "multiplying_operator");
+        return Expression::IntDiv;
+    } else {
+        invalid("multiplying_operator");
+        return Expression::Invalid;
+    }
+}
+
+Expression::Kind Parser3::and_sym_() {
+    if (la.d_type == Tok_AND) {
+        expect(Tok_AND, false, "and_sym_");
+    } else if (la.d_type == Tok_Uand) {
+        expect(Tok_Uand, false, "and_sym_");
+    } else if (la.d_type == Tok_Amp) {
+        expect(Tok_Amp, false, "and_sym_");
+    } else {
+        invalid("and_sym_");
+    }
+    return Expression::And;
+}
+
+Expression* Parser3::factor() {
+    Expression* left = secondary();
+    while (FIRST_power_sym_(la.d_type)) {
+        Expression::Kind kind = power_sym_();
+        Expression* right = secondary();
+        Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
+        op->lhs = left;
+        op->rhs = right;
+        left = op;
+    }
+    return left;
+}
+
+Expression::Kind Parser3::power_sym_() {
+    if (la.d_type == Tok_POWER) {
+        expect(Tok_POWER, false, "power_sym_");
+    } else if (la.d_type == Tok_Uexp) {
+        expect(Tok_Uexp, false, "power_sym_");
+    } else if (la.d_type == Tok_Hat) {
+        expect(Tok_Hat, false, "power_sym_");
+    } else if (la.d_type == Tok_2Star) {
+        expect(Tok_2Star, false, "power_sym_");
+    } else {
+        invalid("power_sym_");
+    }
+    return Expression::Exp;
+}
+
+Expression* Parser3::secondary() {
+    Expression::Kind notKind = Expression::Invalid;
+    Expression::Kind signKind = Expression::Invalid;
+    RowCol pos = toRowCol(la);
+    
+    if (FIRST_not_sym_(la.d_type)) {
+        notKind = not_sym_();
+    }
+    if (FIRST_adding_operator(la.d_type)) {
+        signKind = adding_operator();
+    }
+    
+    Expression* prim = primary();
+    
+    // Apply unary operators
+    if (signKind == Expression::Minus && prim) {
+        Expression* neg = new Expression(Expression::Minus, pos);
+        neg->rhs = prim;
+        prim = neg;
+    }
+    
+    if (notKind == Expression::Not && prim) {
+        Expression* notExpr = new Expression(Expression::Not, pos);
+        notExpr->rhs = prim;
+        prim = notExpr;
+    }
+    
+    return prim;
+}
+
+Expression::Kind Parser3::not_sym_() {
+    if (la.d_type == Tok_NOT) {
+        expect(Tok_NOT, false, "not_sym_");
+    } else if (la.d_type == Tok_Unot) {
+        expect(Tok_Unot, false, "not_sym_");
+    } else if (la.d_type == Tok_Bang) {
+        expect(Tok_Bang, false, "not_sym_");
+    } else {
+        invalid("not_sym_");
+    }
+    return Expression::Not;
+}
+
+Expression* Parser3::primary() {
+    Expression* result = 0;
+    
+    if (FIRST_unsigned_number(la.d_type)) {
+        result = unsigned_number();
+    } else if (FIRST_logical_value(la.d_type)) {
+        result = logical_value();
+    } else if (la.d_type == Tok_character) {
+        expect(Tok_character, false, "primary");
+        result = new Expression(Expression::CharConst, toRowCol(cur));
+        result->val = cur.d_val;
+    } else if (FIRST_string_(la.d_type)) {
+        result = string_();
+    } else if (la.d_type == Tok_NOTEXT) {
+        expect(Tok_NOTEXT, false, "primary");
+        result = new Expression(Expression::TextConst, toRowCol(cur));
+        result->val = QByteArray();
+    } else if (la.d_type == Tok_NONE) {
+        expect(Tok_NONE, false, "primary");
+        result = new Expression(Expression::Identifier, toRowCol(cur));
+        result->val = QByteArray("NONE");
+    } else if (FIRST_local_object(la.d_type)) {
+        result = local_object();
+    } else if (FIRST_object_generator(la.d_type)) {
+        result = object_generator();
+        // Check for actual parameters
+        if (FIRST_actual_parameter_part(la.d_type)) {
+            QList<Expression*> args;
+            actual_parameter_part(args);
+            // Convert to Call expression
+            Expression* call = new Expression(Expression::Call, result->pos);
+            call->lhs = result;
+            // Store args
+            if (!args.isEmpty()) {
+                call->rhs = args[0];
+                for (int i = 1; i < args.size(); i++) {
+                    Expression::append(call->rhs, args[i]);
+                }
+            }
+            result = call;
+        }
+    } else if (la.d_type == Tok_Lpar) {
+        expect(Tok_Lpar, false, "primary");
+        result = expression();
+        expect(Tok_Rpar, false, "primary");
+    } else if (la.d_type == Tok_identifier) {
+        expect(Tok_identifier, false, "primary");
+        result = new Expression(Expression::Identifier, toRowCol(cur));
+        result->val = cur.d_val;
+    } else {
+        invalid("primary");
+        return 0;
+    }
+    
+    return primary_nlr_(result);
+}
+
+Expression* Parser3::primary_nlr_(Expression* lhs) {
+    if (FIRST_relation_(la.d_type) || FIRST_selector_(la.d_type) || FIRST_qualified_(la.d_type)) {
+        Expression* result = 0;
+        if (FIRST_relation_(la.d_type)) {
+            result = relation_(lhs);
+        } else if (FIRST_selector_(la.d_type)) {
+            result = selector_(lhs);
+        } else if (FIRST_qualified_(la.d_type)) {
+            result = qualified_(lhs);
+        }
+        return primary_nlr_(result);
+    }
+    return lhs;
+}
+
+Expression* Parser3::relation_(Expression* lhs) {
+    Expression::Kind kind = relational_operator();
+    Expression* rhs = simple_expression_();
+    
+    Expression* rel = new Expression(kind, lhs ? lhs->pos : toRowCol(cur));
+    rel->lhs = lhs;
+    rel->rhs = rhs;
+    return rel;
+}
+
+Expression* Parser3::qualified_(Expression* lhs) {
+    expect(Tok_QUA, false, "qualified_");
+    RowCol pos = toRowCol(cur);
+    QByteArray className = class_identifier();
+    
+    Expression* qua = new Expression(Expression::Qua, pos);
+    qua->lhs = lhs;
+    qua->val = className;
+    return qua;
+}
+
+Expression* Parser3::selector_(Expression* lhs) {
+    if (la.d_type == Tok_Dot) {
+        expect(Tok_Dot, false, "selector_");
+        RowCol pos = toRowCol(cur);
+        QByteArray attr = attribute_identifier();
+        
+        Expression* dot = new Expression(Expression::Dot, pos);
+        dot->lhs = lhs;
+        dot->val = attr;
+        return dot;
+    } else if (la.d_type == Tok_Lbrack) {
+        expect(Tok_Lbrack, false, "selector_");
+        RowCol pos = toRowCol(cur);
+        QList<Expression*> subs;
+        subscript_list(subs);
+        expect(Tok_Rbrack, false, "selector_");
+        
+        Expression* subscript = new Expression(Expression::Subscript, pos);
+        subscript->lhs = lhs;
+        if (!subs.isEmpty()) {
+            subscript->rhs = subs[0];
+            for (int i = 1; i < subs.size(); i++) {
+                Expression::append(subscript->rhs, subs[i]);
+            }
+        }
+        return subscript;
+    } else if (la.d_type == Tok_Lpar) {
+        // Function/procedure call
+        RowCol pos = toRowCol(la);
+        QList<Expression*> args;
+        actual_parameter_part(args);
+        
+        Expression* call = new Expression(Expression::Call, pos);
+        call->lhs = lhs;
+        if (!args.isEmpty()) {
+            call->rhs = args[0];
+            for (int i = 1; i < args.size(); i++) {
+                Expression::append(call->rhs, args[i]);
+            }
+        }
+        return call;
+    } else {
+        invalid("selector_");
+        return lhs;
+    }
+}
+
+Expression::Kind Parser3::relational_operator() {
+    Expression::Kind kind = Expression::Invalid;
+    
+    if (la.d_type == Tok_Lt || la.d_type == Tok_LESS || la.d_type == Tok_LT) {
+        next();
+        kind = Expression::Lt;
+    } else if (la.d_type == Tok_Leq || la.d_type == Tok_Uleq || la.d_type == Tok_NOTGREATER || la.d_type == Tok_LE) {
+        next();
+        kind = Expression::Leq;
+    } else if (la.d_type == Tok_Eq || la.d_type == Tok_EQUAL || la.d_type == Tok_EQ) {
+        next();
+        kind = Expression::Eq;
+    } else if (la.d_type == Tok_Geq || la.d_type == Tok_Ugeq || la.d_type == Tok_NOTLESS || la.d_type == Tok_GE) {
+        next();
+        kind = Expression::Geq;
+    } else if (la.d_type == Tok_Gt || la.d_type == Tok_GREATER || la.d_type == Tok_GT) {
+        next();
+        kind = Expression::Gt;
+    } else if (la.d_type == Tok_LtGt || la.d_type == Tok_Uneq || la.d_type == Tok_NOTEQUAL || 
+               la.d_type == Tok_NE || la.d_type == Tok_BangEq || la.d_type == Tok_HatEq) {
+        next();
+        kind = Expression::Neq;
+    } else if (la.d_type == Tok_IS) {
+        next();
+        kind = Expression::Eq; // IS is reference equality
+    } else if (la.d_type == Tok_IN) {
+        next();
+        kind = Expression::Eq; // IN is class membership
+    } else if (la.d_type == Tok_2Eq) {
+        next();
+        kind = Expression::RefEq;
+    } else if (la.d_type == Tok_EqSlashEq) {
+        next();
+        kind = Expression::RefNeq;
+    } else {
+        invalid("relational_operator");
+    }
+    
+    return kind;
+}
+
+Expression* Parser3::logical_value() {
+    if (la.d_type == Tok_TRUE) {
+        expect(Tok_TRUE, false, "logical_value");
+        Expression* expr = new Expression(Expression::NumConst, toRowCol(cur));
+        expr->val = true;
+        return expr;
+    } else if (la.d_type == Tok_FALSE) {
+        expect(Tok_FALSE, false, "logical_value");
+        Expression* expr = new Expression(Expression::NumConst, toRowCol(cur));
+        expr->val = false;
+        return expr;
+    } else {
+        invalid("logical_value");
+        return 0;
+    }
+}
+
+Expression* Parser3::unsigned_number() {
+    if (la.d_type == Tok_unsigned_integer) {
+        expect(Tok_unsigned_integer, false, "unsigned_number");
+        Expression* expr = new Expression(Expression::NumConst, toRowCol(cur));
+        expr->val = cur.d_val.toLongLong();
+        return expr;
+    } else if (la.d_type == Tok_decimal_number) {
+        expect(Tok_decimal_number, false, "unsigned_number");
+        Expression* expr = new Expression(Expression::NumConst, toRowCol(cur));
+        expr->val = cur.d_val.toDouble();
+        return expr;
+    } else {
+        invalid("unsigned_number");
+        return 0;
+    }
+}
+
+QByteArray Parser3::class_identifier() {
+    expect(Tok_identifier, false, "class_identifier");
+    return cur.d_val;
+}
+
+QList<QByteArray> Parser3::identifier_list() {
+    QList<QByteArray> ids;
+    expect(Tok_identifier, false, "identifier_list");
+    ids.append(cur.d_val);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "identifier_list");
+        expect(Tok_identifier, false, "identifier_list");
+        ids.append(cur.d_val);
+    }
+    return ids;
+}
+
+void Parser3::subscript_list(QList<Expression*>& subs) {
+    Expression* e = subscript_expression();
+    if (e) subs.append(e);
+    while (la.d_type == Tok_Comma) {
+        expect(Tok_Comma, false, "subscript_list");
+        e = subscript_expression();
+        if (e) subs.append(e);
+    }
+}
+
+Expression* Parser3::subscript_expression() {
+    return expression();
+}
+
+QByteArray Parser3::attribute_identifier() {
+    expect(Tok_identifier, false, "attribute_identifier");
+    return cur.d_val;
+}
+
+Expression* Parser3::string_() {
+    expect(Tok_string, false, "string_");
+    Expression* expr = new Expression(Expression::TextConst, toRowCol(cur));
+    QByteArray val = cur.d_val;
+    
+    // Handle string concatenation
+    while (la.d_type == Tok_string) {
+        expect(Tok_string, false, "string_");
+        val += cur.d_val;
+    }
+    
+    expr->val = val;
+    return expr;
+}
