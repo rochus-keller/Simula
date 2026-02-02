@@ -29,35 +29,82 @@ const char* Builtin::name[] = {
 
 const char* Type::name[] = {
     "Undefined", "NoType",
-    "Integer", "ShortInteger", "Real", "LongReal", "Boolean", "Character",
-    "Text", "Ref", "Pointer", "Array", "Procedure", "Label", "Switch"
+    "Integer", "ShortInteger", "Real", "LongReal", "Boolean", "Character", "Label", "Text",
+    "",
+    "Ref", "Pointer", "Array", "Procedure", "Switch"
 };
 
-Node::Node(Meta m) : meta(m), validated(0), inList(0), hasErrors(0), ownstype(0), allocated(0), owned(0), _ty(0) {}
+Node::Node(Meta m) : meta(m), inList(0), ownstype(0), owned(0), _ty(0), mode(0),
+    visi(0), id(0), isVirtual(0), re(0), prior(0), ownsexpr(0){}
 
 Node::~Node() {
-    if (_ty && ownstype) delete _ty;
+    if (_ty && ownstype)
+       delete _ty;
 }
 
 void Node::setType(Type* t) {
-    if (_ty == t) return;
-    if (_ty && ownstype) { delete _ty; ownstype = false; }
+    if (_ty == t)
+        return;
+    if (_ty && ownstype) {
+        delete _ty;
+        ownstype = false;
+    }
     _ty = t;
-    if (t && !t->owned) { ownstype = true; t->owned = true; }
+    if (t && !t->owned) {
+        ownstype = true;
+        t->owned = true;
+    }
 }
 
-Type::Type(Kind k) : Node(T), kind(k), expr(0), decl(0) {}
+Type::Type(Kind k) : Node(T), kind(k), expr(0) {}
 Type::~Type() {
-    if (expr) delete expr;
-    // decl is not owned
-    qDeleteAll(subs);
+    if (expr && ownsexpr)
+        delete expr;
+}
+
+void Type::setExpr(Expression *e)
+{
+    if (expr == e)
+        return;
+    if (expr && ownsexpr) {
+        delete expr;
+        ownsexpr = false;
+    }
+    expr = e;
+    if (e && !e->owned) {
+        ownsexpr = true;
+        e->owned = true;
+    }
 }
 bool Type::isArithmetic() const { return kind >= Integer && kind <= LongReal; }
 
-Declaration::Declaration(Kind k) : Node(D), kind(k), link(0), next(0), outer(0), prefix(0), body(0), visi(NA), mode(ModeDefault), id(0), isVirtual(0) {}
+Declaration::Declaration(Kind k) : Node(D), kind(k), link(0), next(0), outer(0), body(0), prefix(0)
+{
+
+}
+
 Declaration::~Declaration() {
     if (link) deleteAll(link); // Recursive delete of members
-    if (body) delete body;     // Delete statement tree
+    if (body)
+        Statement::deleteAll(body);     // Delete statement tree
+
+    // Union cleanup based on Kind
+    switch (kind) {
+    case Module:
+    case Class:
+    case External:
+        if (data) delete data;
+        break;
+    case Switch:
+        if (list) delete list;
+        break;
+    case Variable:
+    case Parameter:
+        if (init) delete init;
+        break;
+    default:
+        break;
+    }
 }
 
 Declaration *Declaration::find(const QByteArray &name, bool recursive) const
@@ -103,21 +150,52 @@ void Expression::append(Expression* list, Expression* elem) {
     list->next = elem;
 }
 
-Statement::Statement(Kind k, const RowCol& p) : Node(S), kind(k), expr(0), body(0), elseStmt(0), connections(0), 
-    isReactivate(false), atExpr(0), delayExpr(0), beforeAfterExpr(0), prior(false), next(0) { pos = p; }
+Statement::Statement(Kind k, const RowCol& p) : Node(S), kind(k), body(0), next(0), prefix(0), scope(0) { pos = p; }
 
 Statement::~Statement() {
-    if (expr) delete expr;
-    if (body) delete body; // Recursively delete child statements (Block/Compound/Then)
-    if (elseStmt) delete elseStmt;
-    if (connections) delete connections; // Special chain
-    if (atExpr) delete atExpr;
-    if (delayExpr) delete delayExpr;
-    if (beforeAfterExpr) delete beforeAfterExpr;
-    // Note: 'next' is NOT deleted here recursively to avoid stack overflow on long blocks, 
+    if (body)
+        deleteAll(body); // Recursively delete child statements (Block/Compound/Then)
+
+    // Note: 'next' is NOT deleted here recursively to avoid stack overflow on long blocks,
     // handled by deleteAll or manual iteration in parent. 
     // However, for simplicity here assuming moderate depth or manual management:
     // Ideally, a container deletes the chain iteratively.
+
+    switch (kind) {
+    case Compound:
+    case Block:
+        if (prefix) delete prefix;
+        if (scope) delete scope;
+        break;
+    case If:
+    case While:
+        if (cond) delete cond;
+        if (elseStmt)
+            deleteAll(elseStmt);
+        break;
+    case For:
+        if (var) delete var;
+        if (list) delete list; // Deletes the chain
+        break;
+    case Inspect:
+        if (obj) delete obj;
+        if (conn) delete conn;
+        break;
+    case Activate:
+        if (activate) delete activate;
+        break;
+    case Assign:
+    case Call:
+    case Detach:
+    case Resume:
+    case Goto:
+    case Inner:
+        if (lhs) delete lhs;
+        if (rhs) delete rhs;
+        break;
+    default:
+        break;
+    }
 }
 
 void Statement::append(Statement* s) {
@@ -137,14 +215,20 @@ void Statement::deleteAll(Statement* s) {
 }
 
 Connection::Connection() : Node(Node::C), classDecl(0), body(0), next(0) {}
-Connection::~Connection() { if(body) delete body; if(next) delete next; }
+Connection::~Connection() {
+    if(body)
+        Statement::deleteAll(body);
+    if(next)
+        delete next;
+}
 
 AstModel::AstModel(SimulaVersion v) : version(v), globalScope(0) {
-    globalScope = new Declaration(Declaration::Scope);
+    globalScope = new Declaration(Declaration::Invalid);
     openScope(globalScope);
     
     // Init basic types
-    for (int i = 0; i < Type::MaxBasicType; ++i) basicTypes[i] = 0;
+    for (int i = 0; i < Type::MaxBasicType; ++i)
+        basicTypes[i] = 0;
     
     basicTypes[Type::Integer] = newType(Type::Integer);
     basicTypes[Type::ShortInteger] = newType(Type::ShortInteger);
@@ -161,19 +245,18 @@ AstModel::AstModel(SimulaVersion v) : version(v), globalScope(0) {
 
 AstModel::~AstModel() {
     Declaration::deleteAll(globalScope);
-    for (int i=0; i<Type::MaxBasicType; ++i) if(basicTypes[i]) delete basicTypes[i];
+    for (int i=0; i<Type::MaxBasicType; ++i)
+        if(basicTypes[i])
+            delete basicTypes[i];
 }
 
 void AstModel::openScope(Declaration* scope) {
     scopes.push_back(scope);
 }
 
-Declaration* AstModel::closeScope(bool takeMembers) {
+Declaration* AstModel::closeScope() {
     if (scopes.isEmpty()) return 0;
     Declaration* s = scopes.takeLast();
-    if (!takeMembers) {
-        // usually semantic analysis might clean up, but here we keep AST
-    }
     return s;
 }
 
@@ -199,7 +282,9 @@ Type* AstModel::getType(Type::Kind k) const {
 }
 
 Type* AstModel::newType(Type::Kind k) {
-    return new Type(k);
+    Type* t = new Type(k);
+    t->owned = true;
+    return t;
 }
 
 void AstModel::initBuiltins() {

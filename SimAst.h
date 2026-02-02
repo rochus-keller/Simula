@@ -33,6 +33,7 @@ namespace Sim
     class Type;
     class Statement;
     class Expression;
+    class Connection;
 
     struct Builtin
     {
@@ -50,12 +51,28 @@ namespace Sim
     public:
         enum Meta { T, D, E, S, C }; // Type, Declaration, Expression, Statement, Connection
         uint meta : 3;
-        uint validated : 1;
         uint inList : 1;
-        uint hasErrors : 1;
         uint ownstype : 1;
-        uint allocated : 1;
         uint owned : 1;
+        // 6
+
+        // Declaration
+        uint visi : 2;
+        uint mode : 2;
+        uint isVirtual : 1;
+        uint id : 16;
+        // 21
+
+        // Statement
+        uint re : 1;               // reactivate
+        uint prior: 1;
+        // 2
+
+        // Type
+        uint ownsexpr : 1;
+        // 1
+
+        // all 30
 
         RowCol pos;
 
@@ -73,16 +90,13 @@ namespace Sim
     public:
         enum Kind {
             Undefined, NoType,
-            Integer, ShortInteger, Real, LongReal, Boolean, Character,
-            Text, Ref, Pointer, Array, Procedure, Label, Switch,
-            MaxBasicType
+            Integer, ShortInteger, Real, LongReal, Boolean, Character, Label, Text,
+            MaxBasicType,
+            Ref, Pointer, Array, Procedure, Switch
         };
         static const char* name[];
 
         Kind kind;
-        Expression* expr; // Dimension or Length
-        Declaration* decl; // For Ref/Proc/Array
-        QList<Declaration*> subs; // Record fields or Params
 
         bool isArithmetic() const;
         bool isInteger() const { return kind == Integer || kind == ShortInteger; }
@@ -91,13 +105,20 @@ namespace Sim
 
         Type(Kind k = Undefined);
         ~Type();
+
+        void setExpr(Expression* e);
+        Expression* getExpr() const { return expr; }
+    private:
+        // For Array: 'expr' is the head of a linked list of bound pairs (Expression nodes)
+        // For String/Text: 'expr' is the length
+        Expression* expr; // Dimension or Length, owned TODO: many Type might point to the same expr
     };
 
     class Declaration : public Node
     {
     public:
         enum Kind {
-            Invalid, Scope, Module, Class, Procedure, Variable, Array, Switch,
+            Invalid, Module, Program, Class, Procedure, Block, Variable, Array, Switch,
             Parameter, VirtualSpec, External, LabelDecl, Builtin, Import, StandardClass
         };
         enum ParamMode { ModeDefault, ModeValue, ModeName };
@@ -109,16 +130,22 @@ namespace Sim
         Declaration* link;   // Members/Locals
         Declaration* next;   // Next in scope
         Declaration* outer;  // Parent scope
-        Declaration* prefix; // Superclass
-        
-        Statement* body;
-        
-        uint visi : 2;
-        uint mode : 2;
-        uint id : 16;
-        uint isVirtual : 1;
+        Statement*   body;   // class, procedure
 
-        QVariant data;
+        union {
+            // Class / Procedure
+            Declaration* prefix; // Superclass, not owned
+
+            // Module
+            QString* data; // Source path, Class prefix name, External ext name, owned
+
+            // Switch
+            Expression* list; // Chain of label expressions
+
+            // Variable / Parameter / Const
+            Expression* init; // Initialization expression, owned
+        };
+
 
         Declaration(Kind k = Invalid);
         ~Declaration();
@@ -141,6 +168,10 @@ namespace Sim
             New, This, Qua,
             TextConst, CharConst, NumConst,
             IfExpr, Call, AssignVal, AssignRef,
+            // Helper for Loop Elements
+            StepUntil, // lhs=start, rhs=step, condition=until
+            WhileLoop, // lhs=start, condition=cond
+            TypeRef,   // val = type name
             MAX
         };
 
@@ -148,13 +179,39 @@ namespace Sim
         QVariant val;
         Expression* lhs;
         Expression* rhs;
-        Expression* next;
-        Expression* condition; 
+        Expression* next; // For lists (Args, Switch list, For list, Array bounds)
+        Expression* condition; // For IfExpr, StepUntil, WhileLoop
 
         Expression(Kind k = Invalid, const RowCol& rc = RowCol());
         ~Expression();
 
         static void append(Expression* list, Expression* elem);
+    };
+
+    struct ActivateData
+    {
+        Expression* obj;
+        Expression* at;
+        Expression* delay;
+        Expression* priorObj;
+        ActivateData():obj(0),at(0),delay(0),priorObj(0){}
+        ~ActivateData() {
+            if(obj) delete obj;
+            if(at) delete at;
+            if(delay) delete delay;
+            if(priorObj) delete priorObj;
+        }
+    };
+
+    struct BlockPrefix
+    {
+        Expression* prefix;    // Class prefix (for Block)
+        Expression* args;      // Arguments for prefix (linked list of Expressions)
+        BlockPrefix():prefix(0),args(0){}
+        ~BlockPrefix() {
+            if( prefix ) delete prefix;
+            if( args ) delete args;
+        }
     };
 
     class Statement : public Node
@@ -167,21 +224,44 @@ namespace Sim
         };
 
         Kind kind;
-        Expression* expr; // Cond, LHS, Inspect Object
-        Statement* body;  // Then, Do, Compound list
-        Statement* elseStmt; 
-        
-        // Inspect connections or For-loops iterators (stored as special statements or expressions)
-        Statement* connections; 
-        
-        // Activate
-        bool isReactivate;
-        Expression* atExpr;
-        Expression* delayExpr;
-        Expression* beforeAfterExpr;
-        bool prior;
-
         Statement* next;
+        Statement* body;  // If, While, For, Compound, Block, Inspect(otherwise)
+
+        union {
+            // Compound / Block
+            struct {
+                Declaration* scope;     // scope local declarations
+                BlockPrefix* prefix;    // optional prefix
+            };
+
+            // If / While
+            struct {
+                Expression* cond;
+                Statement* elseStmt;   // For If
+            };
+
+            // For
+            struct {
+                Expression* var;       // Control variable
+                Expression* list;      // Linked list of 'For' elements (Expression nodes)
+            };
+
+            // Inspect
+            struct {
+                Expression* obj;       // Inspect object
+                Connection* conn;      // Chain of WHEN clauses
+            };
+
+            // Activate, Reactivate
+            ActivateData* activate;
+
+            // Assign / Call / Detach / Resume / Goto
+            struct {
+                 Expression* lhs;      // Target / Callable
+                 Expression* rhs;      // Value / Ref / Args
+            };
+
+        };
 
         Statement(Kind k = Invalid, const RowCol& p = RowCol());
         ~Statement();
@@ -200,11 +280,6 @@ namespace Sim
         Connection();
         ~Connection();
     };
-
-    struct ModuleData {
-        QString sourcePath;
-        QByteArray fullName;
-    };
     
     class AstModel
     {
@@ -213,14 +288,14 @@ namespace Sim
         ~AstModel();
 
         void openScope(Declaration* scope);
-        Declaration* closeScope(bool takeMembers = false);
+        Declaration* closeScope();
         Declaration* addDecl(const QByteArray& name, Declaration::Kind k);
         Declaration* currentScope() const;
         Declaration* getTopScope() const;
         Type* getType(Type::Kind k) const;
-        Type* newType(Type::Kind k);
         
     private:
+        Type* newType(Type::Kind k);
         SimulaVersion version;
         QList<Declaration*> scopes;
         Declaration* globalScope;
@@ -232,6 +307,5 @@ namespace Sim
 
 Q_DECLARE_METATYPE(Sim::Declaration*)
 Q_DECLARE_METATYPE(Sim::Expression*)
-Q_DECLARE_METATYPE(Sim::ModuleData)
 
 #endif // SIMAST_H

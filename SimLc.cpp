@@ -28,6 +28,7 @@
 #include "SimParser.h"
 #include "SimParser3.h"
 #include "SimAst.h"
+//#include "SimValidator.h"
 
 static QStringList collectFiles( const QDir& dir )
 {
@@ -160,7 +161,7 @@ int main(int argc, char *argv[])
     {
         qDebug() << "processing" << path;
 
-#if 1
+#if 0
         Sim::Lexer lex;
         lex.setStream(path);
         lex.setErrors(&err);
@@ -186,22 +187,34 @@ int main(int argc, char *argv[])
         lex.lex.setIgnoreComments(true);
         lex.lex.setPackComments(true);
         Sim::Parser3 p(&lex, &mdl);
-        p.RunParser();
+        Sim::Declaration* module = p.RunParser();
+        if( !p.errors.isEmpty() )
         {
-            if( !p.errors.isEmpty() )
+            foreach( const Sim::Parser3::Error& e, p.errors )
+                qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
+        }
+#if 0
+        else
+        {
+            Sim::Validator va(&mdl);
+            va.validate(module);
+            if( !va.errors.isEmpty() )
             {
-                foreach( const Sim::Parser3::Error& e, p.errors )
+                foreach( const Sim::Validator::Error& e, va.errors )
                     qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
             }
         }
-
+#endif
 #endif
 
     }
+#if 0
+    // TODO
     if( err.getErrCount() == 0 && err.getWrnCount() == 0 )
         qDebug() << "successfully completed";
     else
         qDebug() << "completed with" << err.getErrCount() << "errors and" <<
                     err.getWrnCount() << "warnings";
+#endif
     return 0;
 }

@@ -21,7 +21,6 @@
 */
 
 #include <QObject>
-#include <QReadWriteLock>
 #include <QHash>
 #include <QSet>
 #include <QDir>
@@ -32,23 +31,22 @@ namespace Sim
 
     class Errors : public QObject
     {
-        // class is thread-safe
     public:
         enum Source { Lexer, Syntax, Semantics, Generator };
+        enum Kind { Info, Warning, Error };
         struct Entry
         {
             quint32 d_line;
             quint16 d_col;
-            quint16 d_source;
+            quint8 d_source;
+            quint8 d_kind;
             QString d_msg;
             QString d_file;
             bool operator==( const Entry& rhs )const { return d_line == rhs.d_line && d_col == rhs.d_col &&
                         d_source == rhs.d_source && d_msg == rhs.d_msg; }
         };
-        typedef QSet<Entry> EntryList;
-        typedef QHash<QString,EntryList> EntriesByFile;
 
-        explicit Errors(QObject *parent = 0, bool threadExclusive = false );
+        explicit Errors(QObject *parent = 0);
 
         void error( Source, const SynTree*, const QString& msg );
         void error( Source, const QString& file, int line, int col, const QString& msg );
@@ -65,30 +63,20 @@ namespace Sim
 
         quint32 getErrCount() const;
         quint32 getWrnCount() const;
-        EntryList getErrors(const QString& file) const;
-        EntriesByFile getErrors() const;
-        EntryList getWarnings(const QString& file) const;
-        EntriesByFile getWarnings() const;
         quint32 getSyntaxErrCount() const { return d_numOfSyntaxErrs; }
 
         void clear();
-        void clearFile( const QString& file );
-        void clearFiles( const QStringList& files );
-        void update( const Errors&, bool overwrite = false );
 
         static const char* sourceName(int);
     protected:
         void log( const Entry&, bool isErr );
     private:
-        mutable QReadWriteLock d_lock;
         quint32 d_numOfErrs;
         quint32 d_numOfSyntaxErrs;
         quint32 d_numOfWrns;
-        EntriesByFile d_errs;
-        EntriesByFile d_wrns;
+        QList<Entry> d_entries;
         QDir d_root;
         bool d_showWarnings;
-        bool d_threadExclusive;
         bool d_reportToConsole;
         bool d_record;
     };

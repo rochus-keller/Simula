@@ -1256,16 +1256,15 @@ bool Parser3::versionMax(SimulaVersion maxVersion, const char* feature) {
 // Module parsing
 
 Declaration* Parser3::module() {
-    Declaration* m = new Declaration(Declaration::Module);
+    Declaration* mod = new Declaration(Declaration::Module);
     if (thisMod)
         Declaration::deleteAll(thisMod);
-    thisMod = m;
+    thisMod = mod;
     
-    ModuleData md;
-    md.sourcePath = scanner->source();
-    m->data = QVariant::fromValue(md);
+    mod->data = new QString();
+    *mod->data = scanner->source();
     
-    mdl->openScope(m);
+    mdl->openScope(mod);
     
     if (FIRST_external_head(la.d_type)) {
         external_head();
@@ -1273,21 +1272,21 @@ Declaration* Parser3::module() {
     
     Declaration* body = module_body_();
     if (body) {
-        m->body = body->body;
+        mod->body = body->body;
         body->body = 0;
         // Transfer any declarations from body to module
     }
-    
+
     while (la.d_type == Tok_Semi) {
         expect(Tok_Semi, false, "module");
         if (FIRST_module_body_(la.d_type)) {
             Declaration* nextBody = module_body_();
-            // Additional module bodies are additional declarations
+
         }
     }
     
     mdl->closeScope();
-    return m;
+    return mod;
 }
 
 Declaration* Parser3::module_body_() {
@@ -1314,7 +1313,7 @@ void Parser3::external_head() {
 }
 
 Declaration* Parser3::program() {
-    Declaration* prog = new Declaration(Declaration::Scope);
+    Declaration* prog = new Declaration(Declaration::Program);
     prog->name = "program";
     prog->pos = toRowCol(la);
     
@@ -1342,7 +1341,7 @@ Statement* Parser3::while_statement() {
     Statement* body = statement();
     
     Statement* stmt = new Statement(Statement::While, pos);
-    stmt->expr = cond;
+    stmt->cond = cond;
     stmt->body = body;
     return stmt;
 }
@@ -1380,12 +1379,23 @@ Statement* Parser3::main_block(const QByteArray& prefixName, const QList<Express
     if (!prefixName.isEmpty()) {
         Expression* prefixExpr = new Expression(Expression::Identifier, pos);
         prefixExpr->val = prefixName;
-        blk->expr = prefixExpr;
+        blk->prefix = new BlockPrefix();
+        blk->prefix->prefix = prefixExpr;
         // Args would be stored in a call-like structure
+        if(!args.isEmpty())
+        {
+            blk->prefix->args = args.first();
+            Expression* e = blk->prefix->args;
+            for( int i = 1; i < args.size(); i++ )
+            {
+                e->next = args[i];
+                e = e->next;
+            }
+        }
     }
     
     // Open a new scope for the block
-    Declaration* blockScope = new Declaration(Declaration::Scope);
+    Declaration* blockScope = new Declaration(Declaration::Block);
     blockScope->pos = pos;
     mdl->openScope(blockScope);
     
@@ -1417,6 +1427,7 @@ Statement* Parser3::main_block(const QByteArray& prefixName, const QList<Express
     blk->body = compound_tail();
     
     mdl->closeScope();
+    blk->scope = blockScope;
     return blk;
 }
 
@@ -1505,7 +1516,8 @@ Declaration* Parser3::class_declaration() {
     // Link prefix if present
     if (!prefixName.isEmpty()) {
         // Will be resolved during semantic analysis
-        classDecl->data = prefixName;
+        classDecl->data = new QString();
+        *classDecl->data = QString::fromUtf8(prefixName);
     }
     
     return classDecl;
@@ -1847,7 +1859,7 @@ Statement* Parser3::Common_Base_conditional_statement() {
     }
     
     Statement* ifStmt = new Statement(Statement::If, pos);
-    ifStmt->expr = cond;
+    ifStmt->cond = cond;
     
     if (FIRST_unconditional_statement(la.d_type)) {
         ifStmt->body = unconditional_statement();
@@ -1878,10 +1890,18 @@ Statement* Parser3::for_statement() {
     for_clause(varExpr, isRefAssign, forList);
     
     Statement* forStmt = new Statement(Statement::For, varExpr ? varExpr->pos : toRowCol(la));
-    forStmt->expr = varExpr;
+    forStmt->var = varExpr;
     
-    // Store for list elements - we'll use connections field to store iteration info
-    // The forList contains the iteration expressions
+    if( !forList.isEmpty() )
+    {
+        forStmt->list = forList.first();
+        Expression* e = forStmt->list;
+        for( int i = 1; i <  forList.size(); i++ )
+        {
+            e->next = forList[i];
+            e = e->next;
+        }
+    }
     
     forStmt->body = statement();
     return forStmt;
@@ -1986,7 +2006,7 @@ Statement* Parser3::go_to_statement() {
     Expression* target = expression();
     
     Statement* stmt = new Statement(Statement::Goto, pos);
-    stmt->expr = target;
+    stmt->lhs = target;
     return stmt;
 }
 
@@ -2030,7 +2050,8 @@ Statement* Parser3::unlabelled_basic_statement() {
             if (!prefixName.isEmpty()) {
                 delete prim;
                 return main_block(prefixName, args);
-            }
+            }else
+                qDeleteAll(args);
         }
         
         if (la.d_type == Tok_ColonEq) {
@@ -2053,9 +2074,9 @@ Statement* Parser3::unlabelled_basic_statement() {
             }
             
             Statement* stmt = new Statement(Statement::Assign, pos);
-            stmt->expr = new Expression(Expression::AssignVal, pos);
-            stmt->expr->lhs = prim;
-            stmt->expr->rhs = rhs;
+            stmt->rhs = new Expression(Expression::AssignVal, pos);
+            stmt->rhs->lhs = prim;
+            stmt->rhs->rhs = rhs;
             return stmt;
         } else if (la.d_type == Tok_ColonMinus) {
             // Reference assignment
@@ -2076,14 +2097,14 @@ Statement* Parser3::unlabelled_basic_statement() {
             }
             
             Statement* stmt = new Statement(Statement::Assign, pos);
-            stmt->expr = new Expression(Expression::AssignRef, pos);
-            stmt->expr->lhs = prim;
-            stmt->expr->rhs = rhs;
+            stmt->rhs = new Expression(Expression::AssignRef, pos);
+            stmt->rhs->lhs = prim;
+            stmt->rhs->rhs = rhs;
             return stmt;
         } else {
             // Procedure call or just an expression statement
             Statement* stmt = new Statement(Statement::Call, pos);
-            stmt->expr = prim;
+            stmt->rhs = prim;
             return stmt;
         }
     } else {
@@ -2124,11 +2145,7 @@ Statement* Parser3::connection_part() {
     
     // Return as a statement with connections
     Statement* stmt = new Statement(Statement::Inspect, first->pos);
-    // Store connections - we need to cast or use a different approach
-    // For now, store the first connection's body
-    stmt->body = first->body;
-    first->body = 0;
-    delete first;
+    stmt->conn = first;
     return stmt;
 }
 
@@ -2139,7 +2156,7 @@ Statement* Parser3::connection_statement() {
     Expression* obj = expression();
     
     Statement* stmt = new Statement(Statement::Inspect, pos);
-    stmt->expr = obj;
+    stmt->obj = obj;
     
     if (FIRST_connection_part(la.d_type)) {
         // WHEN clauses
@@ -2150,12 +2167,8 @@ Statement* Parser3::connection_statement() {
             last->next = conn;
             last = conn;
         }
-        // Store connections in the statement
-        // We'll use a special approach - store first connection
-        stmt->connections = new Statement(Statement::Dummy, first->pos);
-        stmt->connections->body = first->body;
-        first->body = 0;
-        // TODO: properly handle connection chain
+        // Store connections chain directly
+        stmt->conn = first;
     } else if (la.d_type == Tok_DO) {
         expect(Tok_DO, false, "connection_statement");
         stmt->body = statement();
@@ -2187,8 +2200,9 @@ Statement* Parser3::activation_statement() {
     Expression* obj = expression();
     
     Statement* stmt = new Statement(Statement::Activate, pos);
-    stmt->expr = obj;
-    stmt->isReactivate = isReactivate;
+    stmt->activate = new ActivateData();
+    stmt->activate->obj = obj;
+    stmt->re = isReactivate;
     
     if (FIRST_scheduling_clause(la.d_type)) {
         scheduling_clause(stmt);
@@ -2198,12 +2212,13 @@ Statement* Parser3::activation_statement() {
 }
 
 void Parser3::simple_timing_clause(Statement* stmt) {
+    Q_ASSERT( stmt->kind == Statement::Activate && stmt->activate );
     if (la.d_type == Tok_AT) {
         expect(Tok_AT, false, "simple_timing_clause");
-        stmt->atExpr = expression();
+        stmt->activate->at = expression();
     } else if (la.d_type == Tok_DELAY) {
         expect(Tok_DELAY, false, "simple_timing_clause");
-        stmt->delayExpr = expression();
+        stmt->activate->delay = expression();
     } else {
         invalid("simple_timing_clause");
     }
@@ -2218,14 +2233,15 @@ void Parser3::timing_clause(Statement* stmt) {
 }
 
 void Parser3::scheduling_clause(Statement* stmt) {
+    Q_ASSERT( stmt->kind == Statement::Activate && stmt->activate );
     if (FIRST_timing_clause(la.d_type)) {
         timing_clause(stmt);
     } else if (la.d_type == Tok_BEFORE) {
         expect(Tok_BEFORE, false, "scheduling_clause");
-        stmt->beforeAfterExpr = expression();
+        stmt->activate->priorObj = expression();
     } else if (la.d_type == Tok_AFTER) {
         expect(Tok_AFTER, false, "scheduling_clause");
-        stmt->beforeAfterExpr = expression();
+        stmt->activate->priorObj = expression();
     } else {
         invalid("scheduling_clause");
     }
@@ -2237,7 +2253,7 @@ Type* Parser3::specifier(bool& isArray, bool& isProcedure) {
     
     if (la.d_type == Tok_SWITCH) {
         expect(Tok_SWITCH, false, "specifier");
-        return mdl->newType(Type::Switch);
+        return new Type(Type::Switch);
     } else if (la.d_type == Tok_LABEL) {
         expect(Tok_LABEL, false, "specifier");
         return mdl->getType(Type::Label);
@@ -2281,12 +2297,12 @@ void Parser3::specification_part(Declaration* parent) {
         while (param) {
             if (param->name == ids[i]) {
                 if (isArray) {
-                    Type* arrType = mdl->newType(Type::Array);
+                    Type* arrType = new Type(Type::Array);
                     arrType->setType(t);
                     param->setType(arrType);
                     param->kind = Declaration::Array;
                 } else if (isProcedure) {
-                    Type* procType = mdl->newType(Type::Procedure);
+                    Type* procType = new Type(Type::Procedure);
                     procType->setType(t);
                     param->setType(procType);
                 } else {
@@ -2318,7 +2334,8 @@ void Parser3::external_item(Declaration* extDecl) {
     Declaration* item = new Declaration(Declaration::External);
     item->name = localName.isEmpty() ? extName : localName;
     item->pos = toRowCol(cur);
-    item->data = extName;
+    item->data = new QString();
+    *item->data = QString::fromUtf8(extName);
     extDecl->appendMember(item);
     item->outer = extDecl;
 }
@@ -2403,7 +2420,7 @@ Declaration* Parser3::switch_declaration() {
     Declaration* switchDecl = new Declaration(Declaration::Switch);
     switchDecl->name = name;
     switchDecl->pos = pos;
-    switchDecl->setType(mdl->newType(Type::Switch));
+    switchDecl->setType(new Type(Type::Switch));
     
     switch_list(switchDecl);
     
@@ -2430,8 +2447,7 @@ void Parser3::switch_list(Declaration* switchDecl) {
         }
     }
     
-    // Store the switch list - we could use a special field or the data field
-    // For now, we'll need to extend the Declaration or use data
+    switchDecl->list = first;
 }
 
 void Parser3::type_list_element(Type* t) {
@@ -2448,9 +2464,7 @@ void Parser3::type_list_element(Type* t) {
         // SIM86 feature: initializer
         if (versionCheck(Sim86, "variable initializer")) {
             expect(Tok_Eq, false, "type_list_element");
-            Expression* init = expression();
-            // Store initializer - could use data field
-            varDecl->data = QVariant::fromValue(init);
+            varDecl->init = expression();
         }
     }
     
@@ -2528,11 +2542,17 @@ void Parser3::array_segment(Type* elemType) {
         arrDecl->name = names[i];
         arrDecl->pos = pos;
         
-        Type* arrType = mdl->newType(Type::Array);
+        Type* arrType = new Type(Type::Array);
         arrType->setType(elemType);
         // Store bounds in the type
         if (!bounds.isEmpty()) {
-            arrType->expr = bounds[0]; // First bound pair's lower bound
+            arrType->setExpr(bounds.first()); // First bound pair's lower bound
+            Expression* e = arrType->getExpr();
+            for( int i = 1; i < bounds.size(); i++ )
+            {
+                e->next = bounds[i];
+                e = e->next;
+            }
         }
         arrDecl->setType(arrType);
         
@@ -2632,9 +2652,9 @@ Type* Parser3::object_reference() {
     QByteArray qual = qualification();
     expect(Tok_Rpar, false, "object_reference");
     
-    Type* refType = mdl->newType(Type::Ref);
-    // Store qualification for later resolution
-    // We could create a temporary declaration or use the data field
+    Type* refType = new Type(Type::Ref);
+    refType->setExpr(new Expression(Expression::TypeRef));
+    refType->getExpr()->val = qual;
     return refType;
 }
 
@@ -3203,11 +3223,13 @@ QList<QByteArray> Parser3::identifier_list() {
 
 void Parser3::subscript_list(QList<Expression*>& subs) {
     Expression* e = subscript_expression();
-    if (e) subs.append(e);
+    if (e)
+        subs.append(e);
     while (la.d_type == Tok_Comma) {
         expect(Tok_Comma, false, "subscript_list");
         e = subscript_expression();
-        if (e) subs.append(e);
+        if (e)
+            subs.append(e);
     }
 }
 
