@@ -52,9 +52,9 @@ namespace Sim {
         
     protected:
         Declaration* module();
-        Declaration* module_body_();
+        void module_body_();
         void external_head();
-        Declaration* program();
+        void program();
         Statement* while_statement();
         Statement* block();
         void block_prefix(QByteArray& prefixName, QList<Expression*>& args);
@@ -62,16 +62,16 @@ namespace Sim {
         Statement* main_block(const QByteArray& prefixName, const QList<Expression*>& args);
         Statement* compound_tail();
         void declaration();
-        Declaration* class_declaration();
+        void class_declaration();
         QByteArray prefix();
-        void main_part(Declaration* classDecl);
+        Declaration *main_part();
         void protection_part(Declaration* classDecl);
         void protection_specification(Declaration* classDecl);
         Statement* class_body();
         void virtual_part(Declaration* classDecl);
         void virtual_spec(Declaration* classDecl);
-        Declaration* procedure_declaration();
-        void procedure_heading(Declaration* procDecl);
+        void procedure_declaration();
+        Declaration *procedure_heading();
         void mode_part(Declaration* procDecl);
         void value_part(Declaration* procDecl);
         void name_part(Declaration* procDecl);
@@ -104,10 +104,10 @@ namespace Sim {
         Type* specifier(bool& isArray, bool& isProcedure);
         void specification_part(Declaration* parent);
         void procedure_specification(Declaration* virtSpec);
-        void external_item(Declaration* extDecl);
-        void external_list(Declaration* extDecl);
-        Declaration* external_declaration();
-        QByteArray external_identifier();
+        Declaration* external_item();
+        QList<Declaration*> external_list();
+        void external_declaration();
+        Token external_identifier();
         Declaration* switch_declaration();
         void switch_list(Declaration* switchDecl);
         void type_list_element(Type* t);
@@ -155,7 +155,7 @@ namespace Sim {
         Expression* logical_value();
         Expression* unsigned_number();
         QByteArray class_identifier();
-        QList<QByteArray> identifier_list();
+        QList<Token> identifier_list();
         void subscript_list(QList<Expression*>& subs);
         Expression* subscript_expression();
         QByteArray attribute_identifier();

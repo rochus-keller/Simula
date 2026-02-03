@@ -1270,17 +1270,12 @@ Declaration* Parser3::module() {
         external_head();
     }
     
-    Declaration* body = module_body_();
-    if (body) {
-        mod->body = body->body;
-        body->body = 0;
-        // Transfer any declarations from body to module
-    }
+    module_body_();
 
     while (la.d_type == Tok_Semi) {
         expect(Tok_Semi, false, "module");
         if (FIRST_module_body_(la.d_type)) {
-            Declaration* nextBody = module_body_();
+            module_body_();
 
         }
     }
@@ -1289,33 +1284,29 @@ Declaration* Parser3::module() {
     return mod;
 }
 
-Declaration* Parser3::module_body_() {
+void Parser3::module_body_() {
     if ((peek(1).d_type == Tok_CLASS || peek(1).d_type == Tok_identifier) &&
         (peek(2).d_type == Tok_CLASS || peek(2).d_type == Tok_identifier)) {
-        return class_declaration();
+        class_declaration();
     } else if (FIRST_procedure_declaration(la.d_type)) {
-        return procedure_declaration();
+        procedure_declaration();
     } else if (FIRST_program(la.d_type)) {
-        return program();
+        program();
     } else {
         invalid("module_body_");
-        return 0;
     }
 }
 
 void Parser3::external_head() {
-    Declaration* ext = external_declaration();
+    external_declaration();
     expect(Tok_Semi, false, "external_head");
     while (FIRST_external_declaration(la.d_type)) {
-        ext = external_declaration();
+        external_declaration();
         expect(Tok_Semi, false, "external_head");
     }
 }
 
-Declaration* Parser3::program() {
-    Declaration* prog = new Declaration(Declaration::Program);
-    prog->name = "program";
-    prog->pos = toRowCol(la);
+void Parser3::program() {
     
     // Handle labels
     while ((peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Colon)) {
@@ -1326,8 +1317,11 @@ Declaration* Parser3::program() {
         lblDecl->pos = toRowCol(cur);
     }
     
+    Declaration* prog = mdl->addDecl("", Declaration::Program);
+    prog->pos = toRowCol(la); // begin
+    mdl->openScope(prog);
     prog->body = block();
-    return prog;
+    mdl->closeScope();
 }
 
 // Statement parsing
@@ -1379,13 +1373,12 @@ Statement* Parser3::main_block(const QByteArray& prefixName, const QList<Express
     if (!prefixName.isEmpty()) {
         Expression* prefixExpr = new Expression(Expression::Identifier, pos);
         prefixExpr->val = prefixName;
-        blk->prefix = new BlockPrefix();
-        blk->prefix->prefix = prefixExpr;
+        blk->prefix = prefixExpr;
         // Args would be stored in a call-like structure
         if(!args.isEmpty())
         {
-            blk->prefix->args = args.first();
-            Expression* e = blk->prefix->args;
+            blk->args = args.first();
+            Expression* e = blk->args;
             for( int i = 1; i < args.size(); i++ )
             {
                 e->next = args[i];
@@ -1395,7 +1388,7 @@ Statement* Parser3::main_block(const QByteArray& prefixName, const QList<Express
     }
     
     // Open a new scope for the block
-    Declaration* blockScope = new Declaration(Declaration::Block);
+    Declaration* blockScope = mdl->addDecl("", Declaration::Block);
     blockScope->pos = pos;
     mdl->openScope(blockScope);
     
@@ -1505,13 +1498,10 @@ void Parser3::declaration() {
     }
 }
 
-Declaration* Parser3::class_declaration() {
+void Parser3::class_declaration() {
     QByteArray prefixName = prefix();
-    
-    Declaration* classDecl = new Declaration(Declaration::Class);
-    classDecl->pos = toRowCol(la);
-    
-    main_part(classDecl);
+        
+    Declaration* classDecl = main_part();
     
     // Link prefix if present
     if (!prefixName.isEmpty()) {
@@ -1519,8 +1509,6 @@ Declaration* Parser3::class_declaration() {
         classDecl->data = new QString();
         *classDecl->data = QString::fromUtf8(prefixName);
     }
-    
-    return classDecl;
 }
 
 QByteArray Parser3::prefix() {
@@ -1530,17 +1518,14 @@ QByteArray Parser3::prefix() {
     return QByteArray();
 }
 
-void Parser3::main_part(Declaration* classDecl) {
+Declaration* Parser3::main_part() {
     expect(Tok_CLASS, false, "main_part");
     
     expect(Tok_identifier, false, "main_part");
-    classDecl->name = cur.d_val;
+
+    Declaration* classDecl = mdl->addDecl(cur.d_val, Declaration::Class);
     classDecl->pos = toRowCol(cur);
-    
-    // Add to current scope
-    mdl->currentScope()->appendMember(classDecl);
-    classDecl->outer = mdl->currentScope();
-    
+
     mdl->openScope(classDecl);
     
     formal_parameter_part(classDecl);
@@ -1574,6 +1559,8 @@ void Parser3::main_part(Declaration* classDecl) {
     classDecl->body = class_body();
     
     mdl->closeScope();
+
+    return classDecl;
 }
 
 void Parser3::protection_part(Declaration* classDecl) {
@@ -1613,8 +1600,8 @@ void Parser3::protection_specification(Declaration* classDecl) {
     else if (prot)
         visi = Declaration::Protected;
     
-    QList<QByteArray> ids = identifier_list();
-    // Mark the identified members with visibility
+    QList<Token> ids = identifier_list();
+    // TODO: Mark the identified members with visibility
     // This will be resolved during semantic analysis
 }
 
@@ -1652,16 +1639,13 @@ void Parser3::virtual_spec(Declaration* classDecl) {
     bool isProcedure = false;
     Type* t = specifier(isArray, isProcedure);
     
-    QList<QByteArray> ids = identifier_list();
+    QList<Token> ids = identifier_list();
     
     for (int i = 0; i < ids.size(); i++) {
-        Declaration* virtDecl = new Declaration(Declaration::VirtualSpec);
-        virtDecl->name = ids[i];
-        virtDecl->pos = toRowCol(cur);
+        Declaration* virtDecl = mdl->addDecl(ids[i].d_val, Declaration::VirtualSpec);
+        virtDecl->pos = toRowCol(ids[i]);
         virtDecl->isVirtual = true;
         virtDecl->setType(t);
-        classDecl->appendMember(virtDecl);
-        virtDecl->outer = classDecl;
     }
     
     if (FIRST_procedure_specification(la.d_type)) {
@@ -1678,37 +1662,29 @@ void Parser3::virtual_spec(Declaration* classDecl) {
     }
 }
 
-Declaration* Parser3::procedure_declaration() {
+void Parser3::procedure_declaration() {
     Type* retType = 0;
     if (FIRST_type(la.d_type)) {
         retType = type();
     }
     
     expect(Tok_PROCEDURE, false, "procedure_declaration");
-    RowCol pos = toRowCol(cur);
+        
+    Declaration* procDecl = procedure_heading();
     
-    Declaration* procDecl = new Declaration(Declaration::Procedure);
-    procDecl->pos = pos;
     procDecl->setType(retType ? retType : mdl->getType(Type::NoType));
-    
-    procedure_heading(procDecl);
-    
-    // Add to current scope
-    mdl->currentScope()->appendMember(procDecl);
-    procDecl->outer = mdl->currentScope();
     
     mdl->openScope(procDecl);
     procDecl->body = procedure_body();
     mdl->closeScope();
-    
-    return procDecl;
 }
 
-void Parser3::procedure_heading(Declaration* procDecl) {
+Declaration* Parser3::procedure_heading() {
     expect(Tok_identifier, false, "procedure_heading");
-    procDecl->name = cur.d_val;
+    Declaration* procDecl = mdl->addDecl(cur.d_val, Declaration::Procedure);
     procDecl->pos = toRowCol(cur);
     
+    mdl->openScope(procDecl);
     formal_parameter_part(procDecl);
     expect(Tok_Semi, false, "procedure_heading");
     
@@ -1727,6 +1703,8 @@ void Parser3::procedure_heading(Declaration* procDecl) {
              peek(2).d_type == Tok_REAL || peek(2).d_type == Tok_identifier))) {
         specification_part(procDecl);
     }
+    mdl->closeScope();
+    return procDecl;
 }
 
 void Parser3::mode_part(Declaration* procDecl) {
@@ -1745,17 +1723,18 @@ void Parser3::mode_part(Declaration* procDecl) {
 
 void Parser3::value_part(Declaration* procDecl) {
     expect(Tok_VALUE, false, "value_part");
-    QList<QByteArray> ids = identifier_list();
+    QList<Token> ids = identifier_list();
     expect(Tok_Semi, false, "value_part");
     
     // Mark parameters as value mode
     Declaration* param = procDecl->link;
     while (param) {
         for (int i = 0; i < ids.size(); i++) {
-            if (param->name == ids[i]) {
+            if (param->name.constData() == ids[i].d_val.constData()) {
                 param->mode = Declaration::ModeValue;
                 break;
             }
+            // TODO: check if found, report otherwise
         }
         param = param->next;
     }
@@ -1763,17 +1742,18 @@ void Parser3::value_part(Declaration* procDecl) {
 
 void Parser3::name_part(Declaration* procDecl) {
     expect(Tok_NAME, false, "name_part");
-    QList<QByteArray> ids = identifier_list();
+    QList<Token> ids = identifier_list();
     expect(Tok_Semi, false, "name_part");
     
     // Mark parameters as name mode
     Declaration* param = procDecl->link;
     while (param) {
         for (int i = 0; i < ids.size(); i++) {
-            if (param->name == ids[i]) {
+            if (param->name.constData() == ids[i].d_val.constData()) {
                 param->mode = Declaration::ModeName;
                 break;
             }
+            // TODO: check if found, report otherwise
         }
         param = param->next;
     }
@@ -1800,11 +1780,9 @@ void Parser3::formal_parameter_list(Declaration* procDecl) {
 void Parser3::formal_parameter(Declaration* procDecl) {
     expect(Tok_identifier, false, "formal_parameter");
     
-    Declaration* param = new Declaration(Declaration::Parameter);
-    param->name = cur.d_val;
+    Declaration* param = mdl->addDecl(cur.d_val,Declaration::Parameter);
     param->pos = toRowCol(cur);
     param->outer = procDecl;
-    procDecl->appendMember(param);
 }
 
 Statement* Parser3::procedure_body() {
@@ -1934,11 +1912,13 @@ void Parser3::for_right_part(bool& isRefAssign, QList<Expression*>& forList) {
 
 void Parser3::value_for_list(QList<Expression*>& forList) {
     Expression* elem = value_for_list_element();
-    if (elem) forList.append(elem);
+    if (elem)
+        forList.append(elem);
     while (la.d_type == Tok_Comma) {
         expect(Tok_Comma, false, "value_for_list");
         elem = value_for_list_element();
-        if (elem) forList.append(elem);
+        if (elem)
+            forList.append(elem);
     }
 }
 
@@ -1956,22 +1936,33 @@ Expression* Parser3::value_for_list_element() {
     Expression* expr = expression();
     
     if (la.d_type == Tok_STEP) {
+        // syntax: expression STEP expression UNTIL expression
         expect(Tok_STEP, false, "value_for_list_element");
         Expression* step = expression();
         expect(Tok_UNTIL, false, "value_for_list_element");
         Expression* until = expression();
         // Create a compound expression for STEP...UNTIL
-        // We'll store this as: expr with step in rhs and until in next
         if (expr) {
-            expr->rhs = step;
-            expr->next = until;
+            Expression* stepUntil = new Expression(Expression::StepUntil);
+            stepUntil->lhs = expr; // start
+            stepUntil->rhs = step; // step
+            stepUntil->condition = until;
+            expr = stepUntil;
+        }else
+        {
+            delete step;
+            delete until;
         }
     } else if (la.d_type == Tok_WHILE) {
         expect(Tok_WHILE, false, "value_for_list_element");
         Expression* whileCond = expression();
         if (expr) {
-            expr->condition = whileCond;
-        }
+            Expression* whileLoop = new Expression(Expression::WhileLoop);
+            whileLoop->lhs = expr;
+            whileLoop->condition = whileCond;
+            expr = whileLoop;
+        }else
+            delete whileCond;
     }
     
     return expr;
@@ -1984,7 +1975,10 @@ Expression* Parser3::object_for_list_element() {
         expect(Tok_WHILE, false, "object_for_list_element");
         Expression* whileCond = expression();
         if (expr) {
-            expr->condition = whileCond;
+            Expression* whileLoop = new Expression(Expression::WhileLoop);
+            whileLoop->lhs = expr;
+            whileLoop->condition = whileCond;
+            expr = whileLoop;
         }
     }
     
@@ -2018,13 +2012,16 @@ Statement* Parser3::unlabelled_basic_statement() {
     } else if (FIRST_connection_statement(la.d_type)) {
         return connection_statement();
     } else if (FIRST_main_block(la.d_type)) {
-        return main_block(QByteArray(), QList<Expression*>());
+        QList<Expression*> list;
+        Statement* res = main_block(QByteArray(), list);
+        Q_ASSERT(list.isEmpty());
+        return res;
     } else if (FIRST_primary(la.d_type)) {
         RowCol pos = toRowCol(la);
         Expression* prim = primary();
         
         // Check for prefixed block: identifier BEGIN or identifier(args) BEGIN
-        if (la.d_type == Tok_BEGIN && prim) {
+        if (FIRST_main_block(la.d_type) ) {
             QByteArray prefixName;
             QList<Expression*> args;
             
@@ -2044,17 +2041,19 @@ Statement* Parser3::unlabelled_basic_statement() {
                     arg = nextArg;
                 }
                 prim->rhs = 0; // Prevent deletion of args
-                prim->lhs = 0; // Prevent deletion of lhs
             }
             
             if (!prefixName.isEmpty()) {
                 delete prim;
                 return main_block(prefixName, args);
             }else
+            {
                 qDeleteAll(args);
-        }
-        
-        if (la.d_type == Tok_ColonEq) {
+                delete prim;
+                invalid("block prefix");
+                return 0;
+            }
+        }else if (la.d_type == Tok_ColonEq) {
             // Value assignment
             expect(Tok_ColonEq, false, "unlabelled_basic_statement");
             Expression* rhs = expression();
@@ -2125,6 +2124,7 @@ Connection* Parser3::when_clause() {
     conn->pos = pos;
     conn->className = className;
     conn->body = body;
+    conn->next = 0;
     return conn;
 }
 
@@ -2175,7 +2175,7 @@ Statement* Parser3::connection_statement() {
     }
     
     if (FIRST_otherwise_clause(la.d_type)) {
-        stmt->elseStmt = otherwise_clause();
+        stmt->otherwise = otherwise_clause();
     }
     
     return stmt;
@@ -2288,14 +2288,15 @@ void Parser3::specification_part(Declaration* parent) {
     bool isProcedure = false;
     Type* t = specifier(isArray, isProcedure);
     
-    QList<QByteArray> ids = identifier_list();
+    QList<Token> ids = identifier_list();
     expect(Tok_Semi, false, "specification_part");
     
     // Update parameter types
     for (int i = 0; i < ids.size(); i++) {
         Declaration* param = parent->link;
         while (param) {
-            if (param->name == ids[i]) {
+            // TODO: check if found, report otherwise
+            if (param->name.constData() == ids[i].d_val.constData()) {
                 if (isArray) {
                     Type* arrType = new Type(Type::Array);
                     arrType->setType(t);
@@ -2317,50 +2318,48 @@ void Parser3::specification_part(Declaration* parent) {
 
 void Parser3::procedure_specification(Declaration* virtSpec) {
     expect(Tok_IS, false, "procedure_specification");
-    Declaration* proc = procedure_declaration();
-    // Link the procedure to the virtual spec
+    procedure_declaration();
+    // TODO Link the procedure to the virtual spec
 }
 
-void Parser3::external_item(Declaration* extDecl) {
-    QByteArray localName;
+Declaration* Parser3::external_item() {
+    Token localName;
     if ((peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Eq)) {
         expect(Tok_identifier, false, "external_item");
-        localName = cur.d_val;
+        localName = cur;
         expect(Tok_Eq, false, "external_item");
-    }
-    
-    QByteArray extName = external_identifier();
-    
-    Declaration* item = new Declaration(Declaration::External);
-    item->name = localName.isEmpty() ? extName : localName;
-    item->pos = toRowCol(cur);
-    item->data = new QString();
-    *item->data = QString::fromUtf8(extName);
-    extDecl->appendMember(item);
-    item->outer = extDecl;
+    }  
+    Token extName = external_identifier();
+    Token name = localName.d_type == Tok_identifier ? localName : extName;
+    if(name.d_type != Tok_identifier)
+        error(name, "external identifier expected");
+    Declaration* extDecl = mdl->addDecl( name.d_val, Declaration::ExternalProc);
+    extDecl->pos = toRowCol(name);
+    extDecl->data = new QString();
+    *extDecl->data = QString::fromUtf8(extName.d_val);
+    return extDecl;
 }
 
-void Parser3::external_list(Declaration* extDecl) {
-    external_item(extDecl);
+QList<Declaration*> Parser3::external_list() {
+    QList<Declaration*> res;
+    res << external_item();
     while (la.d_type == Tok_Comma) {
         expect(Tok_Comma, false, "external_list");
-        external_item(extDecl);
+        res << external_item();
     }
+    return res;
 }
 
-Declaration* Parser3::external_declaration() {
+void Parser3::external_declaration() {
     expect(Tok_EXTERNAL, false, "external_declaration");
-    RowCol pos = toRowCol(cur);
-    
-    Declaration* extDecl = new Declaration(Declaration::External);
-    extDecl->pos = pos;
-    
+        
     if (la.d_type == Tok_identifier || FIRST_type(la.d_type) || la.d_type == Tok_PROCEDURE) {
         // SIM86: optional kind identifier
-        if (la.d_type == Tok_identifier && peek(2).d_type != Tok_Eq) {
+        QByteArray kind;
+        if (la.d_type == Tok_identifier) {
             if (versionCheck(Sim86, "external kind")) {
                 expect(Tok_identifier, false, "external_declaration");
-                // Store kind
+                kind = cur.d_val;
             }
         }
         
@@ -2368,43 +2367,51 @@ Declaration* Parser3::external_declaration() {
         if (FIRST_type(la.d_type)) {
             t = type();
         }
-        extDecl->setType(t);
         
         expect(Tok_PROCEDURE, false, "external_declaration");
-        external_list(extDecl);
-        
-        if (FIRST_procedure_specification(la.d_type)) {
-            if (versionCheck(Sim86, "IS procedure_specification")) {
-                procedure_specification(extDecl);
+
+        if( !kind.isEmpty() && t == 0 )
+        {
+            Declaration* proc = external_item();
+            // TODO: this is ambiguous in the standard.
+            if (FIRST_procedure_specification(la.d_type)) {
+                if (versionCheck(Sim86, "IS procedure_specification")) {
+                    procedure_specification(0); // TODO kind
+                }
+            }
+        }else
+        {
+            QList<Declaration*> list = external_list();
+            foreach(Declaration* proc, list)
+            {
+                proc->setType(t);
+                // TODO kind
             }
         }
+
     } else if (la.d_type == Tok_CLASS) {
         expect(Tok_CLASS, false, "external_declaration");
-        external_list(extDecl);
+        QList<Declaration*> list = external_list();
+        foreach(Declaration* cls, list)
+            cls->kind = Declaration::ExternalClass;
     } else {
         invalid("external_declaration");
     }
-    
-    // Add to current scope
-    mdl->currentScope()->appendMember(extDecl);
-    extDecl->outer = mdl->currentScope();
-    
-    return extDecl;
 }
 
-QByteArray Parser3::external_identifier() {
+Token Parser3::external_identifier() {
     if (la.d_type == Tok_identifier) {
         expect(Tok_identifier, false, "external_identifier");
-        return cur.d_val;
+        return cur;
     } else if (la.d_type == Tok_string) {
         if (!versionCheck(Sim86, "string external identifier")) {
             // Still parse it
         }
         expect(Tok_string, false, "external_identifier");
-        return cur.d_val;
+        return cur;
     } else {
         invalid("external_identifier");
-        return QByteArray();
+        return Token();
     }
 }
 
@@ -2413,20 +2420,15 @@ Declaration* Parser3::switch_declaration() {
     RowCol pos = toRowCol(cur);
     
     expect(Tok_identifier, false, "switch_declaration");
-    QByteArray name = cur.d_val;
+    const Token name = cur;
     
     expect(Tok_ColonEq, false, "switch_declaration");
     
-    Declaration* switchDecl = new Declaration(Declaration::Switch);
-    switchDecl->name = name;
-    switchDecl->pos = pos;
-    switchDecl->setType(new Type(Type::Switch));
+    Declaration* switchDecl = mdl->addDecl(name.d_val,Declaration::Switch);
+    switchDecl->pos = toRowCol(name);
+    switchDecl->setType(new Type(Type::Switch)); // TODO: does this make any sense?
     
     switch_list(switchDecl);
-    
-    // Add to current scope
-    mdl->currentScope()->appendMember(switchDecl);
-    switchDecl->outer = mdl->currentScope();
     
     return switchDecl;
 }
@@ -2452,12 +2454,10 @@ void Parser3::switch_list(Declaration* switchDecl) {
 
 void Parser3::type_list_element(Type* t) {
     expect(Tok_identifier, false, "type_list_element");
-    QByteArray name = cur.d_val;
-    RowCol pos = toRowCol(cur);
+    const Token name = cur;
     
-    Declaration* varDecl = new Declaration(Declaration::Variable);
-    varDecl->name = name;
-    varDecl->pos = pos;
+    Declaration* varDecl = mdl->addDecl(name.d_val,Declaration::Variable);
+    varDecl->pos = toRowCol(name);
     varDecl->setType(t);
     
     if (la.d_type == Tok_Eq) {
@@ -2467,10 +2467,6 @@ void Parser3::type_list_element(Type* t) {
             varDecl->init = expression();
         }
     }
-    
-    // Add to current scope
-    mdl->currentScope()->appendMember(varDecl);
-    varDecl->outer = mdl->currentScope();
 }
 
 void Parser3::type_list(Type* t) {
@@ -2495,11 +2491,10 @@ void Parser3::array_list(Type* elemType) {
 }
 
 void Parser3::array_segment(Type* elemType) {
-    QList<QByteArray> names;
+    QList<Token> names;
     
     expect(Tok_identifier, false, "array_segment");
-    names.append(cur.d_val);
-    RowCol pos = toRowCol(cur);
+    names.append(cur);
     
     // Collect all identifiers that share the same bounds
     // Grammar: array_segment ::= identifier { ',' identifier } bounds
@@ -2511,7 +2506,7 @@ void Parser3::array_segment(Type* elemType) {
         if (tt3 == Tok_Comma || tt3 == Tok_Lbrack || tt3 == Tok_Lpar) {
             expect(Tok_Comma, false, "array_segment");
             expect(Tok_identifier, false, "array_segment");
-            names.append(cur.d_val);
+            names.append(cur);
         } else {
             // Something else follows - not part of this segment
             break;
@@ -2538,9 +2533,8 @@ void Parser3::array_segment(Type* elemType) {
     
     // Create array declarations for each name
     for (int i = 0; i < names.size(); i++) {
-        Declaration* arrDecl = new Declaration(Declaration::Array);
-        arrDecl->name = names[i];
-        arrDecl->pos = pos;
+        Declaration* arrDecl = mdl->addDecl(names[i].d_val, Declaration::Array);
+        arrDecl->pos = toRowCol(names[i]);
         
         Type* arrType = new Type(Type::Array);
         arrType->setType(elemType);
@@ -2555,9 +2549,6 @@ void Parser3::array_segment(Type* elemType) {
             }
         }
         arrDecl->setType(arrType);
-        
-        mdl->currentScope()->appendMember(arrDecl);
-        arrDecl->outer = mdl->currentScope();
     }
 }
 
@@ -2696,11 +2687,13 @@ Expression* Parser3::object_generator() {
 
 void Parser3::actual_parameter_list(QList<Expression*>& args) {
     Expression* arg = actual_parameter();
-    if (arg) args.append(arg);
+    if (arg)
+        args.append(arg);
     while (la.d_type == Tok_Comma) {
         expect(Tok_Comma, false, "actual_parameter_list");
         arg = actual_parameter();
-        if (arg) args.append(arg);
+        if (arg)
+            args.append(arg);
     }
 }
 
@@ -3024,8 +3017,10 @@ Expression* Parser3::primary() {
             // Store args
             if (!args.isEmpty()) {
                 call->rhs = args[0];
+                Expression* e = call->rhs;
                 for (int i = 1; i < args.size(); i++) {
-                    Expression::append(call->rhs, args[i]);
+                    e->next = args[i];
+                    e = e->next;
                 }
             }
             result = call;
@@ -3118,8 +3113,10 @@ Expression* Parser3::selector_(Expression* lhs) {
         call->lhs = lhs;
         if (!args.isEmpty()) {
             call->rhs = args[0];
+            Expression* e = call->rhs;
             for (int i = 1; i < args.size(); i++) {
-                Expression::append(call->rhs, args[i]);
+                e->next = args[i];
+                e = e->next;
             }
         }
         return call;
@@ -3209,14 +3206,14 @@ QByteArray Parser3::class_identifier() {
     return cur.d_val;
 }
 
-QList<QByteArray> Parser3::identifier_list() {
-    QList<QByteArray> ids;
+QList<Token> Parser3::identifier_list() {
+    QList<Token> ids;
     expect(Tok_identifier, false, "identifier_list");
-    ids.append(cur.d_val);
+    ids.append(cur);
     while (la.d_type == Tok_Comma) {
         expect(Tok_Comma, false, "identifier_list");
         expect(Tok_identifier, false, "identifier_list");
-        ids.append(cur.d_val);
+        ids.append(cur);
     }
     return ids;
 }

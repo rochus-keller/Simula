@@ -92,7 +92,8 @@ Declaration::~Declaration() {
     switch (kind) {
     case Module:
     case Class:
-    case External:
+    case ExternalProc:
+    case ExternalClass:
         if (data) delete data;
         break;
     case Switch:
@@ -150,7 +151,8 @@ void Expression::append(Expression* list, Expression* elem) {
     list->next = elem;
 }
 
-Statement::Statement(Kind k, const RowCol& p) : Node(S), kind(k), body(0), next(0), prefix(0), scope(0) { pos = p; }
+Statement::Statement(Kind k, const RowCol& p) : Node(S), kind(k), body(0), next(0),
+    prefix(0), args(0), scope(0) { pos = p; }
 
 Statement::~Statement() {
     if (body)
@@ -165,7 +167,7 @@ Statement::~Statement() {
     case Compound:
     case Block:
         if (prefix) delete prefix;
-        if (scope) delete scope;
+        // no: if (scope) delete scope;
         break;
     case If:
     case While:
@@ -180,6 +182,7 @@ Statement::~Statement() {
     case Inspect:
         if (obj) delete obj;
         if (conn) delete conn;
+        if (otherwise) delete otherwise;
         break;
     case Activate:
         if (activate) delete activate;

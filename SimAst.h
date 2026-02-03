@@ -119,7 +119,7 @@ namespace Sim
     public:
         enum Kind {
             Invalid, Module, Program, Class, Procedure, Block, Variable, Array, Switch,
-            Parameter, VirtualSpec, External, LabelDecl, Builtin, Import, StandardClass
+            Parameter, VirtualSpec, ExternalProc, ExternalClass, LabelDecl, Builtin, Import, StandardClass
         };
         enum ParamMode { ModeDefault, ModeValue, ModeName };
         enum Visi { NA, Hidden, Protected };
@@ -168,7 +168,7 @@ namespace Sim
             New, This, Qua,
             TextConst, CharConst, NumConst,
             IfExpr, Call, AssignVal, AssignRef,
-            // Helper for Loop Elements
+            // Helper
             StepUntil, // lhs=start, rhs=step, condition=until
             WhileLoop, // lhs=start, condition=cond
             TypeRef,   // val = type name
@@ -203,17 +203,6 @@ namespace Sim
         }
     };
 
-    struct BlockPrefix
-    {
-        Expression* prefix;    // Class prefix (for Block)
-        Expression* args;      // Arguments for prefix (linked list of Expressions)
-        BlockPrefix():prefix(0),args(0){}
-        ~BlockPrefix() {
-            if( prefix ) delete prefix;
-            if( args ) delete args;
-        }
-    };
-
     class Statement : public Node
     {
     public:
@@ -225,40 +214,42 @@ namespace Sim
 
         Kind kind;
         Statement* next;
-        Statement* body;  // If, While, For, Compound, Block, Inspect(otherwise)
+        Statement* body;  // If, While, For, Compound, Block, Inspect do
 
         union {
             // Compound / Block
             struct {
-                Declaration* scope;     // scope local declarations
-                BlockPrefix* prefix;    // optional prefix
+                Declaration* scope;     // scope local declarations, not owned
+                Expression* prefix;    // Class prefix (for Block)
+                Expression* args;      // Arguments for prefix (linked list of Expressions)
             };
 
             // If / While
             struct {
-                Expression* cond;
-                Statement* elseStmt;   // For If
+                Expression* cond;       // owned
+                Statement* elseStmt;   //  owned
             };
 
             // For
             struct {
-                Expression* var;       // Control variable
-                Expression* list;      // Linked list of 'For' elements (Expression nodes)
+                Expression* var;       // Control variable, owned
+                Expression* list;      // Linked list of 'For' elements (Expression nodes), owned
             };
 
             // Inspect
             struct {
-                Expression* obj;       // Inspect object
-                Connection* conn;      // Chain of WHEN clauses
+                Expression* obj;       // Inspect object, owned
+                Connection* conn;      // Chain of WHEN clauses, owned
+                Statement* otherwise;  // otherwise_clause, owned
             };
 
             // Activate, Reactivate
-            ActivateData* activate;
+            ActivateData* activate;     // owned
 
             // Assign / Call / Detach / Resume / Goto
             struct {
-                 Expression* lhs;      // Target / Callable
-                 Expression* rhs;      // Value / Ref / Args
+                 Expression* lhs;      // Target / Callable, owned
+                 Expression* rhs;      // Value / Ref / Args, owned
             };
 
         };
@@ -290,11 +281,11 @@ namespace Sim
         void openScope(Declaration* scope);
         Declaration* closeScope();
         Declaration* addDecl(const QByteArray& name, Declaration::Kind k);
-        Declaration* currentScope() const;
         Declaration* getTopScope() const;
         Type* getType(Type::Kind k) const;
         
     private:
+        Declaration* currentScope() const;
         Type* newType(Type::Kind k);
         SimulaVersion version;
         QList<Declaration*> scopes;
