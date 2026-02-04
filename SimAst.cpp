@@ -18,15 +18,30 @@
 */
 
 #include "SimAst.h"
+#include "SimLexer.h"
 #include <limits>
 #include <QTextStream>
 #include <QtDebug>
 using namespace Sim;
 
 const char* Builtin::name[] = {
-    "ABS", "SIGN", "ENTIER", "MOD", "REM", "SQRT", "SIN", "COS", "ARCTAN", "LN", "EXP",
-    "LOWTEN", "COPY", "TEXT_START", "TEXT_POS", "TEXT_LENGTH", "TEXT_SUB", "TEXT_STRIP",
-    "ISO_CHAR", "ISO_RANK", "RANK", "CHAR_FUNC", "DETACH", "RESUME", "CALL", "TIME", "SOURCELINE"
+    // Text Handling
+    "BLANKS", "COPY", "CHAR", "ISOCHAR", "RANK", "ISORANK", "DIGIT",
+    "LETTER", "LOWTEN", "DECIMALMARK", "UPCASE", "LOWCASE",
+    // Math Functions (Standard ALGOL 60 + Extensions)
+    "ABS", "SIGN", "ENTIER", "SQRT", "SIN", "COS", "TAN", "COTAN",
+    "ARCSIN", "ARCCOS", "ARCTAN", "ARCTAN2",
+    "SINH", "COSH", "TANH",
+    "LOG10", "LN", "EXP", "MOD", "REM",
+    "MAX", "MIN",
+    // Input / Output (Basic)
+    "ININT", "INREAL", "INCHAR", "INTEXT",
+    "OUTINT", "OUTREAL", "OUTCHAR", "OUTTEXT", "OUTIMAGE",
+    "SYSIN", "SYSOUT",
+    // Control & System
+    "ERROR", "TIME", "RANDOM", "SOURCELINE",
+    // Scheduling
+    "DETACH", "RESUME", "CALL"
 };
 
 const char* Type::name[] = {
@@ -284,6 +299,8 @@ Connection::~Connection() {
 }
 
 AstModel::AstModel(SimulaVersion v) : version(v), globalScope(0) {
+
+
     globalScope = new Declaration(Declaration::Invalid);
     openScope(globalScope);
     
@@ -346,14 +363,25 @@ Type* AstModel::getType(Type::Kind k) const {
 Type* AstModel::newType(Type::Kind k) {
     Type* t = new Type(k);
     t->owned = true;
+
+    const QByteArray name = Type::name[k];
+    Declaration* d = addDecl(Lexer::toId(name.toLower()), name, Declaration::StandardClass);
+    d->validated = true;
+    d->setType(t);
+
     return t;
 }
 
 void AstModel::initBuiltins() {
     for (int i = 0; i < Builtin::Max; ++i) {
-        Declaration* d = addDecl(Builtin::name[i], Builtin::name[i], Declaration::Builtin);
+        const QByteArray name = Builtin::name[i];
+        Declaration* d = addDecl(Lexer::toId(name.toLower()), name, Declaration::Builtin);
         d->id = i;
     }
+
+    Declaration* textobj = addDecl(Lexer::toId("textobj"), "TEXTOBJ", Declaration::StandardClass);
+    // TODO: CONSTANT, START, LENGTH, MAIN, POS, SETPOS, MORE, GETCHAR, PUTCHAR
+
 }
 
 class AstDumper

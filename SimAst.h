@@ -42,9 +42,23 @@ namespace Sim
     struct Builtin
     {
         enum Kind {
-            ABS, SIGN, ENTIER, MOD, REM, SQRT, SIN, COS, ARCTAN, LN, EXP,
-            LOWTEN, COPY, TEXT_START, TEXT_POS, TEXT_LENGTH, TEXT_SUB, TEXT_STRIP,
-            ISO_CHAR, ISO_RANK, RANK, CHAR_FUNC, DETACH, RESUME, CALL, TIME, SOURCELINE,
+            // Text Handling
+            BLANKS, COPY, CHAR, ISOCHAR, RANK, ISORANK, DIGIT,
+            LETTER, LOWTEN, DECIMALMARK, UPCASE, LOWCASE,
+            // Math Functions (Standard ALGOL 60 + Extensions)
+            ABS, SIGN, ENTIER, SQRT, SIN, COS, TAN, COTAN,
+            ARCSIN, ARCCOS, ARCTAN, ARCTAN2,
+            SINH, COSH, TANH,
+            LOG10, LN, EXP, MOD, REM,
+            MAX, MIN,
+            // Input / Output (Basic)
+            ININT, INREAL, INCHAR, INTEXT,
+            OUTINT, OUTREAL, OUTCHAR, OUTTEXT, OUTIMAGE,
+            SYSIN, SYSOUT,
+            // Control & System
+            ERROR, TIME, RANDOM, SOURCELINE,
+            // Scheduling
+            DETACH, RESUME, CALL,
             Max
         };
         static const char* name[];
