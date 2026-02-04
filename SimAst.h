@@ -25,6 +25,8 @@
 #include <QVariant>
 #include "SimRowCol.h"
 
+class QTextStream;
+
 namespace Sim
 {
     enum SimulaVersion { Sim70, Sim75, Sim86 };
@@ -34,6 +36,8 @@ namespace Sim
     class Statement;
     class Expression;
     class Connection;
+
+    typedef const char* Atom;
 
     struct Builtin
     {
@@ -54,7 +58,8 @@ namespace Sim
         uint inList : 1;
         uint ownstype : 1;
         uint owned : 1;
-        // 6
+        uint validated : 1;
+        // 7
 
         // Declaration
         uint visi : 2;
@@ -72,7 +77,7 @@ namespace Sim
         uint ownsexpr : 1;
         // 1
 
-        // all 30
+        // all 31
 
         RowCol pos;
 
@@ -81,6 +86,8 @@ namespace Sim
         
         Node(Meta m);
         virtual ~Node();
+
+        static void reportLeftovers();
     private:
         Type* _ty;
     };
@@ -89,7 +96,7 @@ namespace Sim
     {
     public:
         enum Kind {
-            Undefined, NoType,
+            Undefined, NoType, None, Notext,
             Integer, ShortInteger, Real, LongReal, Boolean, Character, Label, Text,
             MaxBasicType,
             Ref, Pointer, Array, Procedure, Switch
@@ -126,21 +133,22 @@ namespace Sim
 
         Kind kind;
         QByteArray name;
+        Atom sym;
         
         Declaration* link;   // Members/Locals
         Declaration* next;   // Next in scope
         Declaration* outer;  // Parent scope
         Statement*   body;   // class, procedure
-
+        Atom   nameRef;     // Class prefix name, External ext name
         union {
             // Class / Procedure
             Declaration* prefix; // Superclass, not owned
 
-            // Module
-            QString* data; // Source path, Class prefix name, External ext name, owned
-
             // Switch
             Expression* list; // Chain of label expressions
+
+            // Module
+            QString* path;    // Source path
 
             // Variable / Parameter / Const
             Expression* init; // Initialization expression, owned
@@ -150,7 +158,7 @@ namespace Sim
         Declaration(Kind k = Invalid);
         ~Declaration();
         
-        Declaration* find(const QByteArray& name, bool recursive = true) const;
+        Declaration* find(const char* id, bool recursive = true) const;
 
         void appendMember(Declaration* d);
         static void deleteAll(Declaration* d);
@@ -166,7 +174,7 @@ namespace Sim
             Eq, Neq, Lt, Leq, Gt, Geq, RefEq, RefNeq,
             Identifier, DeclRef, Dot, Subscript,
             New, This, Qua,
-            TextConst, CharConst, NumConst,
+            StringConst, CharConst, UnsignedConst, RealConst, BoolConst, Notext, None,
             IfExpr, Call, AssignVal, AssignRef,
             // Helper
             StepUntil, // lhs=start, rhs=step, condition=until
@@ -176,7 +184,12 @@ namespace Sim
         };
 
         Kind kind;
-        QVariant val;
+        union {
+            quint64 u;
+            double r;
+            Atom a; // string, name
+            Declaration* d;
+        };
         Expression* lhs;
         Expression* rhs;
         Expression* next; // For lists (Args, Switch list, For list, Array bounds)
@@ -257,13 +270,15 @@ namespace Sim
         Statement(Kind k = Invalid, const RowCol& p = RowCol());
         ~Statement();
         
+        Declaration* getScope() const;
+
         void append(Statement* s);
         static void deleteAll(Statement* s);
     };
 
     class Connection : public Node {
     public:
-        QByteArray className;
+        Atom className;
         Declaration* classDecl; 
         Statement* body;
         Connection* next;
@@ -280,10 +295,11 @@ namespace Sim
 
         void openScope(Declaration* scope);
         Declaration* closeScope();
-        Declaration* addDecl(const QByteArray& name, Declaration::Kind k);
+        Declaration* addDecl(const char *id, const QByteArray& name, Declaration::Kind k);
         Declaration* getTopScope() const;
         Type* getType(Type::Kind k) const;
         
+        static void dump(QTextStream&, Declaration*);
     private:
         Declaration* currentScope() const;
         Type* newType(Type::Kind k);

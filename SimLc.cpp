@@ -28,7 +28,7 @@
 #include "SimParser.h"
 #include "SimParser3.h"
 #include "SimAst.h"
-//#include "SimValidator.h"
+//#include "SimValidator2.h"
 
 static QStringList collectFiles( const QDir& dir )
 {
@@ -86,6 +86,81 @@ public:
     virtual Sim::Token peek(int offset) { return lex.peekToken(offset); }
     virtual QString source() const { return lex.sourcePath(); }
 };
+
+
+static void run( const QStringList& files, bool dump )
+{
+    Sim::Errors err;
+    err.setReportToConsole(true);
+
+    Sim::AstModel mdl;
+    foreach( const QString& path, files )
+    {
+        qDebug() << "processing" << path;
+
+#if 0
+        Sim::Lexer lex;
+        lex.setStream(path);
+        lex.setErrors(&err);
+        lex.setIgnoreComments(true);
+        lex.setPackComments(true);
+    #if 0
+        Sim::Token t = lex.nextToken();
+        while( t.isValid() )
+        {
+            qDebug() << t.getString() << QString::fromUtf8(t.d_val);
+            t = lex.nextToken();
+        }
+    #else
+        Sim::Parser p(&lex,&err);
+        p.Parse();
+        if( dump )
+            dumpTree( &p.d_root );
+    #endif
+#else
+        {
+            Lex lex;
+            lex.lex.setStream(path);
+            lex.lex.setErrors(&err);
+            lex.lex.setIgnoreComments(true);
+            lex.lex.setPackComments(true);
+            Sim::Parser3 p(&lex, &mdl);
+            Sim::Declaration* module = p.RunParser();
+            if( !p.errors.isEmpty() )
+            {
+                foreach( const Sim::Parser3::Error& e, p.errors )
+                    qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
+            }
+            else
+            {
+                if( dump )
+                {
+                    QTextStream out(stdout);
+                    Sim::AstModel::dump(out, module);
+                }
+#if 0
+                Sim::Validator2 va(&mdl);
+                va.validate(module);
+                if( !va.errors.isEmpty() )
+                {
+                    foreach( const Sim::Validator2::Error& e, va.errors )
+                        qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
+                }
+#endif
+            }
+        }
+#endif
+
+    }
+#if 0
+    // TODO
+    if( err.getErrCount() == 0 && err.getWrnCount() == 0 )
+        qDebug() << "successfully completed";
+    else
+        qDebug() << "completed with" << err.getErrCount() << "errors and" <<
+                    err.getWrnCount() << "warnings";
+#endif
+}
 
 int main(int argc, char *argv[])
 {
@@ -153,68 +228,8 @@ int main(int argc, char *argv[])
             files << path;
     }
 
-    Sim::Errors err;
-    err.setReportToConsole(true);
+    run(files, dump);
+    Sim::Node::reportLeftovers();
 
-    Sim::AstModel mdl;
-    foreach( const QString& path, files )
-    {
-        qDebug() << "processing" << path;
-
-#if 0
-        Sim::Lexer lex;
-        lex.setStream(path);
-        lex.setErrors(&err);
-        lex.setIgnoreComments(true);
-        lex.setPackComments(true);
-    #if 0
-        Sim::Token t = lex.nextToken();
-        while( t.isValid() )
-        {
-            qDebug() << t.getString() << QString::fromUtf8(t.d_val);
-            t = lex.nextToken();
-        }
-    #else
-        Sim::Parser p(&lex,&err);
-        p.Parse();
-        if( dump )
-            dumpTree( &p.d_root );
-    #endif
-#else
-        Lex lex;
-        lex.lex.setStream(path);
-        lex.lex.setErrors(&err);
-        lex.lex.setIgnoreComments(true);
-        lex.lex.setPackComments(true);
-        Sim::Parser3 p(&lex, &mdl);
-        Sim::Declaration* module = p.RunParser();
-        if( !p.errors.isEmpty() )
-        {
-            foreach( const Sim::Parser3::Error& e, p.errors )
-                qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
-        }
-#if 0
-        else
-        {
-            Sim::Validator va(&mdl);
-            va.validate(module);
-            if( !va.errors.isEmpty() )
-            {
-                foreach( const Sim::Validator::Error& e, va.errors )
-                    qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
-            }
-        }
-#endif
-#endif
-
-    }
-#if 0
-    // TODO
-    if( err.getErrCount() == 0 && err.getWrnCount() == 0 )
-        qDebug() << "successfully completed";
-    else
-        qDebug() << "completed with" << err.getErrCount() << "errors and" <<
-                    err.getWrnCount() << "warnings";
-#endif
     return 0;
 }

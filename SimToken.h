@@ -21,10 +21,13 @@
 */
 
 #include <QString>
+#include <QMetaType>
 #include <Simula/SimTokenType.h>
 
 namespace Sim
 {
+    typedef const char* Atom;
+
     struct Token
     {
 #ifdef _DEBUG
@@ -39,14 +42,17 @@ namespace Sim
         quint32 d_lineNr;
         quint16 d_colNr, d_len; // counts unicode chars, not bytes!
         QByteArray d_val; // utf-8
+        Atom d_id; // lower-case internalized version of d_val
         QString d_sourcePath;
         Token(quint16 t = Tok_Invalid, quint32 line = 0, quint16 col = 0, quint16 len = 0, const QByteArray& val = QByteArray() ):
-            d_type(t),d_lineNr(line),d_colNr(col),d_len(len),d_val(val){}
+            d_type(t),d_lineNr(line),d_colNr(col),d_len(len),d_val(val), d_id(0){}
         bool isValid() const;
         bool isEof() const;
         const char* getName() const;
         const char* getString() const;
     };
 }
+
+Q_DECLARE_METATYPE(Sim::Atom)
 
 #endif // ALGTOKEN_H

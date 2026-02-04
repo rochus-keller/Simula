@@ -49,7 +49,7 @@ namespace Sim
         Token peekToken(quint8 lookAhead = 1);
         QList<Token> tokens( const QString& code );
         QList<Token> tokens( const QByteArray& code, const QString& path = QString() );
-        static QByteArray getSymbol( const QByteArray& );
+        static const char *toId( const QByteArray& );
     protected:
         Token nextTokenImp();
         int skipWhiteSpace();

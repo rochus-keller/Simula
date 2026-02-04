@@ -151,14 +151,15 @@ QList<Token> Lexer::tokens(const QByteArray& code, const QString& path)
     return res;
 }
 
-QByteArray Lexer::getSymbol(const QByteArray& str)
+const char* Lexer::toId(const QByteArray& ident)
 {
-    if( str.isEmpty() )
-        return str;
-    QByteArray& sym = d_symbols[str];
+    if( ident.isEmpty() )
+        return "";
+    const QByteArray lc = ident.toLower();
+    QByteArray& sym = d_symbols[lc];
     if( sym.isEmpty() )
-        sym = str;
-    return sym;
+        sym = ident;
+    return sym.constData();
 }
 
 Token Lexer::nextTokenImp()
@@ -288,10 +289,11 @@ QChar Lexer::lookAhead(int off) const
 
 Token Lexer::token(TokenType tt, int len, const QByteArray& val)
 {
-    QByteArray v = val;
-    if( tt != Tok_Comment && tt != Tok_Invalid )
-        v = getSymbol(v);
-    Token t( tt, d_lineNr, d_colNr + 1, len, v );
+    Token t( tt, d_lineNr, d_colNr + 1, len, val );
+    if( tt == Tok_identifier)
+        t.d_id = toId(val);
+    else if( tokenTypeIsKeyword(tt))
+        t.d_val.clear();
     d_lastToken = t;
     d_colNr += len;
     t.d_sourcePath = d_sourcePath;

@@ -57,13 +57,13 @@ namespace Sim {
         void program();
         Statement* while_statement();
         Statement* block();
-        void block_prefix(QByteArray& prefixName, QList<Expression*>& args);
+        void block_prefix(Token &prefixName, QList<Expression*>& args);
         void actual_parameter_part(QList<Expression*>& args);
-        Statement* main_block(const QByteArray& prefixName, const QList<Expression*>& args);
+        Statement* main_block(Atom prefixName, const QList<Expression*>& args);
         Statement* compound_tail();
         void declaration();
         void class_declaration();
-        QByteArray prefix();
+        Token prefix();
         Declaration *main_part();
         void protection_part(Declaration* classDecl);
         void protection_specification(Declaration* classDecl);
@@ -122,8 +122,8 @@ namespace Sim {
         Type* value_type();
         Type* reference_type();
         Type* object_reference();
-        QByteArray qualification();
-        QByteArray label();
+        Token qualification();
+        Token label();
         Expression* if_clause();
         Expression* local_object();
         Expression* object_generator();
@@ -154,11 +154,11 @@ namespace Sim {
         Expression::Kind relational_operator();
         Expression* logical_value();
         Expression* unsigned_number();
-        QByteArray class_identifier();
+        Token class_identifier();
         QList<Token> identifier_list();
         void subscript_list(QList<Expression*>& subs);
         Expression* subscript_expression();
-        QByteArray attribute_identifier();
+        Token attribute_identifier();
         Expression* string_();
         
     protected:

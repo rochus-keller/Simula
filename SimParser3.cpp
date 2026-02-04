@@ -18,6 +18,7 @@
 */
 
 #include "SimParser3.h"
+#include "SimLexer.h"
 #include <QtDebug>
 using namespace Sim;
 
@@ -1261,8 +1262,8 @@ Declaration* Parser3::module() {
         Declaration::deleteAll(thisMod);
     thisMod = mod;
     
-    mod->data = new QString();
-    *mod->data = scanner->source();
+    mod->path = new QString();
+    *mod->path = scanner->source().toUtf8();
     
     mdl->openScope(mod);
     
@@ -1310,14 +1311,14 @@ void Parser3::program() {
     
     // Handle labels
     while ((peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Colon)) {
-        QByteArray lbl = label();
+        const Token lbl = label();
         expect(Tok_Colon, false, "program");
         // Create label declaration
-        Declaration* lblDecl = mdl->addDecl(lbl, Declaration::LabelDecl);
+        Declaration* lblDecl = mdl->addDecl(lbl.d_id, lbl.d_val, Declaration::LabelDecl);
         lblDecl->pos = toRowCol(cur);
     }
     
-    Declaration* prog = mdl->addDecl("", Declaration::Program);
+    Declaration* prog = mdl->addDecl("","", Declaration::Program);
     prog->pos = toRowCol(la); // begin
     mdl->openScope(prog);
     prog->body = block();
@@ -1341,16 +1342,16 @@ Statement* Parser3::while_statement() {
 }
 
 Statement* Parser3::block() {
-    QByteArray prefixName;
+    Token prefixName;
     QList<Expression*> args;
     
     if (FIRST_block_prefix(la.d_type)) {
         block_prefix(prefixName, args);
     }
-    return main_block(prefixName, args);
+    return main_block(prefixName.d_id, args);
 }
 
-void Parser3::block_prefix(QByteArray& prefixName, QList<Expression*>& args) {
+void Parser3::block_prefix(Token& prefixName, QList<Expression*>& args) {
     prefixName = class_identifier();
     if (FIRST_actual_parameter_part(la.d_type)) {
         actual_parameter_part(args);
@@ -1363,18 +1364,17 @@ void Parser3::actual_parameter_part(QList<Expression*>& args) {
     expect(Tok_Rpar, false, "actual_parameter_part");
 }
 
-Statement* Parser3::main_block(const QByteArray& prefixName, const QList<Expression*>& args) {
+Statement* Parser3::main_block(Atom prefixName, const QList<Expression*>& args) {
     expect(Tok_BEGIN, false, "main_block");
     RowCol pos = toRowCol(cur);
     
     Statement* blk = new Statement(Statement::Block, pos);
     
     // Store prefix info if present
-    if (!prefixName.isEmpty()) {
+    if (prefixName != 0) {
         Expression* prefixExpr = new Expression(Expression::Identifier, pos);
-        prefixExpr->val = prefixName;
+        prefixExpr->a = prefixName;
         blk->prefix = prefixExpr;
-        // Args would be stored in a call-like structure
         if(!args.isEmpty())
         {
             blk->args = args.first();
@@ -1388,7 +1388,7 @@ Statement* Parser3::main_block(const QByteArray& prefixName, const QList<Express
     }
     
     // Open a new scope for the block
-    Declaration* blockScope = mdl->addDecl("", Declaration::Block);
+    Declaration* blockScope = mdl->addDecl("", "", Declaration::Block);
     blockScope->pos = pos;
     mdl->openScope(blockScope);
     
@@ -1499,23 +1499,22 @@ void Parser3::declaration() {
 }
 
 void Parser3::class_declaration() {
-    QByteArray prefixName = prefix();
+    Token prefixName = prefix();
         
     Declaration* classDecl = main_part();
     
     // Link prefix if present
-    if (!prefixName.isEmpty()) {
+    if (!prefixName.d_val.isEmpty()) {
         // Will be resolved during semantic analysis
-        classDecl->data = new QString();
-        *classDecl->data = QString::fromUtf8(prefixName);
+        classDecl->nameRef = prefixName.d_id;
     }
 }
 
-QByteArray Parser3::prefix() {
+Token Parser3::prefix() {
     if (FIRST_class_identifier(la.d_type)) {
         return class_identifier();
     }
-    return QByteArray();
+    return Token();
 }
 
 Declaration* Parser3::main_part() {
@@ -1523,7 +1522,7 @@ Declaration* Parser3::main_part() {
     
     expect(Tok_identifier, false, "main_part");
 
-    Declaration* classDecl = mdl->addDecl(cur.d_val, Declaration::Class);
+    Declaration* classDecl = mdl->addDecl(cur.d_id, cur.d_val, Declaration::Class);
     classDecl->pos = toRowCol(cur);
 
     mdl->openScope(classDecl);
@@ -1557,6 +1556,31 @@ Declaration* Parser3::main_part() {
     
     virtual_part(classDecl);
     classDecl->body = class_body();
+
+#if 0
+    // repack block scope to class level
+    if( classDecl->body && classDecl->body->kind == Statement::Block && classDecl->body->scope )
+    {
+        // TODO: maybe I should leave it as is and consider body->scope for member search
+        // the problem is that the virtual decl uses the same name as the proc an shadows the latter,
+        // so we should remove it an apply the flag to the proc
+        Declaration* d = classDecl->body->scope->link;
+        while(d)
+        {
+            d->outer = classDecl;
+            d = d->next;
+        }
+        if( classDecl->body->scope->link )
+            classDecl->appendMember(classDecl->body->scope->link);
+        classDecl->body->scope->link = 0;
+        classDecl->body->scope = 0;
+        Q_ASSERT(classDecl->body->next == 0);
+        Statement* s = classDecl->body->body;
+        classDecl->body->body = 0;
+        delete classDecl->body;
+        classDecl->body = s;
+    }
+#endif
     
     mdl->closeScope();
 
@@ -1642,7 +1666,7 @@ void Parser3::virtual_spec(Declaration* classDecl) {
     QList<Token> ids = identifier_list();
     
     for (int i = 0; i < ids.size(); i++) {
-        Declaration* virtDecl = mdl->addDecl(ids[i].d_val, Declaration::VirtualSpec);
+        Declaration* virtDecl = mdl->addDecl(ids[i].d_id, ids[i].d_val, Declaration::VirtualSpec);
         virtDecl->pos = toRowCol(ids[i]);
         virtDecl->isVirtual = true;
         virtDecl->setType(t);
@@ -1681,7 +1705,7 @@ void Parser3::procedure_declaration() {
 
 Declaration* Parser3::procedure_heading() {
     expect(Tok_identifier, false, "procedure_heading");
-    Declaration* procDecl = mdl->addDecl(cur.d_val, Declaration::Procedure);
+    Declaration* procDecl = mdl->addDecl(cur.d_id, cur.d_val, Declaration::Procedure);
     procDecl->pos = toRowCol(cur);
     
     mdl->openScope(procDecl);
@@ -1780,7 +1804,7 @@ void Parser3::formal_parameter_list(Declaration* procDecl) {
 void Parser3::formal_parameter(Declaration* procDecl) {
     expect(Tok_identifier, false, "formal_parameter");
     
-    Declaration* param = mdl->addDecl(cur.d_val,Declaration::Parameter);
+    Declaration* param = mdl->addDecl(cur.d_id, cur.d_val,Declaration::Parameter);
     param->pos = toRowCol(cur);
     param->outer = procDecl;
 }
@@ -1792,10 +1816,10 @@ Statement* Parser3::procedure_body() {
 Statement* Parser3::statement() {
     // Handle labels
     while ((peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Colon)) {
-        QByteArray lbl = label();
+        const Token lbl = label();
         expect(Tok_Colon, false, "statement");
         // Create label declaration in current scope
-        Declaration* lblDecl = mdl->addDecl(lbl, Declaration::LabelDecl);
+        Declaration* lblDecl = mdl->addDecl(lbl.d_id, lbl.d_val, Declaration::LabelDecl);
         lblDecl->pos = toRowCol(cur);
     }
     
@@ -1830,9 +1854,9 @@ Statement* Parser3::Common_Base_conditional_statement() {
     Expression* cond = if_clause();
     RowCol pos = cond ? cond->pos : toRowCol(la);
     
-    // Handle labels after IF
+    // Handle labels after IF // TODO
     while ((peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Colon)) {
-        QByteArray lbl = label();
+        const Token lbl = label();
         expect(Tok_Colon, false, "Common_Base_conditional_statement");
     }
     
@@ -1890,7 +1914,7 @@ void Parser3::for_clause(Expression*& varExpr, bool& isRefAssign, QList<Expressi
     
     expect(Tok_identifier, false, "for_clause");
     varExpr = new Expression(Expression::Identifier, toRowCol(cur));
-    varExpr->val = cur.d_val;
+    varExpr->a = cur.d_id;
     
     for_right_part(isRefAssign, forList);
     expect(Tok_DO, false, "for_clause");
@@ -2012,9 +2036,8 @@ Statement* Parser3::unlabelled_basic_statement() {
     } else if (FIRST_connection_statement(la.d_type)) {
         return connection_statement();
     } else if (FIRST_main_block(la.d_type)) {
-        QList<Expression*> list;
-        Statement* res = main_block(QByteArray(), list);
-        Q_ASSERT(list.isEmpty());
+        QList<Expression*> args;
+        Statement* res = main_block(0, args);
         return res;
     } else if (FIRST_primary(la.d_type)) {
         RowCol pos = toRowCol(la);
@@ -2022,16 +2045,16 @@ Statement* Parser3::unlabelled_basic_statement() {
         
         // Check for prefixed block: identifier BEGIN or identifier(args) BEGIN
         if (FIRST_main_block(la.d_type) ) {
-            QByteArray prefixName;
+            Atom prefixName;
             QList<Expression*> args;
             
             if (prim->kind == Expression::Identifier) {
                 // Simple prefix: identifier BEGIN
-                prefixName = prim->val.toByteArray();
+                prefixName = prim->a;
             } else if (prim->kind == Expression::Call && prim->lhs && 
                        prim->lhs->kind == Expression::Identifier) {
                 // Prefix with parameters: identifier(args) BEGIN
-                prefixName = prim->lhs->val.toByteArray();
+                prefixName = prim->lhs->a;
                 // Collect args from the call expression
                 Expression* arg = prim->rhs;
                 while (arg) {
@@ -2043,7 +2066,7 @@ Statement* Parser3::unlabelled_basic_statement() {
                 prim->rhs = 0; // Prevent deletion of args
             }
             
-            if (!prefixName.isEmpty()) {
+            if (prefixName != 0) {
                 delete prim;
                 return main_block(prefixName, args);
             }else
@@ -2116,13 +2139,13 @@ Connection* Parser3::when_clause() {
     expect(Tok_WHEN, false, "when_clause");
     RowCol pos = toRowCol(cur);
     
-    QByteArray className = class_identifier();
+    Token className = class_identifier();
     expect(Tok_DO, false, "when_clause");
     Statement* body = statement();
     
     Connection* conn = new Connection();
     conn->pos = pos;
-    conn->className = className;
+    conn->className = className.d_id;
     conn->body = body;
     conn->next = 0;
     return conn;
@@ -2286,12 +2309,13 @@ Type* Parser3::specifier(bool& isArray, bool& isProcedure) {
 void Parser3::specification_part(Declaration* parent) {
     bool isArray = false;
     bool isProcedure = false;
-    Type* t = specifier(isArray, isProcedure);
+    Type* type = specifier(isArray, isProcedure);
     
     QList<Token> ids = identifier_list();
     expect(Tok_Semi, false, "specification_part");
-    
+
     // Update parameter types
+    bool typeUsed = false;
     for (int i = 0; i < ids.size(); i++) {
         Declaration* param = parent->link;
         while (param) {
@@ -2299,21 +2323,26 @@ void Parser3::specification_part(Declaration* parent) {
             if (param->name.constData() == ids[i].d_val.constData()) {
                 if (isArray) {
                     Type* arrType = new Type(Type::Array);
-                    arrType->setType(t);
+                    arrType->setType(type);
+                    typeUsed = true;
                     param->setType(arrType);
                     param->kind = Declaration::Array;
                 } else if (isProcedure) {
                     Type* procType = new Type(Type::Procedure);
-                    procType->setType(t);
+                    procType->setType(type);
                     param->setType(procType);
+                    typeUsed = true;
                 } else {
-                    param->setType(t);
+                    param->setType(type);
+                    typeUsed = true;
                 }
                 break;
             }
             param = param->next;
         }
     }
+    if( type && !typeUsed && !type->owned )
+        delete type;
 }
 
 void Parser3::procedure_specification(Declaration* virtSpec) {
@@ -2333,10 +2362,9 @@ Declaration* Parser3::external_item() {
     Token name = localName.d_type == Tok_identifier ? localName : extName;
     if(name.d_type != Tok_identifier)
         error(name, "external identifier expected");
-    Declaration* extDecl = mdl->addDecl( name.d_val, Declaration::ExternalProc);
+    Declaration* extDecl = mdl->addDecl( name.d_id, name.d_val, Declaration::ExternalProc);
     extDecl->pos = toRowCol(name);
-    extDecl->data = new QString();
-    *extDecl->data = QString::fromUtf8(extName.d_val);
+    extDecl->nameRef = extName.d_id;
     return extDecl;
 }
 
@@ -2355,11 +2383,11 @@ void Parser3::external_declaration() {
         
     if (la.d_type == Tok_identifier || FIRST_type(la.d_type) || la.d_type == Tok_PROCEDURE) {
         // SIM86: optional kind identifier
-        QByteArray kind;
+        Atom kind = 0;
         if (la.d_type == Tok_identifier) {
             if (versionCheck(Sim86, "external kind")) {
                 expect(Tok_identifier, false, "external_declaration");
-                kind = cur.d_val;
+                kind = cur.d_id;
             }
         }
         
@@ -2370,7 +2398,7 @@ void Parser3::external_declaration() {
         
         expect(Tok_PROCEDURE, false, "external_declaration");
 
-        if( !kind.isEmpty() && t == 0 )
+        if( kind != 0 && t == 0 )
         {
             Declaration* proc = external_item();
             // TODO: this is ambiguous in the standard.
@@ -2424,7 +2452,7 @@ Declaration* Parser3::switch_declaration() {
     
     expect(Tok_ColonEq, false, "switch_declaration");
     
-    Declaration* switchDecl = mdl->addDecl(name.d_val,Declaration::Switch);
+    Declaration* switchDecl = mdl->addDecl(name.d_id, name.d_val,Declaration::Switch);
     switchDecl->pos = toRowCol(name);
     switchDecl->setType(new Type(Type::Switch)); // TODO: does this make any sense?
     
@@ -2456,7 +2484,7 @@ void Parser3::type_list_element(Type* t) {
     expect(Tok_identifier, false, "type_list_element");
     const Token name = cur;
     
-    Declaration* varDecl = mdl->addDecl(name.d_val,Declaration::Variable);
+    Declaration* varDecl = mdl->addDecl(name.d_id, name.d_val,Declaration::Variable);
     varDecl->pos = toRowCol(name);
     varDecl->setType(t);
     
@@ -2533,7 +2561,7 @@ void Parser3::array_segment(Type* elemType) {
     
     // Create array declarations for each name
     for (int i = 0; i < names.size(); i++) {
-        Declaration* arrDecl = mdl->addDecl(names[i].d_val, Declaration::Array);
+        Declaration* arrDecl = mdl->addDecl(names[i].d_id, names[i].d_val, Declaration::Array);
         arrDecl->pos = toRowCol(names[i]);
         
         Type* arrType = new Type(Type::Array);
@@ -2640,22 +2668,22 @@ Type* Parser3::reference_type() {
 Type* Parser3::object_reference() {
     expect(Tok_REF, false, "object_reference");
     expect(Tok_Lpar, false, "object_reference");
-    QByteArray qual = qualification();
+    Token qual = qualification();
     expect(Tok_Rpar, false, "object_reference");
     
     Type* refType = new Type(Type::Ref);
     refType->setExpr(new Expression(Expression::TypeRef));
-    refType->getExpr()->val = qual;
+    refType->getExpr()->a = qual.d_id;
     return refType;
 }
 
-QByteArray Parser3::qualification() {
+Token Parser3::qualification() {
     return class_identifier();
 }
 
-QByteArray Parser3::label() {
+Token Parser3::label() {
     expect(Tok_identifier, false, "label");
-    return cur.d_val;
+    return cur;
 }
 
 Expression* Parser3::if_clause() {
@@ -2668,20 +2696,20 @@ Expression* Parser3::if_clause() {
 Expression* Parser3::local_object() {
     expect(Tok_THIS, false, "local_object");
     RowCol pos = toRowCol(cur);
-    QByteArray className = class_identifier();
+    Token className = class_identifier();
     
     Expression* expr = new Expression(Expression::This, pos);
-    expr->val = className;
+    expr->a = className.d_id;
     return expr;
 }
 
 Expression* Parser3::object_generator() {
     expect(Tok_NEW, false, "object_generator");
     RowCol pos = toRowCol(cur);
-    QByteArray className = class_identifier();
+    Token className = class_identifier();
     
     Expression* expr = new Expression(Expression::New, pos);
-    expr->val = className;
+    expr->a = className.d_id;
     return expr;
 }
 
@@ -2992,17 +3020,17 @@ Expression* Parser3::primary() {
     } else if (la.d_type == Tok_character) {
         expect(Tok_character, false, "primary");
         result = new Expression(Expression::CharConst, toRowCol(cur));
-        result->val = cur.d_val;
+        result->u = QString::fromUtf8(cur.d_val)[0].unicode();
     } else if (FIRST_string_(la.d_type)) {
         result = string_();
     } else if (la.d_type == Tok_NOTEXT) {
         expect(Tok_NOTEXT, false, "primary");
-        result = new Expression(Expression::TextConst, toRowCol(cur));
-        result->val = QByteArray();
+        result = new Expression(Expression::Notext, toRowCol(cur));
+        result->a = 0;
     } else if (la.d_type == Tok_NONE) {
         expect(Tok_NONE, false, "primary");
-        result = new Expression(Expression::Identifier, toRowCol(cur));
-        result->val = QByteArray("NONE");
+        result = new Expression(Expression::None, toRowCol(cur));
+        result->a = 0;
     } else if (FIRST_local_object(la.d_type)) {
         result = local_object();
     } else if (FIRST_object_generator(la.d_type)) {
@@ -3032,7 +3060,7 @@ Expression* Parser3::primary() {
     } else if (la.d_type == Tok_identifier) {
         expect(Tok_identifier, false, "primary");
         result = new Expression(Expression::Identifier, toRowCol(cur));
-        result->val = cur.d_val;
+        result->a = cur.d_id;
     } else {
         invalid("primary");
         return 0;
@@ -3069,11 +3097,11 @@ Expression* Parser3::relation_(Expression* lhs) {
 Expression* Parser3::qualified_(Expression* lhs) {
     expect(Tok_QUA, false, "qualified_");
     RowCol pos = toRowCol(cur);
-    QByteArray className = class_identifier();
+    Token className = class_identifier();
     
     Expression* qua = new Expression(Expression::Qua, pos);
     qua->lhs = lhs;
-    qua->val = className;
+    qua->a = className.d_id;
     return qua;
 }
 
@@ -3081,11 +3109,11 @@ Expression* Parser3::selector_(Expression* lhs) {
     if (la.d_type == Tok_Dot) {
         expect(Tok_Dot, false, "selector_");
         RowCol pos = toRowCol(cur);
-        QByteArray attr = attribute_identifier();
+        Token attr = attribute_identifier();
         
         Expression* dot = new Expression(Expression::Dot, pos);
         dot->lhs = lhs;
-        dot->val = attr;
+        dot->a = attr.d_id;
         return dot;
     } else if (la.d_type == Tok_Lbrack) {
         expect(Tok_Lbrack, false, "selector_");
@@ -3170,13 +3198,13 @@ Expression::Kind Parser3::relational_operator() {
 Expression* Parser3::logical_value() {
     if (la.d_type == Tok_TRUE) {
         expect(Tok_TRUE, false, "logical_value");
-        Expression* expr = new Expression(Expression::NumConst, toRowCol(cur));
-        expr->val = true;
+        Expression* expr = new Expression(Expression::BoolConst, toRowCol(cur));
+        expr->u = true;
         return expr;
     } else if (la.d_type == Tok_FALSE) {
         expect(Tok_FALSE, false, "logical_value");
-        Expression* expr = new Expression(Expression::NumConst, toRowCol(cur));
-        expr->val = false;
+        Expression* expr = new Expression(Expression::BoolConst, toRowCol(cur));
+        expr->u = false;
         return expr;
     } else {
         invalid("logical_value");
@@ -3187,13 +3215,13 @@ Expression* Parser3::logical_value() {
 Expression* Parser3::unsigned_number() {
     if (la.d_type == Tok_unsigned_integer) {
         expect(Tok_unsigned_integer, false, "unsigned_number");
-        Expression* expr = new Expression(Expression::NumConst, toRowCol(cur));
-        expr->val = cur.d_val.toLongLong();
+        Expression* expr = new Expression(Expression::UnsignedConst, toRowCol(cur));
+        expr->u = cur.d_val.toULongLong();
         return expr;
     } else if (la.d_type == Tok_decimal_number) {
         expect(Tok_decimal_number, false, "unsigned_number");
-        Expression* expr = new Expression(Expression::NumConst, toRowCol(cur));
-        expr->val = cur.d_val.toDouble();
+        Expression* expr = new Expression(Expression::RealConst, toRowCol(cur));
+        expr->r = cur.d_val.toDouble();
         return expr;
     } else {
         invalid("unsigned_number");
@@ -3201,9 +3229,9 @@ Expression* Parser3::unsigned_number() {
     }
 }
 
-QByteArray Parser3::class_identifier() {
+Token Parser3::class_identifier() {
     expect(Tok_identifier, false, "class_identifier");
-    return cur.d_val;
+    return cur;
 }
 
 QList<Token> Parser3::identifier_list() {
@@ -3234,14 +3262,14 @@ Expression* Parser3::subscript_expression() {
     return expression();
 }
 
-QByteArray Parser3::attribute_identifier() {
+Token Parser3::attribute_identifier() {
     expect(Tok_identifier, false, "attribute_identifier");
-    return cur.d_val;
+    return cur;
 }
 
 Expression* Parser3::string_() {
     expect(Tok_string, false, "string_");
-    Expression* expr = new Expression(Expression::TextConst, toRowCol(cur));
+    Expression* expr = new Expression(Expression::StringConst, toRowCol(cur));
     QByteArray val = cur.d_val;
     
     // Handle string concatenation
@@ -3250,6 +3278,6 @@ Expression* Parser3::string_() {
         val += cur.d_val;
     }
     
-    expr->val = val;
+    expr->a = Lexer::toId(val);
     return expr;
 }
