@@ -27,7 +27,8 @@ HEADERS += \
     $$PWD/SimRowCol.h \
     $$PWD/SimSynTree.h \
     $$PWD/SimToken.h \
-    $$PWD/SimTokenType.h
+    $$PWD/SimTokenType.h \
+    $$PWD/SimValidator2.h
 
 SOURCES += \
     $$PWD/SimAst.cpp \
@@ -39,4 +40,5 @@ SOURCES += \
     $$PWD/SimRowCol.cpp \
     $$PWD/SimSynTree.cpp \
     $$PWD/SimToken.cpp \
-    $$PWD/SimTokenType.cpp
+    $$PWD/SimTokenType.cpp \
+    $$PWD/SimValidator2.cpp

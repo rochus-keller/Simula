@@ -1023,7 +1023,7 @@ comment
     p := inf.image.pos;
     rest :- inf.image.sub(p, imlength1 - p);
     if rest.length >= l then f :- rest.sub(1, l);
-    if fnetitle then fail(false,false);
+    if f ne title then fail(false,false);
     inf.setpos(p + l);
 
     comment***get dist type***;
@@ -1255,7 +1255,7 @@ comment
     procedure getserialno;
       begin ref(zyqenttitle)z;
       z :- zyqentnames;
-      while (if z == none then false else titlenez.t) do
+      while (if z == none then false else title ne z.t) do
         z :- z.nexttitle;
       if z == none then z :- new zyqenttitle(title);
       title :- blanks(z.l+2);
@@ -2579,7 +2579,7 @@ zyqmodulo := 67099547;  zyqseed := 907;
 now := -1020;
 zyqnotelastt := -15.0;
 current :- mpdemos :- new mainprogram( mpdemos );
-mediansqs :- lastsqs :- new entity( sentinel );
+mediansqs :- lastsqs :- new entity( "sentinel" );
 mpdemos.evtime := 0.0;
 mpdemos.title :- mpdemos.title.sub(1, 5);
 lastsqs.evtime := 1321;

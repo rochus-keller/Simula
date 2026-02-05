@@ -54,9 +54,9 @@ namespace Sim
             // Input / Output (Basic)
             ININT, INREAL, INCHAR, INTEXT,
             OUTINT, OUTREAL, OUTCHAR, OUTTEXT, OUTIMAGE,
-            SYSIN, SYSOUT,
+            SYSIN, SYSOUT, OUTFIX,
             // Control & System
-            ERROR, TIME, RANDOM, SOURCELINE,
+            ERROR, TIME, RANDOM, SOURCELINE, ELAPSED,
             // Scheduling
             DETACH, RESUME, CALL,
             Max
@@ -193,7 +193,7 @@ namespace Sim
             // Helper
             StepUntil, // lhs=start, rhs=step, condition=until
             WhileLoop, // lhs=start, condition=cond
-            TypeRef,   // val = type name
+            TypeRef,   // a = type name
             MAX
         };
 
@@ -312,7 +312,14 @@ namespace Sim
         Declaration* addDecl(const char *id, const QByteArray& name, Declaration::Kind k);
         Declaration* getTopScope() const;
         Type* getType(Type::Kind k) const;
-        
+        Declaration* getGlobals() const { return globalScope; }
+        Declaration* getBasicIo() const;
+        Declaration* getSimSet() const;
+        Declaration* getSimulation() const;
+
+        static Declaration* resolveInClass(Declaration* cls, Atom name);
+        static Declaration* findInScope(Declaration* scope, const char* sym);
+
         static void dump(QTextStream&, Declaration*);
     private:
         Declaration* currentScope() const;

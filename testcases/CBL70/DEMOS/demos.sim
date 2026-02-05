@@ -998,7 +998,7 @@ comment       - - modifications - -
     p := inf.image.pos;
     rest :- inf.image.sub(p, imlength1 - p);
     if rest.length >= l then f :- rest.sub(1, l);
-    if fnetitle then fail(false,false);
+    if f ne title then fail(false,false);
     inf.setpos(p + l);
 
     comment***get dist type***;
@@ -1230,7 +1230,7 @@ comment       - - modifications - -
     procedure getserialno;
       begin ref(zyqenttitle)z;
       z :- zyqentnames;
-      while (if z == none then false else titlenez.t) do
+      while (if z == none then false else title ne z.t) do
         z :- z.nexttitle;
       if z == none then z :- new zyqenttitle(title);
       title :- blanks(z.l+2);

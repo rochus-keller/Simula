@@ -37,9 +37,9 @@ const char* Builtin::name[] = {
     // Input / Output (Basic)
     "ININT", "INREAL", "INCHAR", "INTEXT",
     "OUTINT", "OUTREAL", "OUTCHAR", "OUTTEXT", "OUTIMAGE",
-    "SYSIN", "SYSOUT",
+    "SYSIN", "SYSOUT", "OUTFIX",
     // Control & System
-    "ERROR", "TIME", "RANDOM", "SOURCELINE",
+    "ERROR", "TIME", "RANDOM", "SOURCELINE", "ELAPSED",
     // Scheduling
     "DETACH", "RESUME", "CALL"
 };
@@ -360,6 +360,52 @@ Type* AstModel::getType(Type::Kind k) const {
     return 0;
 }
 
+Declaration *AstModel::getBasicIo() const
+{
+    return findInScope(globalScope, Lexer::toId("basicio"));
+}
+
+Declaration *AstModel::getSimSet() const
+{
+    return findInScope(globalScope, Lexer::toId("simset"));
+}
+
+Declaration *AstModel::getSimulation() const
+{
+    return findInScope(globalScope, Lexer::toId("simulation"));
+}
+
+Declaration* AstModel::resolveInClass(Declaration* cls, Atom name)
+{
+    if (!cls)
+        return 0;
+
+    // Search in class and its prefix chain
+    Declaration* cur = cls;
+    while (cur) {
+        Declaration* d = findInScope(cur->body->scope, name);
+        if (d)
+            return d;
+        cur = cur->prefix;
+    }
+
+    return 0;
+}
+
+Declaration* AstModel::findInScope(Declaration* scope, const char *sym)
+{
+    if (!scope)
+        return 0;
+
+    Declaration* d = scope->link;
+    while (d) {
+        if (d->sym == sym)
+            return d;
+        d = d->next;
+    }
+
+    return 0;
+}
 Type* AstModel::newType(Type::Kind k) {
     Type* t = new Type(k);
     t->owned = true;

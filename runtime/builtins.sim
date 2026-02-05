@@ -1,0 +1,122 @@
+COMMENT -----------------------------------------------------------------------
+  STANDARD ENVIRONMENT (Built-in Classes)
+  
+  NOTE: The bodies are empty or contain dummy code. The compiler must 
+  intercept these classes/procedures and generate intrinsic code/linkage.
+-----------------------------------------------------------------------;
+
+CLASS basicio;
+BEGIN
+    COMMENT --- Basic IO Primitives ---;
+    
+    CLASS file(fname); VALUE fname; TEXT fname;
+    VIRTUAL: PROCEDURE open, close, isopen, setpos, pos, length, more;
+    BEGIN
+        BOOLEAN open_status;
+        PROCEDURE open(image); TEXT image; open_status := TRUE;
+        PROCEDURE close; open_status := FALSE;
+        BOOLEAN PROCEDURE isopen; isopen := open_status;
+        PROCEDURE setpos(i); INTEGER i; ;
+        INTEGER PROCEDURE pos; pos := 0;
+        INTEGER PROCEDURE length; length := 0;
+        BOOLEAN PROCEDURE more; more := FALSE;
+    END;
+
+    file CLASS imagefile;
+    BEGIN
+        TEXT image;
+        PROCEDURE setimage(t); TEXT t; image :- t;
+        PROCEDURE outimage; ;
+        PROCEDURE inimage; ;
+    END;
+
+    imagefile CLASS infile;
+    BEGIN
+        PROCEDURE inchar(c); NAME c; CHARACTER c; ;
+        BOOLEAN PROCEDURE lastitem; lastitem := FALSE;
+        INTEGER PROCEDURE inint; inint := 0;
+        LONG REAL PROCEDURE inreal; inreal := 0.0;
+        INTEGER PROCEDURE infrac; infrac := 0;
+        TEXT PROCEDURE intext(w); INTEGER w; intext :- NOTEXT;
+    END;
+
+    imagefile CLASS outfile;
+    BEGIN
+        PROCEDURE outchar(c); CHARACTER c; ;
+        PROCEDURE outint(i, w); INTEGER i, w; ;
+        PROCEDURE outreal(r, n, w); LONG REAL r; INTEGER n, w; ;
+        PROCEDURE outfrac(i, n, w); INTEGER i, n, w; ;
+        PROCEDURE outtext(t); TEXT t; ;
+    END;
+    
+	outfile CLASS printfile;
+	BEGIN
+		PROCEDURE lines(n); INTEGER n; ;
+		PROCEDURE spacing(n); INTEGER n; ;
+		PROCEDURE eject(n); INTEGER n; ;
+		INTEGER PROCEDURE line; ;
+	END;
+
+    COMMENT --- SysIn and SysOut are usually instantiated by the system ---;
+    REF(infile) SysIn;
+    REF(printfile) SysOut;
+END;
+
+COMMENT -----------------------------------------------------------------------;
+
+basicio CLASS simset;
+BEGIN
+    CLASS linkage;
+    BEGIN
+        REF(link) PROCEDURE suc; suc :- NONE;
+        REF(link) PROCEDURE pred; pred :- NONE;
+        REF(linkage) PROCEDURE prev; prev :- NONE;
+    END;
+
+    linkage CLASS link;
+    BEGIN
+        PROCEDURE out; ;
+        PROCEDURE follow(l); REF(linkage) l; ;
+        PROCEDURE precede(l); REF(linkage) l; ;
+        PROCEDURE into(h); REF(head) h; ;
+    END;
+
+    linkage CLASS head;
+    BEGIN
+        REF(link) PROCEDURE first; first :- NONE;
+        REF(link) PROCEDURE last; last :- NONE;
+        BOOLEAN PROCEDURE empty; empty := TRUE;
+        INTEGER PROCEDURE cardinal; cardinal := 0;
+        PROCEDURE clear; ;
+    END;
+END;
+
+COMMENT -----------------------------------------------------------------------;
+
+simset CLASS simulation;
+BEGIN
+    REF(process) current;
+    LONG REAL sim_time;
+
+    LONG REAL PROCEDURE time; time := sim_time;
+    PROCEDURE hold(t); LONG REAL t; ;
+    PROCEDURE passivate; ;
+    PROCEDURE wait(h); REF(head) h; ;
+    PROCEDURE cancel(p); REF(process) p; ;
+
+    COMMENT --- Non-standard Extension for DEMOS ---;
+    REAL PROCEDURE elapsed; elapsed := 0.0; 
+
+    PROCEDURE accum(a, b, c, d); NAME a, b, c; REAL a, b, c, d; ;
+
+    link CLASS process;
+    BEGIN
+        BOOLEAN PROCEDURE idle; idle := TRUE;
+        BOOLEAN PROCEDURE terminated; terminated := FALSE;
+        LONG REAL PROCEDURE evtime; evtime := 0.0;
+        REF(process) PROCEDURE nextev; nextev :- NONE;
+        PROCEDURE detach; ;
+        PROCEDURE resume(p); REF(process) p; ;
+    END;
+END;
+

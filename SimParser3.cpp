@@ -2672,7 +2672,7 @@ Type* Parser3::object_reference() {
     expect(Tok_Rpar, false, "object_reference");
     
     Type* refType = new Type(Type::Ref);
-    refType->setExpr(new Expression(Expression::TypeRef));
+    refType->setExpr(new Expression(Expression::Identifier));
     refType->getExpr()->a = qual.d_id;
     return refType;
 }

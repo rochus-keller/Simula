@@ -28,7 +28,7 @@
 #include "SimParser.h"
 #include "SimParser3.h"
 #include "SimAst.h"
-//#include "SimValidator2.h"
+#include "SimValidator2.h"
 
 static QStringList collectFiles( const QDir& dir )
 {
@@ -94,6 +94,29 @@ static void run( const QStringList& files, bool dump )
     err.setReportToConsole(true);
 
     Sim::AstModel mdl;
+    {
+        Lex lex;
+        lex.lex.setStream(":/runtime/builtins.sim");
+        lex.lex.setErrors(&err);
+        lex.lex.setIgnoreComments(true);
+        lex.lex.setPackComments(true);
+        Sim::Parser3 p(&lex, &mdl);
+        Sim::Declaration* module = p.RunParser();
+        if( !p.errors.isEmpty() )
+        {
+            foreach( const Sim::Parser3::Error& e, p.errors )
+                qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
+        }
+        Sim::Declaration* decls = module->link;
+        module->link = 0;
+        Sim::Declaration* d = decls;
+        while( d )
+        {
+            d->outer = mdl.getGlobals();
+            d = d->next;
+        }
+        mdl.getGlobals()->appendMember(decls);
+    }
     foreach( const QString& path, files )
     {
         qDebug() << "processing" << path;
@@ -138,7 +161,7 @@ static void run( const QStringList& files, bool dump )
                     QTextStream out(stdout);
                     Sim::AstModel::dump(out, module);
                 }
-#if 0
+#if 1
                 Sim::Validator2 va(&mdl);
                 va.validate(module);
                 if( !va.errors.isEmpty() )
