@@ -56,7 +56,7 @@ const char* Type::name[] = {
 static QList<Node*> nodes;
 #endif
 
-Node::Node(Meta m) : meta(m), inList(0), ownstype(0), owned(0), _ty(0), mode(0),
+Node::Node(Meta m) : meta(m), isExternal(0), ownstype(0), owned(0), _ty(0), mode(0),
     visi(0), id(0), isVirtual(0), re(0), prior(0), ownsexpr(0),validated(0)
 {
 #ifdef SIM_TRACK_LEFTOVERS
@@ -194,8 +194,8 @@ void Declaration::appendMember(Declaration* d) {
         while (cur->next) cur = cur->next;
         cur->next = d;
     }
-    d->inList = true;
 }
+
 void Declaration::deleteAll(Declaration* d) {
     while (d) {
         Declaration* next = d->next;
@@ -362,17 +362,17 @@ Type* AstModel::getType(Type::Kind k) const {
 
 Declaration *AstModel::getBasicIo() const
 {
-    return findInScope(globalScope, Lexer::toId("basicio"));
+    return findInScope(getEnv(), Lexer::toId("basicio"));
 }
 
 Declaration *AstModel::getSimSet() const
 {
-    return findInScope(globalScope, Lexer::toId("simset"));
+    return findInScope(getEnv(), Lexer::toId("simset"));
 }
 
 Declaration *AstModel::getSimulation() const
 {
-    return findInScope(globalScope, Lexer::toId("simulation"));
+    return findInScope(getEnv(), Lexer::toId("simulation"));
 }
 
 Declaration* AstModel::resolveInClass(Declaration* cls, Atom name)
@@ -392,7 +392,7 @@ Declaration* AstModel::resolveInClass(Declaration* cls, Atom name)
     return 0;
 }
 
-Declaration* AstModel::findInScope(Declaration* scope, const char *sym)
+Declaration* AstModel::findInScope(Declaration* scope, const char *sym, bool includeBodyscope)
 {
     if (!scope)
         return 0;
@@ -402,6 +402,16 @@ Declaration* AstModel::findInScope(Declaration* scope, const char *sym)
         if (d->sym == sym)
             return d;
         d = d->next;
+    }
+
+    if( includeBodyscope && scope->kind == Declaration::Class && scope->body && scope->body->scope )
+    {
+        d = scope->body->scope->link;
+        while (d) {
+            if (d->sym == sym)
+                return d;
+            d = d->next;
+        }
     }
 
     return 0;
@@ -1022,5 +1032,10 @@ void AstModel::dump(QTextStream & out, Declaration * d)
 {
     AstDumper dumper(out);
     dumper.dump(d);
+}
+
+Declaration *AstModel::getEnv() const
+{
+    return findInScope(globalScope, Lexer::toId("environment"));
 }
 

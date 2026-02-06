@@ -42,6 +42,7 @@ namespace Sim
     struct Builtin
     {
         enum Kind {
+#if 0
             // Text Handling
             BLANKS, COPY, CHAR, ISOCHAR, RANK, ISORANK, DIGIT,
             LETTER, LOWTEN, DECIMALMARK, UPCASE, LOWCASE,
@@ -59,6 +60,7 @@ namespace Sim
             ERROR, TIME, RANDOM, SOURCELINE, ELAPSED,
             // Scheduling
             DETACH, RESUME, CALL,
+#endif
             Max
         };
         static const char* name[];
@@ -69,18 +71,18 @@ namespace Sim
     public:
         enum Meta { T, D, E, S, C }; // Type, Declaration, Expression, Statement, Connection
         uint meta : 3;
-        uint inList : 1;
         uint ownstype : 1;
         uint owned : 1;
         uint validated : 1;
-        // 7
+        // 6
 
         // Declaration
         uint visi : 2;
         uint mode : 2;
         uint isVirtual : 1;
+        uint isExternal : 1;
         uint id : 16;
-        // 21
+        // 22
 
         // Statement
         uint re : 1;               // reactivate
@@ -313,12 +315,13 @@ namespace Sim
         Declaration* getTopScope() const;
         Type* getType(Type::Kind k) const;
         Declaration* getGlobals() const { return globalScope; }
+        Declaration* getEnv() const;
         Declaration* getBasicIo() const;
         Declaration* getSimSet() const;
         Declaration* getSimulation() const;
 
         static Declaration* resolveInClass(Declaration* cls, Atom name);
-        static Declaration* findInScope(Declaration* scope, const char* sym);
+        static Declaration* findInScope(Declaration* scope, const char* sym, bool includeBodyscope = true);
 
         static void dump(QTextStream&, Declaration*);
     private:

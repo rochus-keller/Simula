@@ -131,7 +131,7 @@ virtual_spec ::= specifier identifier_list
 #endif
 
 procedure_declaration ::= 
-	[ type ] PROCEDURE procedure_heading procedure_body 
+	[ type ] PROCEDURE procedure_heading ( EXTERNAL | procedure_body ) // EXTERNAL is an extension to simplify environment decl
 
 procedure_heading ::= procedure_identifier 
 	formal_parameter_part ';' 

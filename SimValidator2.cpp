@@ -59,6 +59,9 @@ bool Validator2::validate(Declaration* mod)
     
     this->module = mod;
     
+    Declaration* env = mdl->getEnv();
+    if( env )
+        scopeStack.push_back(env);
     Declaration* basicio = mdl->getBasicIo();
     if( basicio )
         scopeStack.push_back(basicio);
@@ -69,6 +72,8 @@ bool Validator2::validate(Declaration* mod)
     }
 
     if( basicio )
+        scopeStack.pop_back();
+    if( env )
         scopeStack.pop_back();
     
     if (first)
@@ -737,6 +742,7 @@ void Validator2::CallStat(Statement* s)
         Expr(s->lhs);
     
     // Validate arguments
+    // TODO typecheck to param types
     if (s->rhs) {
         Expression* arg = s->rhs;
         while (arg) {
@@ -946,6 +952,8 @@ bool Validator2::Identifier(Expression* e)
         markUnref(strlen(e->a), e->pos);
         return false;
     }
+
+    Decl(d); // make sure variables declared later are validated
     
     markRef(d, e->pos);
     
@@ -1377,8 +1385,6 @@ Declaration* Validator2::resolve(Atom sym)
             Decl(scope); // many names are resolved from classes defined after the reference
 
         Declaration* d = AstModel::findInScope(scope, sym);
-        if( d == 0 && scope->kind == Declaration::Class && scope->body )
-            d = AstModel::findInScope(scope->body->scope, sym);
         if (d)
             return d;
         
@@ -1386,9 +1392,8 @@ Declaration* Validator2::resolve(Atom sym)
         if (scope->kind == Declaration::Class) {
             Declaration* prefix = scope->prefix;
             while (prefix) {
+                Decl(prefix); // many names are resolved from classes defined after the reference
                 d = AstModel::findInScope(prefix, sym);
-                if( d == 0 && prefix->body )
-                    d = AstModel::findInScope(prefix->body->scope, sym);
                 if (d)
                     return d;
                 prefix = prefix->prefix;
@@ -1413,6 +1418,7 @@ void Validator2::checkBuiltinCall(Declaration* builtin, Expression* args, const 
         arg = arg->next;
     }
     
+#if 0
     switch (id) {
     case Builtin::ABS:
     case Builtin::SIGN:
@@ -1450,10 +1456,10 @@ void Validator2::checkBuiltinCall(Declaration* builtin, Expression* args, const 
         if (argCount != 0)
             error(pos, QString("builtin '%1' expects no arguments").arg(Builtin::name[id]));
         break;
-        
         // TODO
 
     default:
         break;
     }
+#endif
 }

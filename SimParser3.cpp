@@ -1698,9 +1698,16 @@ void Parser3::procedure_declaration() {
     
     procDecl->setType(retType ? retType : mdl->getType(Type::NoType));
     
-    mdl->openScope(procDecl);
-    procDecl->body = procedure_body();
-    mdl->closeScope();
+    if( la.d_type == Tok_EXTERNAL )
+    {
+        expect(Tok_EXTERNAL, false, "procedure_declaration");
+        procDecl->isExternal = true;
+    }else
+    {
+        mdl->openScope(procDecl);
+        procDecl->body = procedure_body();
+        mdl->closeScope();
+    }
 }
 
 Declaration* Parser3::procedure_heading() {
@@ -2487,7 +2494,7 @@ void Parser3::type_list_element(Type* t) {
     Declaration* varDecl = mdl->addDecl(name.d_id, name.d_val,Declaration::Variable);
     varDecl->pos = toRowCol(name);
     varDecl->setType(t);
-    
+
     if (la.d_type == Tok_Eq) {
         // SIM86 feature: initializer
         if (versionCheck(Sim86, "variable initializer")) {
