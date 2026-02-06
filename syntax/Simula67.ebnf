@@ -19,6 +19,7 @@
 // added statements
 // more LL(1) disambiguations
 // Added elements from 1975 and 1986 standard Simula 
+// Correction: deunified expressions so that boolean expression precedence holds
 
 #ifndef SIM70
 #define SIM75
@@ -380,17 +381,26 @@ tertiary_ ::= equivalence_ { AND_THEN equivalence_ }
 equivalence_ ::= implication { equiv_sym_ implication }
 equiv_sym_ ::= EQUIV | '≡' | '==' | EQV
 
-implication ::= simple_expression_ { impl_sym_ simple_expression_ }
+implication ::= // deintegrated: simple_expression_ { impl_sym_ simple_expression_ }
+                                       boolean_term { impl_sym_ boolean_term }
 impl_sym_ ::= IMPL | '⊃' | '->' | IMP
 
-// integrates simple_arithmetic_expression, Boolean_term
-simple_expression_ ::= term { ( adding_operator | or_sym_ ) term } 
+boolean_term ::= boolean_factor { or_sym_ boolean_factor } 
+
+boolean_factor ::= not_expression { and_sym_ not_expression } 
+
+not_expression ::= [ not_sym_ ] relation_ 
+
+// no longer integrates boolean_term
+// deintegrated:     simple_expression_ ::= term { ( adding_operator | or_sym_ ) term } 
+simple_arithmetic_expression ::= arithmetic_term { adding_operator arithmetic_term }
 
 adding_operator ::= '+' | '-' 
 or_sym_ ::= OR | '∨' | '|' 
 
-// integrates Boolean_factor
-term ::= factor { ( multiplying_operator | and_sym_ ) factor }  
+// no longer integrates boolean_factor
+// deintegrated: term ::= factor { ( multiplying_operator | and_sym_ ) factor }  
+arithmetic_term   ::=     factor { multiplying_operator factor }
 
 multiplying_operator ::= '*' | '/' | '%' | '÷' | '×' | '//'
 #ifndef SIM86
@@ -403,8 +413,9 @@ factor ::= secondary { power_sym_ secondary }
 
 power_sym_ ::= POWER | '↑' | '^' | '**'
 
-// integrates Boolean_secondary
-secondary ::=  [ not_sym_ ] [ adding_operator ] primary  
+// no longer integrates not_expression (originally Boolean_secondary)
+secondary ::= // deintegrated: [ not_sym_ ] [ adding_operator ] primary  
+                                            [ adding_operator ] primary  
 
 not_sym_ ::= NOT | '¬' | '!' 
 
@@ -426,12 +437,15 @@ primary ::=
 	| identifier primary_nlr_
 
 // integrates relation, character_relation, text_value_relation, object_relation, reference_relation, qualified_object
+// no longer integrates not_expression
 // removing indirect left recursion
-primary_nlr_* ::= [ ( relation_ | selector_ | qualified_ ) primary_nlr_ ] 
+primary_nlr_* ::= // deintegrated: [ ( relation_ | selector_ | qualified_ ) primary_nlr_ ] 
+                                   [ ( selector_ | qualified_ ) primary_nlr_ ]
 
 // integrates relation, character_relation, text_value_relation, object_relation
-relation_ ::= relational_operator simple_expression_
-
+relation_ ::= // refactored:                 relational_operator simple_expression_
+              simple_arithmetic_expression [ relational_operator simple_arithmetic_expression ]
+              
 qualified_ ::= QUA class_identifier
 
 // integrates array_identifier_1, simple_variable_1 variable_identifier_1 identifier_1 function_designator variable,

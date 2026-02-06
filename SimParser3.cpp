@@ -2731,6 +2731,7 @@ Expression* Parser3::actual_parameter() {
 
 // Expression parsing
 
+
 Expression* Parser3::expression() {
     if (FIRST_quaternary_(la.d_type)) {
         return quaternary_();
@@ -2759,7 +2760,7 @@ Expression* Parser3::quaternary_() {
             // Still parse it
         }
         Expression* right = tertiary_();
-        Expression* op = new Expression(Expression::Or, left ? left->pos : toRowCol(cur));
+        Expression* op = new Expression(Expression::OrElse, left ? left->pos : toRowCol(cur));
         op->lhs = left;
         op->rhs = right;
         left = op;
@@ -2775,7 +2776,7 @@ Expression* Parser3::tertiary_() {
             // Still parse it
         }
         Expression* right = equivalence_();
-        Expression* op = new Expression(Expression::And, left ? left->pos : toRowCol(cur));
+        Expression* op = new Expression(Expression::AndThen, left ? left->pos : toRowCol(cur));
         op->lhs = left;
         op->rhs = right;
         left = op;
@@ -2812,10 +2813,11 @@ Expression::Kind Parser3::equiv_sym_() {
 }
 
 Expression* Parser3::implication() {
-    Expression* left = simple_expression_();
+    // deintegrated simple_arithmetic_expression
+    Expression* left = boolean_term();
     while (FIRST_impl_sym_(la.d_type)) {
         Expression::Kind kind = impl_sym_();
-        Expression* right = simple_expression_();
+        Expression* right = boolean_term();
         Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
         op->lhs = left;
         op->rhs = right;
@@ -2839,16 +2841,28 @@ Expression::Kind Parser3::impl_sym_() {
     return Expression::Imp;
 }
 
-Expression* Parser3::simple_expression_() {
-    Expression* left = term();
-    while (FIRST_adding_operator(la.d_type) || FIRST_or_sym_(la.d_type)) {
+Expression* Parser3::simple_arithmetic_expression() {
+    // boolean_term deintegrated
+    Expression* left = arithmetic_term();
+    while (FIRST_adding_operator(la.d_type)) {
         Expression::Kind kind;
-        if (FIRST_adding_operator(la.d_type)) {
-            kind = adding_operator();
-        } else {
-            kind = or_sym_();
-        }
-        Expression* right = term();
+        kind = adding_operator();
+        Expression* right = arithmetic_term();
+        Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
+        op->lhs = left;
+        op->rhs = right;
+        left = op;
+    }
+    return left;
+}
+
+Expression *Parser3::boolean_term()
+{
+    Expression* left = boolean_factor();
+    while (FIRST_or_sym_(la.d_type)) {
+        Expression::Kind kind;
+        kind = or_sym_();
+        Expression* right = boolean_factor();
         Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
         op->lhs = left;
         op->rhs = right;
@@ -2883,16 +2897,28 @@ Expression::Kind Parser3::or_sym_() {
     return Expression::Or;
 }
 
-Expression* Parser3::term() {
+Expression* Parser3::arithmetic_term() {
+    // deintegrated boolean_factor
     Expression* left = factor();
-    while (FIRST_multiplying_operator(la.d_type) || FIRST_and_sym_(la.d_type)) {
+    while (FIRST_multiplying_operator(la.d_type)) {
         Expression::Kind kind;
-        if (FIRST_multiplying_operator(la.d_type)) {
-            kind = multiplying_operator();
-        } else {
-            kind = and_sym_();
-        }
+        kind = multiplying_operator();
         Expression* right = factor();
+        Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
+        op->lhs = left;
+        op->rhs = right;
+        left = op;
+    }
+    return left;
+}
+
+Expression *Parser3::boolean_factor()
+{
+    Expression* left = not_expression();
+    while (FIRST_and_sym_(la.d_type)) {
+        Expression::Kind kind;
+        kind = and_sym_();
+        Expression* right = not_expression();
         Expression* op = new Expression(kind, left ? left->pos : toRowCol(cur));
         op->lhs = left;
         op->rhs = right;
@@ -2968,17 +2994,14 @@ Expression::Kind Parser3::power_sym_() {
 }
 
 Expression* Parser3::secondary() {
-    Expression::Kind notKind = Expression::Invalid;
+    // deintegrated not_expression
     Expression::Kind signKind = Expression::Invalid;
     RowCol pos = toRowCol(la);
     
-    if (FIRST_not_sym_(la.d_type)) {
-        notKind = not_sym_();
-    }
     if (FIRST_adding_operator(la.d_type)) {
         signKind = adding_operator();
     }
-    
+
     Expression* prim = primary();
     
     // Apply unary operators
@@ -2987,14 +3010,28 @@ Expression* Parser3::secondary() {
         neg->rhs = prim;
         prim = neg;
     }
-    
-    if (notKind == Expression::Not && prim) {
-        Expression* notExpr = new Expression(Expression::Not, pos);
-        notExpr->rhs = prim;
-        prim = notExpr;
-    }
-    
+        
     return prim;
+}
+
+Expression* Parser3::not_expression()
+{
+    Expression::Kind notKind = Expression::Invalid;
+    RowCol pos = toRowCol(la);
+
+    if (FIRST_not_sym_(la.d_type)) {
+        notKind = not_sym_();
+    }
+
+    Expression* rel = relation_();
+
+    if (notKind == Expression::Not && rel) {
+        Expression* notExpr = new Expression(Expression::Not, pos);
+        notExpr->rhs = rel;
+        rel = notExpr;
+    }
+
+    return rel;
 }
 
 Expression::Kind Parser3::not_sym_() {
@@ -3070,11 +3107,10 @@ Expression* Parser3::primary() {
 }
 
 Expression* Parser3::primary_nlr_(Expression* lhs) {
-    if (FIRST_relation_(la.d_type) || FIRST_selector_(la.d_type) || FIRST_qualified_(la.d_type)) {
+    // deintegrated not_expression
+    if (FIRST_selector_(la.d_type) || FIRST_qualified_(la.d_type)) {
         Expression* result = 0;
-        if (FIRST_relation_(la.d_type)) {
-            result = relation_(lhs);
-        } else if (FIRST_selector_(la.d_type)) {
+        if (FIRST_selector_(la.d_type)) {
             result = selector_(lhs);
         } else if (FIRST_qualified_(la.d_type)) {
             result = qualified_(lhs);
@@ -3084,14 +3120,22 @@ Expression* Parser3::primary_nlr_(Expression* lhs) {
     return lhs;
 }
 
-Expression* Parser3::relation_(Expression* lhs) {
-    Expression::Kind kind = relational_operator();
-    Expression* rhs = simple_expression_();
-    
-    Expression* rel = new Expression(kind, lhs ? lhs->pos : toRowCol(cur));
-    rel->lhs = lhs;
-    rel->rhs = rhs;
-    return rel;
+Expression* Parser3::relation_() {
+    // refactored lhs in here
+    Expression* lhs = simple_arithmetic_expression();
+
+    if( FIRST_relation_(la.d_type) )
+    {
+        Expression::Kind kind = relational_operator();
+        Expression* rhs = simple_arithmetic_expression();
+
+        Expression* rel = new Expression(kind, lhs ? lhs->pos : toRowCol(cur));
+        rel->lhs = lhs;
+        rel->rhs = rhs;
+        lhs = rel;
+    }
+
+    return lhs;
 }
 
 Expression* Parser3::qualified_(Expression* lhs) {
@@ -3178,10 +3222,10 @@ Expression::Kind Parser3::relational_operator() {
         kind = Expression::Neq;
     } else if (la.d_type == Tok_IS) {
         next();
-        kind = Expression::Eq; // IS is reference equality
+        kind = Expression::Is; // IS is reference equality
     } else if (la.d_type == Tok_IN) {
         next();
-        kind = Expression::Eq; // IN is class membership
+        kind = Expression::In; // IN is class membership
     } else if (la.d_type == Tok_2Eq) {
         next();
         kind = Expression::RefEq;

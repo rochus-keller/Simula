@@ -798,10 +798,14 @@ bool Validator2::Expr(Expression* e)
     case Expression::IntDiv:
     case Expression::Exp:
     case Expression::And:
+    case Expression::AndThen:
     case Expression::Or:
+    case Expression::OrElse:
     case Expression::Imp:
     case Expression::Eqv:
     case Expression::Eq:
+    case Expression::Is:
+    case Expression::In:
     case Expression::Neq:
     case Expression::Lt:
     case Expression::Leq:
@@ -897,7 +901,8 @@ bool Validator2::BinaryOp(Expression* e)
     if (res) {
         e->setType(res);
         return true;
-    }
+    }else
+        resultType(e->kind, lt, rt);
     
     error(e->pos, "incompatible operand types for binary operator");
     return false;
@@ -1323,7 +1328,9 @@ Type* Validator2::resultType(Expression::Kind op, Type* lhs, Type* rhs)
         break;
         
     case Expression::And:
+    case Expression::AndThen:
     case Expression::Or:
+    case Expression::OrElse:
     case Expression::Imp:
     case Expression::Eqv:
         if (lhs->kind == Type::Boolean && rhs->kind == Type::Boolean)
@@ -1336,6 +1343,8 @@ Type* Validator2::resultType(Expression::Kind op, Type* lhs, Type* rhs)
     case Expression::Leq:
     case Expression::Gt:
     case Expression::Geq:
+    case Expression::Is:
+    case Expression::In:
         if (typeCompat(lhs, rhs))
             return mdl->getType(Type::Boolean);
         break;

@@ -184,8 +184,8 @@ namespace Sim
         enum Kind {
             Invalid,
             Plus, Minus, Mul, Div, IntDiv, Exp,
-            And, Or, Not, Imp, Eqv,
-            Eq, Neq, Lt, Leq, Gt, Geq, RefEq, RefNeq,
+            And, Or, Not, Imp, Eqv, AndThen, OrElse,
+            Eq, Neq, Lt, Leq, Gt, Geq, RefEq, RefNeq, Is, In,
             Identifier, DeclRef, Dot, Subscript,
             New, This, Qua,
             StringConst, CharConst, UnsignedConst, RealConst, BoolConst, Notext, None,
