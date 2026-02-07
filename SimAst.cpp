@@ -57,7 +57,7 @@ static QList<Node*> nodes;
 #endif
 
 Node::Node(Meta m) : meta(m), isExternal(0), ownstype(0), owned(0), _ty(0), mode(0),
-    visi(0), id(0), isVirtual(0), re(0), prior(0), ownsexpr(0),validated(0)
+    visi(0), id(0), isVirtual(0), re(0), prior(0), ownsexpr(0),validated(0), hasErrors(0)
 {
 #ifdef SIM_TRACK_LEFTOVERS
     nodes << this;
@@ -187,6 +187,16 @@ Declaration *Declaration::find(const char *id, bool recursive) const
     return 0;
 }
 
+Declaration *Declaration::getModule()
+{
+    if( kind == Module )
+        return this;
+    else if( outer )
+        return outer->getModule();
+    else
+        return 0;
+}
+
 void Declaration::appendMember(Declaration* d) {
     if (!link) link = d;
     else {
@@ -300,32 +310,11 @@ Connection::~Connection() {
 
 AstModel::AstModel(SimulaVersion v) : version(v), globalScope(0) {
 
-
-    globalScope = new Declaration(Declaration::Invalid);
-    openScope(globalScope);
-    
-    // Init basic types
-    for (int i = 0; i < Type::MaxBasicType; ++i)
-        basicTypes[i] = 0;
-    
-    basicTypes[Type::Integer] = newType(Type::Integer);
-    basicTypes[Type::ShortInteger] = newType(Type::ShortInteger);
-    basicTypes[Type::Real] = newType(Type::Real);
-    basicTypes[Type::LongReal] = newType(Type::LongReal);
-    basicTypes[Type::Boolean] = newType(Type::Boolean);
-    basicTypes[Type::Character] = newType(Type::Character);
-    basicTypes[Type::Text] = newType(Type::Text);
-    basicTypes[Type::NoType] = newType(Type::NoType);
-    basicTypes[Type::Label] = newType(Type::Label);
-
-    initBuiltins();
+    initGlobals();
 }
 
 AstModel::~AstModel() {
-    Declaration::deleteAll(globalScope);
-    for (int i=0; i<Type::MaxBasicType; ++i)
-        if(basicTypes[i])
-            delete basicTypes[i];
+    clearGlobals();
 }
 
 void AstModel::openScope(Declaration* scope) {
@@ -373,6 +362,12 @@ Declaration *AstModel::getSimSet() const
 Declaration *AstModel::getSimulation() const
 {
     return findInScope(getEnv(), Lexer::toId("simulation"));
+}
+
+void AstModel::clear()
+{
+    clearGlobals();
+    initGlobals();
 }
 
 Declaration* AstModel::resolveInClass(Declaration* cls, Atom name)
@@ -1034,8 +1029,59 @@ void AstModel::dump(QTextStream & out, Declaration * d)
     dumper.dump(d);
 }
 
+void AstModel::initGlobals()
+{
+    globalScope = new Declaration(Declaration::Invalid);
+    openScope(globalScope);
+
+    // Init basic types
+    for (int i = 0; i < Type::MaxBasicType; ++i)
+        basicTypes[i] = 0;
+
+    basicTypes[Type::Integer] = newType(Type::Integer);
+    basicTypes[Type::ShortInteger] = newType(Type::ShortInteger);
+    basicTypes[Type::Real] = newType(Type::Real);
+    basicTypes[Type::LongReal] = newType(Type::LongReal);
+    basicTypes[Type::Boolean] = newType(Type::Boolean);
+    basicTypes[Type::Character] = newType(Type::Character);
+    basicTypes[Type::Text] = newType(Type::Text);
+    basicTypes[Type::NoType] = newType(Type::NoType);
+    basicTypes[Type::Label] = newType(Type::Label);
+
+    initBuiltins();
+}
+
+void AstModel::clearGlobals()
+{
+    scopes.clear();
+    Declaration::deleteAll(globalScope);
+    for (int i=0; i<Type::MaxBasicType; ++i)
+        if(basicTypes[i])
+            delete basicTypes[i];
+    globalScope = 0;
+}
+
 Declaration *AstModel::getEnv() const
 {
     return findInScope(globalScope, Lexer::toId("environment"));
 }
 
+
+void Symbol::deleteAll(Symbol *first)
+{
+    if( first == 0 )
+        return;
+    Q_ASSERT( first->kind == Module || first->kind == Invalid );
+    Symbol* s = first->next;
+    while( s )
+    {
+        // symbols can build a circle
+        if( s == first )
+            break;
+        Symbol* tmp = s->next;
+        delete s;
+        s = tmp;
+    }
+    delete first;
+
+}

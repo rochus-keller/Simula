@@ -21,8 +21,8 @@
 #include <QtDebug>
 using namespace Sim;
 
-Validator2::Validator2(AstModel* mdl, bool haveXref) 
-    : module(0), mdl(mdl), first(0), last(0)
+Validator2::Validator2(AstModel* mdl, Loader * l, bool haveXref)
+    : module(0), mdl(mdl), first(0), last(0), loader(l)
 {
     Q_ASSERT(mdl);
     if (haveXref)
@@ -80,7 +80,7 @@ bool Validator2::validate(Declaration* mod)
         last->next = first; // close the circle
     
     mod->validated = true;
-    //mod->hasErrors = !errors.isEmpty();
+    mod->hasErrors = !errors.isEmpty();
     
     return errors.isEmpty();
 }
@@ -413,6 +413,24 @@ void Validator2::ExternalDecl(Declaration* d)
     // External declarations may not have full type info
     if (d->type())
         Type_(d->type());
+    if( loader == 0 )
+    {
+        error(d->pos, "no loader available");
+        return;
+    }
+    Declaration* ext = loader->loadExternal(d->nameRef);
+    if( ext == 0 )
+    {
+        error(d->pos, "external cannot be loaded");
+        return;
+    }
+    if( (d->kind == Declaration::ExternalClass && ext->kind != Declaration::Class) ||
+            (d->kind == Declaration::ExternalProc && ext->kind != Declaration::Procedure) )
+    {
+        error(d->pos, "loaded external object is not compatible with the declaration");
+        return;
+    }
+    d->ext = d;
 }
 
 void Validator2::BlockDecl(Declaration* d)

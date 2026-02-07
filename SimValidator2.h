@@ -26,35 +26,9 @@
 
 namespace Sim {
 
-    struct Symbol {
-        enum Kind { Decl, Use, Module, Subclass };
-        Declaration* decl;
-        RowCol pos;
-        quint16 len;
-        quint8 kind;
-        Symbol* next;
-        
-        Symbol() : decl(0), len(0), kind(Use), next(0) {}
-        static void deleteAll(Symbol* s) {
-            while (s) {
-                Symbol* n = s->next;
-                delete s;
-                s = n;
-            }
-        }
-    };
-    
-    struct Xref {
-        Symbol* syms;
-        QHash<Declaration*, QList<Symbol*> > uses;
-        QHash<Declaration*, QList<Declaration*> > subs;
-        
-        Xref() : syms(0) {}
-    };
-
     class Validator2 {
     public:
-        Validator2(AstModel* mdl, bool haveXref = false);
+        Validator2(AstModel* mdl, Loader* = 0, bool haveXref = false);
         ~Validator2();
         
         bool validate(Declaration* module);
@@ -138,6 +112,7 @@ namespace Sim {
         Declaration* module;
         QString sourcePath;
         AstModel* mdl;
+        Loader* loader;
         QList<Declaration*> scopeStack;
         Symbol* first;
         Symbol* last;

@@ -191,6 +191,18 @@ BEGIN
         PROCEDURE outfix(val, n, w); LONG REAL val; INTEGER n, w;
             SysOut.outfix(val, n, w);
             
+        PROCEDURE setpos(i); INTEGER i; 
+        	SysOut.setpos(i);
+
+		INTEGER PROCEDURE pos;
+			pos := SysOut.pos;
+			
+		PROCEDURE eject(n); INTEGER n;
+			SysOut.eject(n);
+			
+		INTEGER PROCEDURE line;
+			line := SysOut.line;
+            
         COMMENT --- Coroutine / Process Intrinsics ---;
         COMMENT These are usually context-dependent keywords or belong to
                 Simulation, but 'detach' and 'resume' are strictly speaking 

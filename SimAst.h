@@ -69,12 +69,14 @@ namespace Sim
     class Node
     {
     public:
+        enum Visi { NA, Private, Protected, Public };
         enum Meta { T, D, E, S, C }; // Type, Declaration, Expression, Statement, Connection
         uint meta : 3;
         uint ownstype : 1;
         uint owned : 1;
         uint validated : 1;
-        // 6
+        uint hasErrors : 1;
+        // 7
 
         // Declaration
         uint visi : 2;
@@ -93,7 +95,7 @@ namespace Sim
         uint ownsexpr : 1;
         // 1
 
-        // all 31
+        // all 32
 
         RowCol pos;
 
@@ -168,16 +170,21 @@ namespace Sim
 
             // Variable / Parameter / Const
             Expression* init; // Initialization expression, owned
+
+            // External Class/Procedure
+            Declaration* ext;  // not owned
         };
 
 
         Declaration(Kind k = Invalid);
-        ~Declaration();
         
         Declaration* find(const char* id, bool recursive = true) const;
+        Declaration* getModule();
 
         void appendMember(Declaration* d);
         static void deleteAll(Declaration* d);
+    private:
+        ~Declaration();
     };
 
     class Expression : public Node
@@ -204,7 +211,7 @@ namespace Sim
             quint64 u;
             double r;
             Atom a; // string, name
-            Declaration* d;
+            Declaration* d; // DeclRef
         };
         Expression* lhs;
         Expression* rhs;
@@ -303,6 +310,37 @@ namespace Sim
         ~Connection();
     };
     
+    class Symbol {
+    public:
+        enum Kind { Invalid, Decl, Use, Module, Subclass };
+        Declaration* decl;
+        RowCol pos;
+        quint16 len;
+        quint8 kind;
+        Symbol* next;
+
+        Symbol() : decl(0), len(0), kind(Invalid), next(0) {}
+        static void deleteAll(Symbol* s);
+    private:
+        ~Symbol() {}
+    };
+
+    struct Xref {
+        Symbol* syms;
+        QHash<Declaration*, QList<Symbol*> > uses;
+        QHash<Declaration*, QList<Declaration*> > subs;
+
+        Xref() : syms(0) {}
+    };
+
+    typedef QList<Symbol*> SymList;
+    typedef QList<Declaration*> DeclList;
+
+    class Loader {
+    public:
+        virtual Declaration* loadExternal(const char* id) = 0;
+    };
+
     class AstModel
     {
     public:
@@ -319,12 +357,17 @@ namespace Sim
         Declaration* getBasicIo() const;
         Declaration* getSimSet() const;
         Declaration* getSimulation() const;
+        void clear();
 
         static Declaration* resolveInClass(Declaration* cls, Atom name);
         static Declaration* findInScope(Declaration* scope, const char* sym, bool includeBodyscope = true);
 
         static void dump(QTextStream&, Declaration*);
     private:
+        AstModel& operator=(const AstModel& rhs);
+        AstModel(const AstModel&);
+        void initGlobals();
+        void clearGlobals();
         Declaration* currentScope() const;
         Type* newType(Type::Kind k);
         SimulaVersion version;
@@ -338,5 +381,6 @@ namespace Sim
 
 Q_DECLARE_METATYPE(Sim::Declaration*)
 Q_DECLARE_METATYPE(Sim::Expression*)
+Q_DECLARE_METATYPE(Sim::Symbol*)
 
 #endif // SIMAST_H

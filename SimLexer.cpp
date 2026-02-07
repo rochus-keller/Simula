@@ -18,8 +18,6 @@
 */
 
 #include "SimLexer.h"
-#include "SimErrors.h"
-#include "SimFileCache.h"
 #include <QBuffer>
 #include <QFile>
 #include <QIODevice>
@@ -30,7 +28,7 @@ using namespace Sim;
 QHash<QByteArray,QByteArray> Lexer::d_symbols;
 
 Lexer::Lexer(QObject *parent) : QObject(parent),
-    d_lastToken(Tok_Invalid),d_lineNr(0),d_colNr(0),d_in(0),d_err(0),d_fcache(0),
+    d_lastToken(Tok_Invalid),d_lineNr(0),d_colNr(0),d_in(0),
     d_ignoreComments(true), d_packComments(true)
 {
 
@@ -56,29 +54,11 @@ bool Lexer::setStream(const QString& sourcePath)
 {
     QIODevice* in = 0;
 
-    if( d_fcache )
-    {
-        bool found;
-        QByteArray content = d_fcache->getFile(sourcePath, &found );
-        if( found )
-        {
-            QBuffer* buf = new QBuffer(this);
-            buf->setData( content );
-            buf->open(QIODevice::ReadOnly);
-            in = buf;
-        }
-    }
-
     if( in == 0 )
     {
         QFile* file = new QFile(sourcePath, this);
         if( !file->open(QIODevice::ReadOnly) )
         {
-            if( d_err )
-            {
-                d_err->error(Errors::Lexer, sourcePath, 0, 0,
-                                 tr("cannot open file from path %1").arg(sourcePath) );
-            }
             delete file;
             return false;
         }
@@ -160,6 +140,23 @@ const char* Lexer::toId(const QByteArray& ident)
     if( sym.isEmpty() )
         sym = ident;
     return sym.constData();
+}
+
+bool Lexer::isValidIdent(const QByteArray &str)
+{
+    if( str.isEmpty() )
+        return false;
+
+    if( !(::isalpha(str[0]) || str[0] == '_') )
+        return false;
+    for( int i = 1; i < str.size(); i++ )
+    {
+        if( !::isalnum(str[i]) && str[i] != '_')
+            return false;
+    }
+    if( tokenTypeFromString( str.toUpper() ) != Tok_Invalid )
+        return false;
+    return true;
 }
 
 Token Lexer::nextTokenImp()
@@ -297,8 +294,6 @@ Token Lexer::token(TokenType tt, int len, const QByteArray& val)
     d_lastToken = t;
     d_colNr += len;
     t.d_sourcePath = d_sourcePath;
-    if( tt == Tok_Invalid && d_err != 0 )
-        d_err->error(Errors::Syntax, t.d_sourcePath, t.d_lineNr, t.d_colNr, t.d_val );
     return t;
 }
 
@@ -424,8 +419,6 @@ Token Lexer::comment()
     {
         d_colNr = d_line.size();
         Token t( Tok_Invalid, startLine, startCol + 1, str.size(), tr("non-terminated comment").toLatin1() );
-        if( d_err )
-            d_err->error(Errors::Syntax, t.d_sourcePath, t.d_lineNr, t.d_colNr, t.d_val );
         return t;
     }
     // Col + 1 weil wir immer bei Spalte 1 beginnen, nicht bei Spalte 0

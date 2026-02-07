@@ -57,7 +57,7 @@ static const char* s_reserved[] = {
 
 };
 Highlighter::Highlighter(QTextDocument* parent) :
-    QSyntaxHighlighter(parent),d_enableExt(false)
+    QSyntaxHighlighter(parent),d_enableExt(true)
 {
     for( int i = 0; i < C_Max; i++ )
     {

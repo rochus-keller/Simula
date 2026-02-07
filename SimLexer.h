@@ -29,7 +29,6 @@ class QIODevice;
 namespace Sim
 {
     class Errors;
-    class FileCache;
 
     class Lexer : public QObject
     {
@@ -38,8 +37,6 @@ namespace Sim
 
         void setStream( QIODevice*, const QString& sourcePath );
         bool setStream(const QString& sourcePath);
-        void setErrors(Errors* p) { d_err = p; }
-        void setCache(FileCache* p) { d_fcache = p; }
         void setIgnoreComments( bool b ) { d_ignoreComments = b; }
         void setPackComments( bool b ) { d_packComments = b; }
 
@@ -50,6 +47,7 @@ namespace Sim
         QList<Token> tokens( const QString& code );
         QList<Token> tokens( const QByteArray& code, const QString& path = QString() );
         static const char *toId( const QByteArray& );
+        static bool isValidIdent( const QByteArray& str );
     protected:
         Token nextTokenImp();
         int skipWhiteSpace();
@@ -66,8 +64,6 @@ namespace Sim
         int decimal_fraction(int off);
     private:
         QIODevice* d_in;
-        Errors* d_err;
-        FileCache* d_fcache;
         quint32 d_lineNr;
         quint16 d_colNr;
         QString d_sourcePath;

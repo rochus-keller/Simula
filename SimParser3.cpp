@@ -2311,6 +2311,7 @@ Type* Parser3::specifier(bool& isArray, bool& isProcedure) {
         invalid("specifier");
         return 0;
     }
+    return 0;
 }
 
 void Parser3::specification_part(Declaration* parent) {

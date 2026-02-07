@@ -1,0 +1,13 @@
+[General]
+Arguments=@Invalid()
+BuildDir=
+MainModule=@ByteArray()
+MainProc=@ByteArray()
+Options=@ByteArray()
+Suffixes=@Invalid()
+WorkingDir=
+
+[Modules]
+1\AbsPath=/home/me/Entwicklung/Modules/Simula/testcases/CBL70/DEMOS/demos2.sim
+1\RelPath=demos2.sim
+size=1

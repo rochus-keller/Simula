@@ -24,11 +24,10 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QThread>
-#include "SimErrors.h"
-#include "SimParser.h"
 #include "SimParser3.h"
 #include "SimAst.h"
 #include "SimValidator2.h"
+#include "SimLexer.h"
 
 static QStringList collectFiles( const QDir& dir )
 {
@@ -48,36 +47,6 @@ static QStringList collectFiles( const QDir& dir )
     return res;
 }
 
-static void dumpTree( Sim::SynTree* node, int level = 0)
-{
-    QByteArray str;
-    if( node->d_tok.d_type == Sim::Tok_Invalid )
-        level--;
-    else if( node->d_tok.d_type < Sim::SynTree::R_First )
-    {
-        if( Sim::tokenTypeIsKeyword( node->d_tok.d_type ) )
-            str = Sim::tokenTypeString(node->d_tok.d_type);
-        else if( node->d_tok.d_type > Sim::TT_Specials )
-            str = QByteArray("\"") + node->d_tok.d_val + QByteArray("\"");
-        else
-            str = QByteArray("\"") + node->d_tok.getString() + QByteArray("\"");
-
-    }else
-        str = Sim::SynTree::rToStr( node->d_tok.d_type );
-    if( !str.isEmpty() )
-    {
-        str += QByteArray("\t") /* + QFileInfo(node->d_tok.d_sourcePath).baseName().toUtf8() +
-                ":" */ + QByteArray::number(node->d_tok.d_lineNr) +
-                ":" + QByteArray::number(node->d_tok.d_colNr);
-        QByteArray ws;
-        for( int i = 0; i < level; i++ )
-            ws += "|  ";
-        str = ws + str;
-        qDebug() << str.data();
-    }
-    foreach( Sim::SynTree* sub, node->d_children )
-        dumpTree( sub, level + 1 );
-}
 
 class Lex : public Sim::Scanner {
 public:
@@ -90,14 +59,10 @@ public:
 
 static void run( const QStringList& files, bool dump )
 {
-    Sim::Errors err;
-    err.setReportToConsole(true);
-
     Sim::AstModel mdl;
     {
         Lex lex;
         lex.lex.setStream(":/runtime/builtins.sim");
-        lex.lex.setErrors(&err);
         lex.lex.setIgnoreComments(true);
         lex.lex.setPackComments(true);
         Sim::Parser3 p(&lex, &mdl);
@@ -121,68 +86,36 @@ static void run( const QStringList& files, bool dump )
     {
         qDebug() << "processing" << path;
 
-#if 0
-        Sim::Lexer lex;
-        lex.setStream(path);
-        lex.setErrors(&err);
-        lex.setIgnoreComments(true);
-        lex.setPackComments(true);
-    #if 0
-        Sim::Token t = lex.nextToken();
-        while( t.isValid() )
+        Lex lex;
+        lex.lex.setStream(path);
+        lex.lex.setIgnoreComments(true);
+        lex.lex.setPackComments(true);
+        Sim::Parser3 p(&lex, &mdl);
+        Sim::Declaration* module = p.RunParser();
+        if( !p.errors.isEmpty() )
         {
-            qDebug() << t.getString() << QString::fromUtf8(t.d_val);
-            t = lex.nextToken();
+            foreach( const Sim::Parser3::Error& e, p.errors )
+                qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
         }
-    #else
-        Sim::Parser p(&lex,&err);
-        p.Parse();
-        if( dump )
-            dumpTree( &p.d_root );
-    #endif
-#else
+        else
         {
-            Lex lex;
-            lex.lex.setStream(path);
-            lex.lex.setErrors(&err);
-            lex.lex.setIgnoreComments(true);
-            lex.lex.setPackComments(true);
-            Sim::Parser3 p(&lex, &mdl);
-            Sim::Declaration* module = p.RunParser();
-            if( !p.errors.isEmpty() )
+            if( dump )
             {
-                foreach( const Sim::Parser3::Error& e, p.errors )
+                QTextStream out(stdout);
+                Sim::AstModel::dump(out, module);
+            }
+#if 1
+            Sim::Validator2 va(&mdl);
+            va.validate(module);
+            if( !va.errors.isEmpty() )
+            {
+                foreach( const Sim::Validator2::Error& e, va.errors )
                     qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
             }
-            else
-            {
-                if( dump )
-                {
-                    QTextStream out(stdout);
-                    Sim::AstModel::dump(out, module);
-                }
-#if 1
-                Sim::Validator2 va(&mdl);
-                va.validate(module);
-                if( !va.errors.isEmpty() )
-                {
-                    foreach( const Sim::Validator2::Error& e, va.errors )
-                        qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
-                }
 #endif
-            }
         }
-#endif
 
     }
-#if 0
-    // TODO
-    if( err.getErrCount() == 0 && err.getWrnCount() == 0 )
-        qDebug() << "successfully completed";
-    else
-        qDebug() << "completed with" << err.getErrCount() << "errors and" <<
-                    err.getWrnCount() << "warnings";
-#endif
 }
 
 int main(int argc, char *argv[])

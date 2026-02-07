@@ -19,10 +19,7 @@
 
 HEADERS += \
     $$PWD/SimAst.h \
-    $$PWD/SimErrors.h \
-    $$PWD/SimFileCache.h \
     $$PWD/SimLexer.h \
-    $$PWD/SimParser.h \
     $$PWD/SimParser3.h \
     $$PWD/SimRowCol.h \
     $$PWD/SimSynTree.h \
@@ -32,10 +29,7 @@ HEADERS += \
 
 SOURCES += \
     $$PWD/SimAst.cpp \
-    $$PWD/SimErrors.cpp \
-    $$PWD/SimFileCache.cpp \
     $$PWD/SimLexer.cpp \
-    $$PWD/SimParser.cpp \
     $$PWD/SimParser3.cpp \
     $$PWD/SimRowCol.cpp \
     $$PWD/SimSynTree.cpp \
