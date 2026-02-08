@@ -118,6 +118,7 @@ void Validator2::markDecl(Declaration* d)
     s->pos = d->pos;
     s->len = d->name.size();
     last->next = s;
+    xref[d].append(s);
     last = s;
 }
 
@@ -220,7 +221,10 @@ void Validator2::ClassDecl(Declaration* d)
 {
     // Resolve prefix
     if( !d->prefix )
-        d->prefix = resolve(d->nameRef);
+    {
+        if( d->nameRef && Identifier(d->nameRef) )
+            d->prefix = d->nameRef->d;
+    }
 
     // Validate prefix (superclass)
     if (d->prefix) {
@@ -259,7 +263,12 @@ void Validator2::ClassDecl(Declaration* d)
     while (member) {
         if (member->kind == Declaration::VirtualSpec && !member->validated) {
             member->validated = true;
-            markDecl(member);
+            if( member->sym )
+                // this is an abstract virtual declaration
+                markDecl(member);
+            else
+                // this is a virtual annotation to a later declaration in the same class
+                markRef(member->forward, member->pos);
             if (member->type())
                 Type_(member->type());
         }
@@ -273,35 +282,7 @@ void Validator2::ClassDecl(Declaration* d)
             member->kind != Declaration::VirtualSpec &&
             !member->validated) {
 
-#if 1
             Decl(member);
-#else
-            member->validated = true;
-            markDecl(member);
-            
-            switch (member->kind) {
-            case Declaration::Class:
-                ClassDecl(member);
-                break;
-            case Declaration::Procedure:
-                ProcDecl(member);
-                break;
-            case Declaration::Variable:
-                VarDecl(member);
-                break;
-            case Declaration::Array:
-                ArrayDecl(member);
-                break;
-            case Declaration::Switch:
-                SwitchDecl(member);
-                break;
-            case Declaration::LabelDecl:
-                LabelDecl(member);
-                break;
-            default:
-                break;
-            }
-#endif
         }
         member = member->next;
     }
@@ -325,15 +306,7 @@ void Validator2::ProcDecl(Declaration* d)
     // Validate parameters
     Declaration* param = d->link;
     while (param && param->kind == Declaration::Parameter) {
-#if 1
         Decl(param);
-#else
-        if (!param->validated) {
-            param->validated = true;
-            markDecl(param);
-            ParamDecl(param);
-        }
-#endif
         param = param->next;
     }
     
@@ -341,29 +314,7 @@ void Validator2::ProcDecl(Declaration* d)
     Declaration* local = d->link;
     while (local) {
         if (local->kind != Declaration::Parameter && !local->validated) {
-#if 1
             Decl(local);
-#else
-            local->validated = true;
-            markDecl(local);
-            
-            switch (local->kind) {
-            case Declaration::Variable:
-                VarDecl(local);
-                break;
-            case Declaration::Array:
-                ArrayDecl(local);
-                break;
-            case Declaration::Switch:
-                SwitchDecl(local);
-                break;
-            case Declaration::LabelDecl:
-                LabelDecl(local);
-                break;
-            default:
-                break;
-            }
-#endif
         }
         local = local->next;
     }
@@ -406,6 +357,13 @@ void Validator2::ParamDecl(Declaration* d)
 {
     if (d->type())
         Type_(d->type());
+
+    Expression* e = d->nameRef;
+    while(e)
+    {
+        Expr(e);
+        e = e->next;
+    }
 }
 
 void Validator2::ExternalDecl(Declaration* d)
@@ -418,7 +376,7 @@ void Validator2::ExternalDecl(Declaration* d)
         error(d->pos, "no loader available");
         return;
     }
-    Declaration* ext = loader->loadExternal(d->nameRef);
+    Declaration* ext = loader->loadExternal(d->nameRef->a);
     if( ext == 0 )
     {
         error(d->pos, "external cannot be loaded");
@@ -546,6 +504,9 @@ Statement* Validator2::Stat(Statement* s)
     case Statement::End:
         // No validation needed
         break;
+    case Statement::Label:
+        // NOP
+        break;
     default:
         invalid("statement", s->pos);
         break;
@@ -672,8 +633,8 @@ void Validator2::InspectStat(Statement* s)
         Type* ot = s->obj->type();
         if (ot && ot->kind != Type::Ref && ot->kind != Type::Text)
             error(s->obj->pos, "inspect object must be a reference");
-        else if( ot && ot->kind == Type::Ref && ot->getExpr() && ot->getExpr()->kind == Expression::DeclRef )
-            cls = ot->getExpr()->d;
+        else if( ot && ot->kind == Type::Ref )
+            cls = ot->getRefType();
     }
     
     // Validate when clauses
@@ -815,8 +776,8 @@ bool Validator2::Expr(Expression* e)
     bool ok = false;
     
     switch (e->kind) {
-    case Expression::Plus:
-    case Expression::Minus:
+    case Expression::Add:
+    case Expression::Sub:
     case Expression::Mul:
     case Expression::Div:
     case Expression::IntDiv:
@@ -840,6 +801,7 @@ bool Validator2::Expr(Expression* e)
         ok = BinaryOp(e);
         break;
     case Expression::Not:
+    case Expression::Neg:
         ok = UnaryOp(e);
         break;
     case Expression::Identifier:
@@ -909,6 +871,7 @@ bool Validator2::ConstExpr(Expression* e)
 
 bool Validator2::BinaryOp(Expression* e)
 {
+    Q_ASSERT(e->lhs && e->rhs);
     if (!e->lhs || !e->rhs)
         return false;
     
@@ -934,11 +897,12 @@ bool Validator2::BinaryOp(Expression* e)
 
 bool Validator2::UnaryOp(Expression* e)
 {
-    if (!e->lhs)
+    Q_ASSERT(e->rhs);
+    if (!e->rhs)
         return false;
     
-    Expr(e->lhs);
-    Type* t = e->lhs->type();
+    Expr(e->rhs);
+    Type* t = e->rhs->type();
     
     if (!t)
         return false;
@@ -949,13 +913,14 @@ bool Validator2::UnaryOp(Expression* e)
             return false;
         }
         e->setType(mdl->getType(Type::Boolean));
-    } else if (e->kind == Expression::Minus || e->kind == Expression::Plus) {
+    } else if (e->kind == Expression::Neg) {
         if (!t->isArithmetic()) {
             error(e->pos, "unary +/- requires arithmetic operand");
             return false;
         }
         e->setType(t);
-    }
+    }else
+        Q_ASSERT(false);
     
     return true;
 }
@@ -965,8 +930,8 @@ bool Validator2::Identifier(Expression* e)
     Declaration* d = resolve(e->a);
     
     if (!d) {
-        d = resolve(e->a);
-        error(e->pos, QString("identifier '%1' not found").arg(e->a));
+        // d = resolve(e->a); // TEST
+        error(e->pos, QString("declaration for '%1' not found").arg(e->a));
         markUnref(strlen(e->a), e->pos);
         return false;
     }
@@ -999,6 +964,7 @@ bool Validator2::DeclRefExpr(Expression* e)
 
 bool Validator2::DotExpr(Expression* e)
 {
+    Q_ASSERT(e->lhs);
     if (!e->lhs)
         return false;
     
@@ -1008,19 +974,14 @@ bool Validator2::DotExpr(Expression* e)
     if (!lt)
         return false;
     
+    Type_(lt);
+
     // Get the class/object type
     Declaration* cls = 0;
-    if (lt->kind == Type::Ref) {
-        // Find the class declaration from the type
-        // The type should have been set up with the class reference
-        // For now, we need to find it from the expression
-        if (e->lhs->kind == Expression::DeclRef) {
-            Declaration* d = e->lhs->d;
-            if (d && d->type() && d->type()->kind == Type::Ref) {
-                // Need to get qualification from type
-            }
-        }
-    }
+    if (lt->kind == Type::Ref)
+        cls = lt->getRefType();
+    else if( lt->kind == Type::Text )
+        cls = mdl->getPrimitiveText();
     
     // Get member name from rhs
     if (e->rhs && e->rhs->kind == Expression::Identifier) {
@@ -1036,18 +997,29 @@ bool Validator2::DotExpr(Expression* e)
                 if (member->type())
                     e->setType(member->type());
                 return true;
-            }
-        }
-        
+            }else
+                error(e->pos,"member not found in class");
+        }else
+            error(e->pos,"cannot apply the dot operator to this type");
         // If we can't resolve the class, just mark as unresolved
         markUnref(strlen(memberName), e->rhs->pos);
-    }
+    }else if( e->rhs && e->rhs->kind == Expression::DeclRef )
+    {
+        Declaration* member = e->rhs->d;
+        markRef(member, e->rhs->pos);
+        if (member->type())
+            e->setType(member->type());
+        return true;
+    }else
+        error(e->pos,"invalid member declaration");
+
     
     return true;
 }
 
 bool Validator2::SubscriptExpr(Expression* e)
 {
+    Q_ASSERT(e->lhs);
     if (!e->lhs)
         return false;
     
@@ -1070,7 +1042,7 @@ bool Validator2::SubscriptExpr(Expression* e)
     // Result type is the element type
     if (lt && lt->kind == Type::Array) {
         // For arrays, the element type would be stored somewhere
-        // For now, we don't have element type info in the Type structure
+        // TODO For now, we don't have element type info in the Type structure
     }
     
     return true;
@@ -1078,6 +1050,7 @@ bool Validator2::SubscriptExpr(Expression* e)
 
 bool Validator2::CallExpr(Expression* e)
 {
+    Q_ASSERT(e->lhs);
     if (!e->lhs)
         return false;
     
@@ -1102,6 +1075,11 @@ bool Validator2::CallExpr(Expression* e)
             if (d->type())
                 e->setType(d->type());
         }
+    }else
+    {
+        Type* ret = e->lhs->type();
+        if( ret )
+            e->setType(ret);
     }
     
     return true;
@@ -1110,42 +1088,22 @@ bool Validator2::CallExpr(Expression* e)
 bool Validator2::NewExpr(Expression* e)
 {
     // NEW class_identifier(args)
-    if (e->lhs) {
-        // lhs should be the class identifier
-        if (e->lhs->kind == Expression::Identifier) {
-            Atom className = e->lhs->a;
-            Declaration* cls = resolve(className);
-            if (cls) {
-                markRef(cls, e->lhs->pos);
-                e->lhs->kind = Expression::DeclRef;
-                e->lhs->d = cls;
-                
-                if (cls->kind != Declaration::Class && 
-                    cls->kind != Declaration::StandardClass &&
-                    cls->kind != Declaration::ExternalClass) {
-                    error(e->lhs->pos, QString("'%1' is not a class").arg(className));
-                }
-                
-                // Set type to Ref of this class
-                Type* refType = new Type(Type::Ref);
-                e->setType(refType);
-            } else {
-                error(e->lhs->pos, QString("class '%1' not found").arg(className));
-            }
-        } else {
-            Expr(e->lhs);
+    Q_ASSERT(e->lhs && e->lhs->kind == Expression::Identifier);
+    if( Identifier(e->lhs) )
+    {
+        Declaration* cls = e->lhs->d;
+        if (cls->kind != Declaration::Class &&
+            cls->kind != Declaration::StandardClass &&
+            cls->kind != Declaration::ExternalClass) {
+            error(e->lhs->pos, QString("'%1' is not a class").arg(cls->sym));
         }
+        // Set type to Ref of this class
+        Type* refType = new Type(Type::Ref);
+        refType->setExpr(e->lhs);
+        e->lhs = 0;
+        e->setType(refType);
     }
-    
-    // Validate arguments
-    if (e->rhs) {
-        Expression* arg = e->rhs;
-        while (arg) {
-            Expr(arg);
-            arg = arg->next;
-        }
-    }
-    
+
     return true;
 }
 
@@ -1164,6 +1122,10 @@ bool Validator2::ThisExpr(Expression* e)
             }
             // Set type to Ref of this class
             Type* refType = new Type(Type::Ref);
+            Expression* ref = new Expression(Expression::DeclRef);
+            ref->pos = e->pos;
+            ref->d = cls;
+            refType->setExpr(ref);
             e->setType(refType);
         } else {
             error(e->pos, QString("class '%1' not found").arg(className));
@@ -1189,6 +1151,10 @@ bool Validator2::QuaExpr(Expression* e)
             
             // Set type to Ref of the target class
             Type* refType = new Type(Type::Ref);
+            Expression* ref = new Expression(Expression::DeclRef);
+            ref->pos = e->pos;
+            ref->d = cls;
+            refType->setExpr(ref);
             e->setType(refType);
         } else {
             error(e->rhs->pos, QString("class '%1' not found").arg(className));
@@ -1328,8 +1294,8 @@ Type* Validator2::resultType(Expression::Kind op, Type* lhs, Type* rhs)
         return 0;
     
     switch (op) {
-    case Expression::Plus:
-    case Expression::Minus:
+    case Expression::Add:
+    case Expression::Sub:
     case Expression::Mul:
     case Expression::Div:
     case Expression::Exp:
@@ -1344,7 +1310,7 @@ Type* Validator2::resultType(Expression::Kind op, Type* lhs, Type* rhs)
             return mdl->getType(Type::ShortInteger);
         }
         // Text concatenation
-        if (op == Expression::Plus && lhs->kind == Type::Text && rhs->kind == Type::Text)
+        if (op == Expression::Add && lhs->kind == Type::Text && rhs->kind == Type::Text)
             return mdl->getType(Type::Text);
         break;
         

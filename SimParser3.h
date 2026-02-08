@@ -59,17 +59,17 @@ namespace Sim {
         Statement* block();
         void block_prefix(Token &prefixName, QList<Expression*>& args);
         void actual_parameter_part(QList<Expression*>& args);
-        Statement* main_block(Atom prefixName, const QList<Expression*>& args);
+        Statement* main_block(const Token& prefixName, const QList<Expression*>& args);
         Statement* compound_tail();
         void declaration();
         void class_declaration();
         Token prefix();
         Declaration *main_part();
-        void protection_part(Declaration* classDecl);
-        void protection_specification(Declaration* classDecl);
+        TokenList protection_part();
+        TokenList protection_specification();
         Statement* class_body();
-        void virtual_part(Declaration* classDecl);
-        void virtual_spec(Declaration* classDecl);
+        DeclList virtual_part();
+        DeclList virtual_spec();
         void procedure_declaration();
         Declaration *procedure_heading();
         void mode_part(Declaration* procDecl);
@@ -103,7 +103,7 @@ namespace Sim {
         void scheduling_clause(Statement* stmt);
         Type* specifier(bool& isArray, bool& isProcedure);
         void specification_part(Declaration* parent);
-        void procedure_specification(Declaration* virtSpec);
+        void procedure_specification();
         Declaration* external_item();
         QList<Declaration*> external_list();
         void external_declaration();
@@ -158,7 +158,7 @@ namespace Sim {
         Expression* logical_value();
         Expression* unsigned_number();
         Token class_identifier();
-        QList<Token> identifier_list();
+        TokenList identifier_list();
         void subscript_list(QList<Expression*>& subs);
         Expression* subscript_expression();
         Token attribute_identifier();
@@ -174,8 +174,11 @@ namespace Sim {
         void next();
         Token peek(int off);
         void error(const Token& t, const QString& msg);
+        void error(const RowCol& pos, const QString& msg);
         void invalid(const char* what);
         bool expect(int tt, bool pkw, const char* where);
+        void fixParamTypes(Declaration*);
+        void appendName(Declaration* d, const Token& id);
         
         RowCol toRowCol(const Token& t) const;
         bool versionCheck(SimulaVersion minVersion, const char* feature = 0);

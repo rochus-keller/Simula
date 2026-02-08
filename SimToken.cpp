@@ -20,6 +20,12 @@
 #include "SimToken.h"
 using namespace Sim;
 
+Token::Token(const RowCol & pos, Atom a):d_type(Tok_identifier), d_lineNr(pos.d_row), d_colNr(pos.d_col),
+    d_len(strlen(a)), d_id(a), d_val(a)
+{
+
+}
+
 bool Token::isValid() const
 {
     return d_type != Tok_Eof && d_type != Tok_Invalid;

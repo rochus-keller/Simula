@@ -109,19 +109,19 @@ Token Lexer::peekToken(quint8 lookAhead)
     return d_buffer[ lookAhead - 1 ];
 }
 
-QList<Token> Lexer::tokens(const QString& code)
+TokenList Lexer::tokens(const QString& code)
 {
     return tokens( code.toLatin1() );
 }
 
-QList<Token> Lexer::tokens(const QByteArray& code, const QString& path)
+TokenList Lexer::tokens(const QByteArray& code, const QString& path)
 {
     QBuffer in;
     in.setData( code );
     in.open(QIODevice::ReadOnly);
     setStream( &in, path );
 
-    QList<Token> res;
+    TokenList res;
     Token t = nextToken();
     while( t.isValid() )
     {

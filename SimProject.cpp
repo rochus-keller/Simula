@@ -65,7 +65,7 @@ struct HitTest
 
     void test( Declaration* d )
     {
-        if( line == d->pos.d_row && col >= d->pos.d_col && col <= d->pos.d_col + d->name.size() )
+        if( line == d->pos.d_row && col >= d->pos.d_col && col <= d->pos.d_col + strlen(d->name) )
             throw d;
     }
 
@@ -80,7 +80,7 @@ struct HitTest
             n = e->d;
         if( n == 0 )
             return;
-        if( line == e->pos.d_row && col >= e->pos.d_col && col <= e->pos.d_col + n->name.size() )
+        if( line == e->pos.d_row && col >= e->pos.d_col && col <= e->pos.d_col + strlen(n->name) )
             throw e;
     }
 
@@ -606,7 +606,7 @@ bool Project::parse()
     for( i = d_files.begin(); i != d_files.end(); ++i )
     {
         Declaration* module = i.value()->d_mod;
-        if( !module->validated )
+        if( module && !module->validated )
             validate(module);
     }
 

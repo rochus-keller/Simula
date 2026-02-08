@@ -48,7 +48,7 @@ const char* Type::name[] = {
     "Undefined", "NoType", "NONE", "NOTEXT",
     "Integer", "ShortInteger", "Real", "LongReal", "Boolean", "Character", "Label", "Text",
     "",
-    "Ref", "Pointer", "Array", "Procedure", "Switch"
+    "Ref", "Array", "Procedure", "Switch"
 };
 
 // #define SIM_TRACK_LEFTOVERS
@@ -143,6 +143,14 @@ void Type::setExpr(Expression *e)
         e->owned = true;
     }
 }
+
+Declaration *Type::getRefType() const
+{
+    if( kind != Ref || expr == 0 || expr->kind != Expression::DeclRef )
+        return 0;
+    return expr->d;
+}
+
 bool Type::isArithmetic() const { return kind >= Integer && kind <= LongReal; }
 
 Declaration::Declaration(Kind k) : Node(D), kind(k), link(0), next(0), outer(0), body(0), prefix(0),sym(0), nameRef(0)
@@ -155,6 +163,8 @@ Declaration::~Declaration() {
         deleteAll(link); // Recursive delete of members
     if (body)
         Statement::deleteAll(body);     // Delete statement tree
+    if (nameRef)
+        delete nameRef;
 
     // Union cleanup based on Kind
     switch (kind) {
@@ -364,6 +374,11 @@ Declaration *AstModel::getSimulation() const
     return findInScope(getEnv(), Lexer::toId("simulation"));
 }
 
+Declaration *AstModel::getPrimitiveText() const
+{
+    return findInScope(getEnv(), Lexer::toId("primitive_text___"));
+}
+
 void AstModel::clear()
 {
     clearGlobals();
@@ -378,7 +393,7 @@ Declaration* AstModel::resolveInClass(Declaration* cls, Atom name)
     // Search in class and its prefix chain
     Declaration* cur = cls;
     while (cur) {
-        Declaration* d = findInScope(cur->body->scope, name);
+        Declaration* d = findInScope(cur, name);
         if (d)
             return d;
         cur = cur->prefix;
@@ -411,6 +426,7 @@ Declaration* AstModel::findInScope(Declaration* scope, const char *sym, bool inc
 
     return 0;
 }
+
 Type* AstModel::newType(Type::Kind k) {
     Type* t = new Type(k);
     t->owned = true;
@@ -484,8 +500,9 @@ private:
     {
         switch (k) {
             case Expression::Invalid: return "Invalid";
-            case Expression::Plus: return "Plus";
-            case Expression::Minus: return "Minus";
+            case Expression::Neg: return "Negate";
+            case Expression::Add: return "Plus";
+            case Expression::Sub: return "Minus";
             case Expression::Mul: return "Mul";
             case Expression::Div: return "Div";
             case Expression::IntDiv: return "IntDiv";
@@ -547,6 +564,7 @@ private:
             case Statement::Inner: return "Inner";
             case Statement::Dummy: return "Dummy";
             case Statement::End: return "End";
+            case Statement::Label: return "Label";
             default: return "Unknown";
         }
     }
@@ -557,7 +575,6 @@ private:
             return Type::name[k];
         switch (k) {
             case Type::Ref: return "Ref";
-            case Type::Pointer: return "Pointer";
             case Type::Array: return "Array";
             case Type::Procedure: return "Procedure";
             case Type::Switch: return "Switch";
@@ -581,7 +598,7 @@ private:
             else if (d->mode == Declaration::ModeName)
                 out << " name";
 
-            if (d->visi == Declaration::Hidden)
+            if (d->visi == Declaration::Private)
                 out << " hidden";
             else if (d->visi == Declaration::Protected)
                 out << " protected";
@@ -597,7 +614,7 @@ private:
             case Declaration::Class:
             case Declaration::Procedure:
                 if (d->prefix)
-                    out << " prefix=" << d->prefix->name.constData();
+                    out << " prefix=" << d->prefix->name;
                 break;
             case Declaration::Module:
                 if (d->path)
@@ -717,7 +734,7 @@ private:
             break;
         case Expression::DeclRef:
             if (e->d)
-                out << " -> " << e->d->name.constData();
+                out << " -> " << e->d->name;
             break;
         case Expression::This:
             if (e->a)
@@ -786,7 +803,7 @@ private:
                 if (s->scope) {
                     ++indent;
                     writeIndent();
-                    out << "scope: " << s->scope->name.constData() << "\n";
+                    out << "scope: " << s->scope->name << "\n";
                     if (s->scope->link) {
                         writeIndent();
                         out << "locals:\n";
@@ -988,6 +1005,12 @@ private:
                     --indent;
                 }
                 break;
+            case Statement::Label:
+                ++indent;
+                writeIndent();
+                out << ": " << s->label->name;
+                --indent;
+                break;
 
             default:
                 break;
@@ -1005,7 +1028,7 @@ private:
             if (c->className)
                 out << " " << c->className;
             if (c->classDecl)
-                out << " -> " << c->classDecl->name.constData();
+                out << " -> " << c->classDecl->name;
             out << " [" << c->pos.d_row << ":" << c->pos.d_col << "]\n";
 
             if (c->body) {

@@ -871,7 +871,7 @@ void Ide::onSetOptions()
         return;
 
     Lexer lex;
-    QList<Token> toks = lex.tokens(options);
+    TokenList toks = lex.tokens(options);
     l.clear();
     QStringList errs;
     foreach( const Token& t, toks )
@@ -1465,17 +1465,9 @@ static void fillModTree( T* parent, const ModuleSort& mods )
     foreach( Project::File* m, mods )
     {
         QTreeWidgetItem* item = new QTreeWidgetItem(parent);
-        if( m->d_mod )
-            item->setText(0,m->d_mod->name);
-        else
-            item->setText(0, m->d_name.constData() );
+        item->setText(0, m->d_name.constData() );
         item->setToolTip(0,m->d_filePath);
-#if 0
-        if( m->d_isDef )
-            item->setIcon(0, QPixmap(":/images/definition.png") );
-        else
-#endif
-            item->setIcon(0, QPixmap(":/images/module.png") );
+        item->setIcon(0, QPixmap(":/images/module.png") );
         item->setData(0,Qt::UserRole,QVariant::fromValue(m) );
     }
 }

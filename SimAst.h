@@ -69,7 +69,6 @@ namespace Sim
     class Node
     {
     public:
-        enum Visi { NA, Private, Protected, Public };
         enum Meta { T, D, E, S, C }; // Type, Declaration, Expression, Statement, Connection
         uint meta : 3;
         uint ownstype : 1;
@@ -114,10 +113,13 @@ namespace Sim
     {
     public:
         enum Kind {
-            Undefined, NoType, None, Notext,
-            Integer, ShortInteger, Real, LongReal, Boolean, Character, Label, Text,
+            Undefined, NoType,
+            None, Notext, // literals
+            Integer, ShortInteger, Real, LongReal, Boolean, Character, // value type
+            Label, // label specifier
+            Text, // reference types and literal
             MaxBasicType,
-            Ref, Pointer, Array, Procedure, Switch
+            Ref, Array, Procedure, Switch
         };
         static const char* name[];
 
@@ -131,8 +133,9 @@ namespace Sim
         Type(Kind k = Undefined);
         ~Type();
 
-        void setExpr(Expression* e);
+        void setExpr(Expression* e); // ref(Expression::Identifier), array bounds
         Expression* getExpr() const { return expr; }
+        Declaration* getRefType() const; // for Type::Ref
     private:
         // For Array: 'expr' is the head of a linked list of bound pairs (Expression nodes)
         // For String/Text: 'expr' is the length
@@ -147,17 +150,17 @@ namespace Sim
             Parameter, VirtualSpec, ExternalProc, ExternalClass, LabelDecl, Builtin, Import, StandardClass
         };
         enum ParamMode { ModeDefault, ModeValue, ModeName };
-        enum Visi { NA, Hidden, Protected };
+        enum Visi { NA, Private, Protected, Public };
 
         Kind kind;
         QByteArray name;
-        Atom sym;
-        
+        Atom sym; // the internalized, lower-case version of name
+
         Declaration* link;   // Members/Locals
         Declaration* next;   // Next in scope
         Declaration* outer;  // Parent scope
         Statement*   body;   // class, procedure
-        Atom   nameRef;     // Class prefix name, External ext name
+        Expression*  nameRef;     // Class prefix name, External ext name, Mode refs, owned
         union {
             // Class / Procedure
             Declaration* prefix; // Superclass, not owned
@@ -173,6 +176,9 @@ namespace Sim
 
             // External Class/Procedure
             Declaration* ext;  // not owned
+
+            // VirtualSpec
+            Declaration* forward; // points to actual declaration or null for abstract, not owned
         };
 
 
@@ -192,7 +198,8 @@ namespace Sim
     public:
         enum Kind {
             Invalid,
-            Plus, Minus, Mul, Div, IntDiv, Exp,
+            Neg,
+            Add, Sub, Mul, Div, IntDiv, Exp,
             And, Or, Not, Imp, Eqv, AndThen, OrElse,
             Eq, Neq, Lt, Leq, Gt, Geq, RefEq, RefNeq, Is, In,
             Identifier, DeclRef, Dot, Subscript,
@@ -245,7 +252,8 @@ namespace Sim
         enum Kind {
             Invalid, Compound, Block, Assign, Call,
             If, While, For, Inspect, Goto,
-            Activate, Detach, Resume, Inner, Dummy, End
+            Activate, Detach, Resume, Inner, Dummy, End,
+            Label
         };
 
         Kind kind;
@@ -287,6 +295,9 @@ namespace Sim
                  Expression* lhs;      // Target / Callable, owned
                  Expression* rhs;      // Value / Ref / Args, owned
             };
+
+            // Label
+            Declaration* label;       // not owned
 
         };
 
@@ -357,6 +368,7 @@ namespace Sim
         Declaration* getBasicIo() const;
         Declaration* getSimSet() const;
         Declaration* getSimulation() const;
+        Declaration* getPrimitiveText() const;
         void clear();
 
         static Declaration* resolveInClass(Declaration* cls, Atom name);

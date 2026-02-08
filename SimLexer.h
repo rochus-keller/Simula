@@ -44,8 +44,8 @@ namespace Sim
 
         Token nextToken();
         Token peekToken(quint8 lookAhead = 1);
-        QList<Token> tokens( const QString& code );
-        QList<Token> tokens( const QByteArray& code, const QString& path = QString() );
+        TokenList tokens( const QString& code );
+        TokenList tokens( const QByteArray& code, const QString& path = QString() );
         static const char *toId( const QByteArray& );
         static bool isValidIdent( const QByteArray& str );
     protected:
@@ -68,7 +68,7 @@ namespace Sim
         quint16 d_colNr;
         QString d_sourcePath;
         QString d_line;
-        QList<Token> d_buffer;
+        TokenList d_buffer;
         static QHash<QByteArray,QByteArray> d_symbols;
         Token d_lastToken;
         bool d_ignoreComments;  // don't deliver comment tokens

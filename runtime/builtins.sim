@@ -274,4 +274,33 @@ BEGIN
 		    PROCEDURE resume(p); REF(process) p; ;
 		END;
 	END;
+	
+	! This is NOT valid Simula code but a representation of the 
+	! built-in attributes for the compiler's symbol table;
+
+	CLASS primitive_text___; ! Pseudo-class;
+	BEGIN
+		BOOLEAN PROCEDURE constant; EXTERNAL;
+		INTEGER PROCEDURE start; EXTERNAL;
+		INTEGER PROCEDURE length; EXTERNAL;
+		TEXT PROCEDURE main; EXTERNAL;  
+		INTEGER PROCEDURE pos; EXTERNAL;
+		PROCEDURE setpos(i); INTEGER i; EXTERNAL;
+		BOOLEAN PROCEDURE more; EXTERNAL;
+		CHARACTER PROCEDURE getchar; EXTERNAL;
+		PROCEDURE putchar(c); CHARACTER c; EXTERNAL;
+		
+		TEXT PROCEDURE sub(i, n); INTEGER i, n; EXTERNAL;
+		TEXT PROCEDURE strip; EXTERNAL;
+		
+		INTEGER PROCEDURE getint; EXTERNAL;
+		LONG REAL PROCEDURE getreal; EXTERNAL;
+		INTEGER PROCEDURE getfrac; EXTERNAL;
+		
+		PROCEDURE putint(i, w); INTEGER i, w; EXTERNAL;
+		PROCEDURE putfix(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
+		PROCEDURE putreal(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
+		PROCEDURE putfrac(i, n, w); INTEGER i, n, w; EXTERNAL;
+	END;
+
 END;

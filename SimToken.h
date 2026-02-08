@@ -23,6 +23,7 @@
 #include <QString>
 #include <QMetaType>
 #include <Simula/SimTokenType.h>
+#include <Simula/SimRowCol.h>
 
 namespace Sim
 {
@@ -46,11 +47,13 @@ namespace Sim
         QString d_sourcePath;
         Token(quint16 t = Tok_Invalid, quint32 line = 0, quint16 col = 0, quint16 len = 0, const QByteArray& val = QByteArray() ):
             d_type(t),d_lineNr(line),d_colNr(col),d_len(len),d_val(val), d_id(0){}
+        Token(const RowCol&, Atom a);
         bool isValid() const;
         bool isEof() const;
         const char* getName() const;
         const char* getString() const;
     };
+    typedef QList<Token> TokenList;
 }
 
 Q_DECLARE_METATYPE(Sim::Atom)
