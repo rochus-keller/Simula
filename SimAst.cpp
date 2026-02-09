@@ -207,6 +207,29 @@ Declaration *Declaration::getModule()
         return 0;
 }
 
+const char *Declaration::getKindName() const
+{
+    switch (kind) {
+        case Declaration::Invalid: return "Invalid";
+        case Declaration::Module: return "Module";
+        case Declaration::Program: return "Program";
+        case Declaration::Class: return "Class";
+        case Declaration::Procedure: return "Procedure";
+        case Declaration::Block: return "Block";
+        case Declaration::Variable: return "Variable";
+        case Declaration::Array: return "Array";
+        case Declaration::Switch: return "Switch";
+        case Declaration::Parameter: return "Parameter";
+        case Declaration::VirtualSpec: return "Virtual";
+        case Declaration::ExternalProc: return "External Procecure";
+        case Declaration::ExternalClass: return "External Class";
+        case Declaration::LabelDecl: return "Label";
+        case Declaration::Builtin: return "Builtin";
+        case Declaration::StandardClass: return "Standard Class";
+        default: return "Unknown";
+    }
+}
+
 void Declaration::appendMember(Declaration* d) {
     if (!link) link = d;
     else {
@@ -472,30 +495,6 @@ private:
             out << "  ";
     }
 
-    const char* declKindName(Declaration::Kind k)
-    {
-        switch (k) {
-            case Declaration::Invalid: return "Invalid";
-            case Declaration::Module: return "Module";
-            case Declaration::Program: return "Program";
-            case Declaration::Class: return "Class";
-            case Declaration::Procedure: return "Procedure";
-            case Declaration::Block: return "Block";
-            case Declaration::Variable: return "Variable";
-            case Declaration::Array: return "Array";
-            case Declaration::Switch: return "Switch";
-            case Declaration::Parameter: return "Parameter";
-            case Declaration::VirtualSpec: return "VirtualSpec";
-            case Declaration::ExternalProc: return "ExternalProc";
-            case Declaration::ExternalClass: return "ExternalClass";
-            case Declaration::LabelDecl: return "LabelDecl";
-            case Declaration::Builtin: return "Builtin";
-            case Declaration::Import: return "Import";
-            case Declaration::StandardClass: return "StandardClass";
-            default: return "Unknown";
-        }
-    }
-
     const char* exprKindName(Expression::Kind k)
     {
         switch (k) {
@@ -586,7 +585,7 @@ private:
     {
         while (d) {
             writeIndent();
-            out << declKindName(d->kind);
+            out << d->getKindName();
             if (!d->name.isEmpty())
                 out << " \"" << d->name << "\"";
             if (d->sym)

@@ -147,7 +147,7 @@ namespace Sim
     public:
         enum Kind {
             Invalid, Module, Program, Class, Procedure, Block, Variable, Array, Switch,
-            Parameter, VirtualSpec, ExternalProc, ExternalClass, LabelDecl, Builtin, Import, StandardClass
+            Parameter, VirtualSpec, ExternalProc, ExternalClass, LabelDecl, Builtin, StandardClass
         };
         enum ParamMode { ModeDefault, ModeValue, ModeName };
         enum Visi { NA, Private, Protected, Public };
@@ -186,6 +186,7 @@ namespace Sim
         
         Declaration* find(const char* id, bool recursive = true) const;
         Declaration* getModule();
+        const char* getKindName() const;
 
         void appendMember(Declaration* d);
         static void deleteAll(Declaration* d);

@@ -1724,31 +1724,6 @@ void Ide::fillXref()
         edit->markNonTerms(SymList());
 }
 
-static inline QString declKindName(Declaration* decl)
-{
-    switch( decl->kind )
-    {
-    case Declaration::Variable:
-        return "Variable";
-    case Declaration::Parameter:
-        return "Parameter";
-    case Declaration::Class:
-    case Declaration::Array:
-    case Declaration::Switch:
-        return "Type";
-    case Declaration::ExternalProc:
-    case Declaration::ExternalClass:
-        return "External";
-    case Declaration::Builtin:
-        return "BuiltIn";
-    case Declaration::Procedure:
-        return "Procedure";
-    case Declaration::Module:
-        return "Module";
-    }
-    return "???";
-}
-
 void Ide::fillXrefForSym(Symbol* sym, Declaration* module)
 {
     d_xref->clear();
@@ -1761,7 +1736,7 @@ void Ide::fillXrefForSym(Symbol* sym, Declaration* module)
     QFont f = d_xref->font();
     f.setBold(true);
 
-    const QString type = declKindName(decl);
+    const QString type = decl->getKindName();
 
     d_xrefTitle->setText(QString("%1 '%2'").arg(type).arg(decl->name.constData()));
 
@@ -2390,157 +2365,117 @@ void Ide::printLocalVal(QTreeWidgetItem* item, Type* type, int depth)
         break;
     }
 }
+#endif
+}
 
-static void fillModItems(QTreeWidgetItem* item, Declaration* n, Declaration* p, Type* r,
-                         bool sort, QHash<Declaration*,QTreeWidgetItem*>& idx , Project* pro);
+static void fillModItems(QTreeWidgetItem* curItem, Declaration* curDecl, QHash<Declaration*,QTreeWidgetItem*>& idx , Project* pro);
 
-static void fillRecord(QTreeWidgetItem* item, Declaration* n, Type* r, bool sort,
-                       QHash<Declaration*,QTreeWidgetItem*>& idx, Project* pro )
+static void fillRecord(QTreeWidgetItem* curItem, Declaration* curDecl, QHash<Declaration*,QTreeWidgetItem*>& idx, Project* pro )
 {
-    fillModItems(item,n, 0, r, sort, idx, pro);
-    if( r->base )
-        item->setText(0, item->text(0) + " ⇑");
+    fillModItems(curItem,curDecl, idx, pro);
+    if( curDecl->prefix )
+        curItem->setText(0, curItem->text(0) + " ⇑");
+#if 0
+    // TODO
     if( n->hasSubs )
     {
         DeclList subs = pro->getSubs(n);
         item->setText(0, item->text(0) + QString(" ⇓%1").arg(subs.size()));
     }
-    item->setToolTip( 0, item->text(0) );
+#endif
+    curItem->setToolTip( 0, curItem->text(0) );
 }
 
 template<class T>
-static void createModItem(T* parent, Declaration* n, Type* t, bool nonbound, bool sort,
-                          QHash<Declaration*,QTreeWidgetItem*>& idx, Project* pro )
+static void createModItem(T* parentItem, Declaration* cur, QHash<Declaration*,QTreeWidgetItem*>& idx, Project* pro )
 {
-#if 0
-    // TODO
-    bool isAlias = false;
-    if( t == 0 )
-        t = n->type;
-    else
-        isAlias = true;
-    if( t == 0 )
-        return;
-    if( idx.contains(n) )
+    if( idx.contains(cur) )
     {
         // qWarning() << "fillMod recursion at" << n->getModule()->d_file << n->pos.d_row << n->name;
         return; // can legally happen if record decl contains a typedef using record, as e.g. Meta.Item.ParamCallVal.IP
     }
-    switch( n->kind )
+    switch( cur->kind )
     {
-    case Declaration::TypeDecl:
-        switch( t->form )
-        {
-        case Type::Record:
-            {
-                QTreeWidgetItem* item = new QTreeWidgetItem(parent);
-                if( !isAlias  )
-                    fillRecord(item,n,t,sort,idx, pro);
-                else
-                    fillModItems(item,n, 0, 0, sort, idx, pro);
+    case Declaration::Class: {
+                QTreeWidgetItem* item = new QTreeWidgetItem(parentItem);
+                fillRecord(item, cur,idx, pro);
             }
             break;
-        case Type::NameRef:
-            if( t->deref()->form == Type::Record )
-                createModItem(parent,n,t->deref(),nonbound, sort, idx, pro);
-            break;
-        }
-        break;
     case Declaration::Procedure:
-        if( !nonbound || n->mode != Declaration::Receiver )
         {
-            QTreeWidgetItem* item = new QTreeWidgetItem(parent);
-            fillModItems(item,n, n, 0, sort, idx, pro);
-            if( n->super )
+            QTreeWidgetItem* item = new QTreeWidgetItem(parentItem);
+            fillModItems(item, cur, idx, pro);
+#if 0
+            if( d->super )
                 item->setText(0, item->text(0) + " ⇑");
+            // TODO
             if( n->hasSubs )
             {
                 DeclList subs = pro->getSubs(n);
                 item->setText(0, item->text(0) + QString(" ⇓%1").arg(subs.size()));
             }
+#endif
             item->setToolTip( 0, item->text(0) );
         }
         break;
     }
-#endif
 }
 
-template <class T>
-static void walkModItems(T* parent, Declaration* p, Type* r, bool sort,
-                         QHash<Declaration*,QTreeWidgetItem*>& idx, Project* pro)
+template <typename T>
+static void walkModItems(T* parentItem, Declaration* parentDecl, QHash<Declaration*,QTreeWidgetItem*>& idx, Project* pro)
 {
     typedef QMultiMap<QByteArray,Declaration*> Sort;
-    if( p && sort)
+    if( parentDecl == 0 )
+        return;
+
+    Sort tmp;
+    Declaration* curDecl = parentDecl->link;
+    while( curDecl )
     {
-        Sort tmp;
-        Declaration* n = p->link;
-        while( n )
+        if( curDecl->kind == Declaration::Block )
         {
-            tmp.insert( n->name.toLower(), n );
-            n = n->next;
-        }
-        Sort::const_iterator i;
-        for( i = tmp.begin(); i != tmp.end(); ++i )
-            createModItem(parent,i.value(),0,true, sort, idx, pro);
-    }else if( p )
+            Declaration* curDecl2 = curDecl->link;
+            while( curDecl2 )
+            {
+                if( curDecl2->kind == Declaration::Class || curDecl2->kind == Declaration::Procedure )
+                    tmp.insert( curDecl2->name.toLower(), curDecl2 );
+                curDecl2 = curDecl2->next;
+            }
+        }else if( curDecl->kind == Declaration::Class || curDecl->kind == Declaration::Procedure )
+            tmp.insert( curDecl->name.toLower(), curDecl );
+        curDecl = curDecl->next;
+    }
+    if( parentDecl->body && parentDecl->body->kind == Declaration::Block && parentDecl->body->scope )
     {
-        Declaration* n = p->link;
-        while( n )
+        curDecl = parentDecl->body->scope->link;
+        while( curDecl )
         {
-            createModItem(parent,n,0,true, sort, idx, pro);
-            n = n->next;
+            if( curDecl->kind == Declaration::Class || curDecl->kind == Declaration::Procedure )
+                tmp.insert( curDecl->name.toLower(), curDecl );
+            curDecl = curDecl->next;
         }
     }
-#if 0
-    // TODO
-    if( r && sort )
-    {
-        Sort tmp;
-        foreach( Declaration* n, r->subs )
-        {
-            if( n->kind == Declaration::Procedure )
-                tmp.insert( n->name.toLower(), n );
-        }
-        Sort::const_iterator i;
-        for( i = tmp.begin(); i != tmp.end(); ++i )
-            createModItem(parent,i.value(),0,false, sort, idx, pro);
-    }else if( r )
-    {
-        foreach( Declaration* n, r->subs )
-        {
-            if( n->kind == Declaration::Procedure )
-                createModItem(parent,n,0,false, sort, idx, pro);
-        }
-    }
-#endif
-#endif
+    Sort::const_iterator i;
+    for( i = tmp.begin(); i != tmp.end(); ++i )
+        createModItem(parentItem, i.value(), idx, pro);
 }
 
-static void fillModItems( QTreeWidgetItem* item, Declaration* n, Declaration* p, Type* r,
-                          bool sort, QHash<Declaration*,QTreeWidgetItem*>& idx, Project* pro )
+static void fillModItems(QTreeWidgetItem* curItem, Declaration* curDecl, QHash<Declaration*,QTreeWidgetItem*>& idx, Project* pro )
 {
-#if 0
-    // TODO
-    const bool pub = n->visi > Declaration::Private;
-    item->setText(0,n->name);
-    item->setData(0, Qt::UserRole, QVariant::fromValue(n) );
-    idx.insert(n,item);
-    switch( n->kind )
+    const bool pub = curDecl->visi != Declaration::Private;
+    curItem->setText(0,curDecl->name);
+    curItem->setData(0, Qt::UserRole, QVariant::fromValue(curDecl) );
+    idx.insert(curDecl,curItem);
+    switch( curDecl->kind )
     {
-    case Declaration::TypeDecl:
-        if( r && r->base == 0 && r->subs.isEmpty() )
-            item->setIcon(0, QPixmap( pub ? ":/images/struct.png" : ":/images/struct_priv.png" ) );
-        else if( r == 0 && p == 0 )
-            item->setIcon(0, QPixmap( pub ? ":/images/alias.png" : ":/images/alias_priv.png" ) );
-        else
-            item->setIcon(0, QPixmap( pub ? ":/images/class.png" : ":/images/class_priv.png" ) );
+    case Declaration::Class:
+        curItem->setIcon(0, QPixmap( pub ? ":/images/class.png" : ":/images/class_priv.png" ) );
         break;
     case Declaration::Procedure:
-        item->setIcon(0, QPixmap( pub ? ":/images/func.png" : ":/images/func_priv.png" ) );
+        curItem->setIcon(0, QPixmap( pub ? ":/images/func.png" : ":/images/func_priv.png" ) );
         break;
     }
-    walkModItems(item,p,r,sort, idx, pro);
-#endif
+    walkModItems(curItem, curDecl, idx, pro);
 }
 
 void Ide::fillModule(Declaration* m)
@@ -2551,7 +2486,8 @@ void Ide::fillModule(Declaration* m)
     if( m == 0 )
         return;
     d_modTitle->setText( QString("'%1'").arg(m->name.constData()) );
-    // TODO walkModItems(d_mod, m, 0, true, d_modIdx, d_rt->getPro() );
+    walkModItems(d_mod, m, d_modIdx, d_rt->getPro() );
+    d_mod->expandAll();
 }
 
 template<class T>
@@ -2974,7 +2910,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("me@rochus-keller.ch");
     a.setOrganizationDomain("github.com/rochus-keller/Luon");
     a.setApplicationName("Simula 67 IDE (LuaJIT)");
-    a.setApplicationVersion("0.1.0");
+    a.setApplicationVersion("0.1.1");
     a.setStyle("Fusion");    
     QFontDatabase::addApplicationFont(":/fonts/DejaVuSansMono.ttf"); // "DejaVu Sans Mono"
 

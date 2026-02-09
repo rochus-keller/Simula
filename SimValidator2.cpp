@@ -200,7 +200,6 @@ void Validator2::Decl(Declaration *d)
             break;
         case Declaration::Builtin:
         case Declaration::StandardClass:
-        case Declaration::Import:
             // These don't need validation
             break;
         default:
