@@ -1,0 +1,130 @@
+COMMENT -----------------------------------------------------------------------
+  Test 03: Procedures and Parameters
+  
+  Tests:
+  - Typed procedures (functions)
+  - Untyped procedures
+  - Value parameters
+  - Reference parameters (call by name)
+  - Local variables in procedures
+  - Recursive procedures
+  - Nested procedure calls
+-----------------------------------------------------------------------;
+
+BEGIN
+    INTEGER result;
+    REAL rresult;
+    
+    COMMENT --- Simple typed procedure (function) ---;
+    INTEGER PROCEDURE square(n); INTEGER n;
+        square := n * n;
+    
+    result := square(5);
+    IF result <> 25 THEN error("Simple function failed");
+    
+    result := square(square(3));
+    IF result <> 81 THEN error("Nested function call failed");
+    
+    COMMENT --- Procedure with multiple parameters ---;
+    INTEGER PROCEDURE add3(a, b, c); INTEGER a, b, c;
+        add3 := a + b + c;
+    
+    result := add3(10, 20, 30);
+    IF result <> 60 THEN error("Multiple parameters failed");
+    
+    COMMENT --- Real typed procedure ---;
+    REAL PROCEDURE average(x, y); REAL x, y;
+        average := (x + y) / 2.0;
+    
+    rresult := average(10.0, 20.0);
+    IF rresult < 14.9 OR rresult > 15.1 THEN error("Real function failed");
+    
+    COMMENT --- Procedure with local variables ---;
+    INTEGER PROCEDURE sumSquares(n); INTEGER n;
+    BEGIN
+        INTEGER i, sum;
+        sum := 0;
+        FOR i := 1 STEP 1 UNTIL n DO
+            sum := sum + i * i;
+        sumSquares := sum;
+    END;
+    
+    result := sumSquares(4);
+    IF result <> 30 THEN error("Procedure with locals failed");
+    
+    COMMENT --- Recursive procedure (factorial) ---;
+    INTEGER PROCEDURE factorial(n); INTEGER n;
+        IF n <= 1 THEN
+            factorial := 1
+        ELSE
+            factorial := n * factorial(n - 1);
+    
+    result := factorial(5);
+    IF result <> 120 THEN error("Recursive factorial failed");
+    
+    result := factorial(0);
+    IF result <> 1 THEN error("Factorial of 0 failed");
+    
+    COMMENT --- Recursive procedure (Fibonacci) ---;
+    INTEGER PROCEDURE fib(n); INTEGER n;
+        IF n <= 1 THEN
+            fib := n
+        ELSE
+            fib := fib(n - 1) + fib(n - 2);
+    
+    result := fib(10);
+    IF result <> 55 THEN error("Fibonacci failed");
+    
+    COMMENT --- Untyped procedure ---;
+    INTEGER global_var;
+    
+    PROCEDURE setGlobal(val); INTEGER val;
+        global_var := val;
+    
+    setGlobal(42);
+    IF global_var <> 42 THEN error("Untyped procedure failed");
+    
+    COMMENT --- Procedure with Boolean result ---;
+    BOOLEAN PROCEDURE isEven(n); INTEGER n;
+        isEven := (n // 2) * 2 = n;
+    
+    IF NOT isEven(4) THEN error("isEven(4) failed");
+    IF isEven(5) THEN error("isEven(5) failed");
+    
+    COMMENT --- Procedure calling another procedure ---;
+    INTEGER PROCEDURE doubleSquare(n); INTEGER n;
+        doubleSquare := 2 * square(n);
+    
+    result := doubleSquare(5);
+    IF result <> 50 THEN error("Procedure calling procedure failed");
+    
+    COMMENT --- Procedure with conditional return ---;
+    INTEGER PROCEDURE max(a, b); INTEGER a, b;
+        IF a > b THEN max := a ELSE max := b;
+    
+    result := max(10, 20);
+    IF result <> 20 THEN error("max(10,20) failed");
+    
+    result := max(30, 15);
+    IF result <> 30 THEN error("max(30,15) failed");
+    
+    COMMENT --- Procedure with loop ---;
+    INTEGER PROCEDURE power(base, exp); INTEGER base, exp;
+    BEGIN
+        INTEGER i, result;
+        result := 1;
+        FOR i := 1 STEP 1 UNTIL exp DO
+            result := result * base;
+        power := result;
+    END;
+    
+    result := power(2, 8);
+    IF result <> 256 THEN error("power(2,8) failed");
+    
+    result := power(3, 4);
+    IF result <> 81 THEN error("power(3,4) failed");
+    
+    COMMENT --- All tests passed ---;
+    outtext("Test 03: Procedures and parameters - PASSED");
+    outimage;
+END

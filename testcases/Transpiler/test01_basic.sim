@@ -1,0 +1,101 @@
+COMMENT -----------------------------------------------------------------------
+  Test 01: Basic Types, Variables, and Arithmetic
+  
+  Tests:
+  - Integer, Real, Boolean, Character variables
+  - Arithmetic operators (+, -, *, /, //, **)
+  - Relational operators (<, <=, =, >=, >, <>)
+  - Logical operators (AND, OR, NOT)
+  - Assignment statements
+  - Simple expressions
+-----------------------------------------------------------------------;
+
+BEGIN
+    INTEGER i, j, k;
+    REAL x, y, z;
+    BOOLEAN b1, b2, b3;
+    CHARACTER c1, c2;
+    
+    COMMENT --- Integer arithmetic ---;
+    i := 10;
+    j := 3;
+    k := i + j;
+    IF k <> 13 THEN error("Integer addition failed");
+    
+    k := i - j;
+    IF k <> 7 THEN error("Integer subtraction failed");
+    
+    k := i * j;
+    IF k <> 30 THEN error("Integer multiplication failed");
+    
+    k := i // j;
+    IF k <> 3 THEN error("Integer division failed");
+    
+    k := 2 ** 10;
+    IF k <> 1024 THEN error("Integer exponentiation failed");
+    
+    COMMENT --- Real arithmetic ---;
+    x := 10.5;
+    y := 2.5;
+    z := x + y;
+    IF z < 12.9 OR z > 13.1 THEN error("Real addition failed");
+    
+    z := x - y;
+    IF z < 7.9 OR z > 8.1 THEN error("Real subtraction failed");
+    
+    z := x * y;
+    IF z < 26.2 OR z > 26.3 THEN error("Real multiplication failed");
+    
+    z := x / y;
+    IF z < 4.1 OR z > 4.3 THEN error("Real division failed");
+    
+    COMMENT --- Mixed arithmetic ---;
+    z := i + x;
+    IF z < 20.4 OR z > 20.6 THEN error("Mixed addition failed");
+    
+    COMMENT --- Relational operators ---;
+    i := 5;
+    j := 10;
+    
+    IF NOT (i < j) THEN error("Less than failed");
+    IF NOT (i <= j) THEN error("Less or equal failed");
+    IF NOT (j > i) THEN error("Greater than failed");
+    IF NOT (j >= i) THEN error("Greater or equal failed");
+    IF NOT (i <> j) THEN error("Not equal failed");
+    IF i = j THEN error("Equal failed");
+    
+    COMMENT --- Logical operators ---;
+    b1 := TRUE;
+    b2 := FALSE;
+    
+    b3 := b1 AND b2;
+    IF b3 THEN error("AND failed");
+    
+    b3 := b1 OR b2;
+    IF NOT b3 THEN error("OR failed");
+    
+    b3 := NOT b1;
+    IF b3 THEN error("NOT failed");
+    
+    b3 := b1 AND NOT b2;
+    IF NOT b3 THEN error("AND NOT failed");
+    
+    COMMENT --- Character variables ---;
+    c1 := 'A';
+    c2 := 'B';
+    IF c1 = c2 THEN error("Character comparison failed");
+    IF NOT (c1 < c2) THEN error("Character less than failed");
+    
+    COMMENT --- Negative numbers ---;
+    i := -5;
+    j := -3;
+    k := i + j;
+    IF k <> -8 THEN error("Negative addition failed");
+    
+    k := i * j;
+    IF k <> 15 THEN error("Negative multiplication failed");
+    
+    COMMENT --- All tests passed ---;
+    outtext("Test 01: Basic types and arithmetic - PASSED");
+    outimage;
+END

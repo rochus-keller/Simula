@@ -28,6 +28,7 @@
 #include "SimAst.h"
 #include "SimValidator2.h"
 #include "SimLexer.h"
+#include "SimCeeGen.h"
 
 static QStringList collectFiles( const QDir& dir )
 {
@@ -57,7 +58,7 @@ public:
 };
 
 
-static void run( const QStringList& files, bool dump )
+static void run( const QStringList& files, bool dump, bool cgen )
 {
     Sim::AstModel mdl;
     {
@@ -111,6 +112,14 @@ static void run( const QStringList& files, bool dump )
             {
                 foreach( const Sim::Validator2::Error& e, va.errors )
                     qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
+            }else
+            {
+                Sim::CeeGen gen;
+                if( !gen.transpile(module, module->name + ".c") )
+                {
+                    foreach( const Sim::CeeGen::Error& e, gen.errors )
+                        qCritical() << module->name << e.pos.d_row << e.msg;
+                }
             }
 #endif
         }
@@ -133,6 +142,7 @@ int main(int argc, char *argv[])
     QStringList dirOrFilePaths;
     QString outPath;
     bool dump = false;
+    bool cgen = false;
     QString ns;
     QString mod;
     const QStringList args = QCoreApplication::arguments();
@@ -147,10 +157,13 @@ int main(int argc, char *argv[])
             out << "  -o=path   path where to save generated files (default like first source)" << endl;
             out << "  -ns=name  namespace for the generated files (default empty)" << endl;
             out << "  -mod=name directory of the generated files (default empty)" << endl;
+            out << "  -cgen     generate C code from classes" << endl;
             out << "  -h        display this information" << endl;
             return 0;
         }else if( args[i] == "-dst" )
             dump = true;
+        else if( args[i] == "-cgen" )
+            cgen = true;
         else if( args[i].startsWith("-o=") )
             outPath = args[i].mid(3);
         else if( args[i].startsWith("-ns=") )
@@ -184,7 +197,7 @@ int main(int argc, char *argv[])
             files << path;
     }
 
-    run(files, dump);
+    run(files, dump, cgen);
     Sim::Node::reportLeftovers();
 
     return 0;

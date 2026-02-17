@@ -1,0 +1,161 @@
+COMMENT -----------------------------------------------------------------------
+  Test 08: Blocks and Scope
+  
+  Tests:
+  - Block statements with local declarations
+  - Nested blocks
+  - Variable shadowing
+  - Prefixed blocks (class as block prefix)
+  - Block expressions
+  - Scope rules
+-----------------------------------------------------------------------;
+
+BEGIN
+    INTEGER x, y, z;
+    
+    x := 10;
+    y := 20;
+    z := 30;
+    
+    COMMENT --- Simple block with local variables ---;
+    BEGIN
+        INTEGER a, b;
+        a := 5;
+        b := 7;
+        x := a + b;
+    END;
+    IF x <> 12 THEN error("Simple block failed");
+    
+    COMMENT --- Block accessing outer variables ---;
+    BEGIN
+        y := y + 10;
+    END;
+    IF y <> 30 THEN error("Block outer access failed");
+    
+    COMMENT --- Nested blocks ---;
+    BEGIN
+        INTEGER a;
+        a := 1;
+        BEGIN
+            INTEGER b;
+            b := 2;
+            x := a + b;
+        END;
+        y := a;
+    END;
+    IF x <> 3 THEN error("Nested block sum failed");
+    IF y <> 1 THEN error("Nested block outer failed");
+    
+    COMMENT --- Variable shadowing ---;
+    x := 100;
+    BEGIN
+        INTEGER x;
+        x := 50;
+        y := x;
+    END;
+    IF x <> 100 THEN error("Shadowing outer unchanged failed");
+    IF y <> 50 THEN error("Shadowing inner value failed");
+    
+    COMMENT --- Multiple levels of shadowing ---;
+    x := 1;
+    BEGIN
+        INTEGER x;
+        x := 2;
+        BEGIN
+            INTEGER x;
+            x := 3;
+            z := x;
+        END;
+        y := x;
+    END;
+    IF x <> 1 THEN error("Multi-shadow level 1 failed");
+    IF y <> 2 THEN error("Multi-shadow level 2 failed");
+    IF z <> 3 THEN error("Multi-shadow level 3 failed");
+    
+    COMMENT --- Block with procedures ---;
+    BEGIN
+        INTEGER PROCEDURE localFunc(n); INTEGER n;
+            localFunc := n * 2;
+        
+        x := localFunc(25);
+    END;
+    IF x <> 50 THEN error("Block local procedure failed");
+    
+    COMMENT --- Block with arrays ---;
+    BEGIN
+        INTEGER ARRAY arr[1:5];
+        INTEGER i, sum;
+        
+        FOR i := 1 STEP 1 UNTIL 5 DO
+            arr[i] := i;
+        
+        sum := 0;
+        FOR i := 1 STEP 1 UNTIL 5 DO
+            sum := sum + arr[i];
+        
+        x := sum;
+    END;
+    IF x <> 15 THEN error("Block local array failed");
+    
+    COMMENT --- Prefixed block (using class as prefix) ---;
+    CLASS Helper;
+    BEGIN
+        INTEGER value;
+        value := 42;
+        
+        INTEGER PROCEDURE getValue;
+            getValue := value;
+        
+        PROCEDURE setValue(v); INTEGER v;
+            value := v;
+    END;
+    
+    Helper BEGIN
+        x := getValue;
+        setValue(100);
+        y := getValue;
+    END;
+    IF x <> 42 THEN error("Prefixed block initial value failed");
+    IF y <> 100 THEN error("Prefixed block modified value failed");
+    
+    COMMENT --- Nested prefixed blocks ---;
+    CLASS Outer;
+    BEGIN
+        INTEGER outerVal;
+        outerVal := 10;
+        
+        CLASS Inner;
+        BEGIN
+            INTEGER innerVal;
+            innerVal := 20;
+        END;
+    END;
+    
+    Outer BEGIN
+        x := outerVal;
+        Inner BEGIN
+            y := innerVal;
+            z := outerVal;
+        END;
+    END;
+    IF x <> 10 THEN error("Nested prefix outer failed");
+    IF y <> 20 THEN error("Nested prefix inner failed");
+    IF z <> 10 THEN error("Nested prefix inner accessing outer failed");
+    
+    COMMENT --- Block with control structures ---;
+    BEGIN
+        INTEGER i, sum;
+        sum := 0;
+        FOR i := 1 STEP 1 UNTIL 10 DO
+        BEGIN
+            IF i // 2 * 2 = i THEN
+                sum := sum + i;
+        END;
+        x := sum;
+    END;
+    IF x <> 30 THEN error("Block with control structures failed");
+    
+    COMMENT --- All tests passed ---;
+    outtext("Test 08: Blocks and scope - PASSED");
+    outimage;
+END

@@ -26,6 +26,7 @@ INCLUDEPATH += .. ../LuaJIT/src
 DEFINES += _LJTOOLS_DONT_CREATE_TAIL_CALLS # HAVE_SDL
 
 SOURCES +=  \
+    SimCeeGen.cpp \
     SimHighlighter.cpp \
     ../GuiTools/CodeEditor.cpp \
     ../LjTools/LuaJitBytecode.cpp \
@@ -43,6 +44,7 @@ SOURCES +=  \
     SimProject.cpp
 
 HEADERS  +=  \
+    SimCeeGen.h \
     SimHighlighter.h \
     ../GuiTools/CodeEditor.h \
     ../LjTools/LuaJitBytecode.h \

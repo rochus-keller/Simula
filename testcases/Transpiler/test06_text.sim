@@ -1,0 +1,186 @@
+COMMENT -----------------------------------------------------------------------
+  Test 06: TEXT Type Operations
+  
+  Tests:
+  - TEXT variables and NOTEXT
+  - blanks() function
+  - copy() function
+  - TEXT attributes (length, pos, more)
+  - TEXT operations (setpos, getchar, putchar)
+  - TEXT comparison
+  - TEXT assignment (:=)
+  - TEXT reference assignment (:-)
+  - sub() for substrings
+  - strip() function
+  - putint, getint, putfix, getreal
+-----------------------------------------------------------------------;
+
+BEGIN
+    TEXT t1, t2, t3;
+    INTEGER i, len;
+    CHARACTER c;
+    REAL r;
+    
+    COMMENT --- NOTEXT ---;
+    t1 :- NOTEXT;
+    IF t1.length <> 0 THEN error("NOTEXT length failed");
+    
+    COMMENT --- blanks() function ---;
+    t1 :- blanks(10);
+    IF t1.length <> 10 THEN error("blanks(10) length failed");
+    IF t1.pos <> 1 THEN error("Initial pos failed");
+    IF NOT t1.more THEN error("more on new text failed");
+    
+    COMMENT --- putchar and getchar ---;
+    t1.setpos(1);
+    t1.putchar('H');
+    t1.putchar('e');
+    t1.putchar('l');
+    t1.putchar('l');
+    t1.putchar('o');
+    
+    t1.setpos(1);
+    c := t1.getchar;
+    IF c <> 'H' THEN error("getchar 'H' failed");
+    c := t1.getchar;
+    IF c <> 'e' THEN error("getchar 'e' failed");
+    c := t1.getchar;
+    IF c <> 'l' THEN error("getchar 'l' failed");
+    
+    COMMENT --- pos after operations ---;
+    IF t1.pos <> 4 THEN error("pos after getchar failed");
+    
+    COMMENT --- setpos ---;
+    t1.setpos(1);
+    IF t1.pos <> 1 THEN error("setpos(1) failed");
+    
+    t1.setpos(5);
+    IF t1.pos <> 5 THEN error("setpos(5) failed");
+    
+    COMMENT --- more attribute ---;
+    t1.setpos(10);
+    IF NOT t1.more THEN error("more at pos 10 failed");
+    t1.getchar;
+    IF t1.more THEN error("more after last char failed");
+    
+    COMMENT --- copy() function ---;
+    t1 :- blanks(5);
+    t1.setpos(1);
+    t1.putchar('A');
+    t1.putchar('B');
+    t1.putchar('C');
+    
+    t2 :- copy(t1);
+    IF t2.length <> 5 THEN error("copy length failed");
+    
+    t2.setpos(1);
+    c := t2.getchar;
+    IF c <> 'A' THEN error("copy content failed");
+    
+    COMMENT --- Verify copy is independent ---;
+    t2.setpos(1);
+    t2.putchar('X');
+    
+    t1.setpos(1);
+    c := t1.getchar;
+    IF c <> 'A' THEN error("copy independence failed");
+    
+    COMMENT --- sub() for substrings ---;
+    t1 :- blanks(10);
+    t1.setpos(1);
+    FOR i := 1 STEP 1 UNTIL 10 DO
+    BEGIN
+        t1.putchar(char(64 + i));
+    END;
+    
+    t2 :- t1.sub(3, 4);
+    IF t2.length <> 4 THEN error("sub length failed");
+    
+    t2.setpos(1);
+    c := t2.getchar;
+    IF c <> 'C' THEN error("sub content failed");
+    
+    COMMENT --- strip() function ---;
+    t1 :- blanks(10);
+    t1.setpos(1);
+    t1.putchar('H');
+    t1.putchar('i');
+    
+    t2 :- t1.strip;
+    IF t2.length <> 2 THEN error("strip length failed");
+    
+    COMMENT --- TEXT value assignment ---;
+    t1 :- blanks(5);
+    t2 :- blanks(5);
+    
+    t1.setpos(1);
+    t1.putchar('A');
+    t1.putchar('B');
+    t1.putchar('C');
+    
+    t2 := t1;
+    
+    t2.setpos(1);
+    c := t2.getchar;
+    IF c <> 'A' THEN error("TEXT value assignment failed");
+    
+    COMMENT --- putint and getint ---;
+    t1 :- blanks(20);
+    t1.setpos(1);
+    t1.putint(12345, 10);
+    
+    t1.setpos(1);
+    i := t1.getint;
+    IF i <> 12345 THEN error("putint/getint failed");
+    
+    COMMENT --- Negative integer ---;
+    t1 :- blanks(20);
+    t1.setpos(1);
+    t1.putint(-42, 10);
+    
+    t1.setpos(1);
+    i := t1.getint;
+    IF i <> -42 THEN error("Negative putint/getint failed");
+    
+    COMMENT --- putfix and getreal ---;
+    t1 :- blanks(20);
+    t1.setpos(1);
+    t1.putfix(3.14159, 4, 10);
+    
+    t1.setpos(1);
+    r := t1.getreal;
+    IF r < 3.14 OR r > 3.15 THEN error("putfix/getreal failed");
+    
+    COMMENT --- TEXT comparison ---;
+    t1 :- blanks(5);
+    t2 :- blanks(5);
+    
+    t1.setpos(1);
+    t1.putchar('A');
+    t1.putchar('B');
+    t1.putchar('C');
+    
+    t2.setpos(1);
+    t2.putchar('A');
+    t2.putchar('B');
+    t2.putchar('C');
+    
+    IF NOT (t1 = t2) THEN error("TEXT equality failed");
+    
+    t2.setpos(3);
+    t2.putchar('D');
+    
+    IF t1 = t2 THEN error("TEXT inequality failed");
+    IF NOT (t1 < t2) THEN error("TEXT less than failed");
+    
+    COMMENT --- constant attribute ---;
+    t1 :- "Hello";
+    IF NOT t1.constant THEN error("String literal not constant");
+    
+    t2 :- blanks(5);
+    IF t2.constant THEN error("blanks should not be constant");
+    
+    COMMENT --- All tests passed ---;
+    outtext("Test 06: TEXT type - PASSED");
+    outimage;
+END

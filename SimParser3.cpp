@@ -1306,6 +1306,7 @@ Declaration* Parser3::module() {
     }
     
     module_body_();
+    // transfer body->body to mod->body?
 
     while (la.d_type == Tok_Semi) {
         expect(Tok_Semi, false, "module");

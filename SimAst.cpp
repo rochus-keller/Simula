@@ -215,7 +215,7 @@ const char *Declaration::getKindName() const
         case Declaration::Program: return "Program";
         case Declaration::Class: return "Class";
         case Declaration::Procedure: return "Procedure";
-        case Declaration::Block: return "Block";
+        case Declaration::Block: return "BlockDecls"; // never printed
         case Declaration::Variable: return "Variable";
         case Declaration::Array: return "Array";
         case Declaration::Switch: return "Switch";
@@ -491,8 +491,18 @@ private:
 
     void writeIndent()
     {
+#if 0
         for (int i = 0; i < indent; ++i)
             out << "  ";
+#else
+        for (int i = 0; i < indent; ++i)
+        {
+            if( i % 2 == 0 )
+                out << "| ";
+            else
+                out << "  ";
+        }
+#endif
     }
 
     const char* exprKindName(Expression::Kind k)
@@ -581,9 +591,27 @@ private:
         }
     }
 
+    static inline bool hasTrueDecls(Declaration* d)
+    {
+        while( d )
+        {
+            if( d->kind != Declaration::Block && d->kind != Declaration::LabelDecl )
+                return true;
+            d = d->next;
+        }
+        return false;
+    }
+
     void dumpDecl(Declaration* d)
     {
         while (d) {
+            if( d->kind == Declaration::Block || d->kind == Declaration::LabelDecl )
+            {
+                // logically a decl block belongs to block statement the scope of which points to this block
+                // logically a label decl belongs to the label statement
+                d = d->next;
+                continue;
+            }
             writeIndent();
             out << d->getKindName();
             if (!d->name.isEmpty())
@@ -653,7 +681,7 @@ private:
                 --indent;
             }
 
-            if (d->link) {
+            if (d->link && hasTrueDecls(d->link) ) {
                 ++indent;
                 writeIndent();
                 out << "members:\n";
@@ -800,9 +828,15 @@ private:
             case Statement::Compound:
             case Statement::Block:
                 if (s->scope) {
+                    Q_ASSERT(s->scope->kind == Declaration::Block);
+                    // blockdecls logically belong to the statement, even if they
+                    // are owned by the outer decl
                     ++indent;
-                    writeIndent();
-                    out << "scope: " << s->scope->name << "\n";
+                    if( !s->scope->name.isEmpty() )
+                    {
+                        writeIndent();
+                        out << "scope name: " << s->scope->name << "\n";
+                    }
                     if (s->scope->link) {
                         writeIndent();
                         out << "locals:\n";
@@ -1007,7 +1041,7 @@ private:
             case Statement::Label:
                 ++indent;
                 writeIndent();
-                out << ": " << s->label->name;
+                out << ": " << s->label->name << endl;
                 --indent;
                 break;
 

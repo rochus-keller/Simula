@@ -1,0 +1,124 @@
+COMMENT -----------------------------------------------------------------------
+  Test 02: Control Structures
+  
+  Tests:
+  - IF-THEN-ELSE statements
+  - WHILE loops
+  - FOR loops with STEP UNTIL
+  - FOR loops with WHILE
+  - Nested control structures
+  - Compound statements (BEGIN-END)
+-----------------------------------------------------------------------;
+
+BEGIN
+    INTEGER i, j, sum, count;
+    BOOLEAN done;
+    
+    COMMENT --- Simple IF-THEN ---;
+    i := 5;
+    j := 0;
+    IF i > 3 THEN j := 1;
+    IF j <> 1 THEN error("Simple IF-THEN failed");
+    
+    COMMENT --- IF-THEN-ELSE ---;
+    i := 2;
+    IF i > 5 THEN
+        j := 10
+    ELSE
+        j := 20;
+    IF j <> 20 THEN error("IF-THEN-ELSE failed");
+    
+    COMMENT --- Nested IF ---;
+    i := 15;
+    IF i < 10 THEN
+        j := 1
+    ELSE IF i < 20 THEN
+        j := 2
+    ELSE
+        j := 3;
+    IF j <> 2 THEN error("Nested IF failed");
+    
+    COMMENT --- WHILE loop - sum 1 to 10 ---;
+    sum := 0;
+    i := 1;
+    WHILE i <= 10 DO
+    BEGIN
+        sum := sum + i;
+        i := i + 1;
+    END;
+    IF sum <> 55 THEN error("WHILE loop sum failed");
+    
+    COMMENT --- WHILE loop with early exit condition ---;
+    i := 0;
+    count := 0;
+    WHILE i < 100 DO
+    BEGIN
+        i := i + 1;
+        count := count + 1;
+        IF i = 25 THEN i := 100;
+    END;
+    IF count <> 25 THEN error("WHILE loop early exit failed");
+    
+    COMMENT --- FOR loop with STEP UNTIL ---;
+    sum := 0;
+    FOR i := 1 STEP 1 UNTIL 10 DO
+        sum := sum + i;
+    IF sum <> 55 THEN error("FOR STEP UNTIL failed");
+    
+    COMMENT --- FOR loop with step 2 ---;
+    sum := 0;
+    FOR i := 1 STEP 2 UNTIL 10 DO
+        sum := sum + i;
+    IF sum <> 25 THEN error("FOR STEP 2 failed");
+    
+    COMMENT --- FOR loop counting down ---;
+    sum := 0;
+    FOR i := 10 STEP -1 UNTIL 1 DO
+        sum := sum + i;
+    IF sum <> 55 THEN error("FOR countdown failed");
+    
+    COMMENT --- FOR loop with WHILE ---;
+    sum := 0;
+    i := 1;
+    FOR j := i WHILE j <= 5 DO
+    BEGIN
+        sum := sum + j;
+        i := i + 1;
+    END;
+    IF sum <> 15 THEN error("FOR WHILE failed");
+    
+    COMMENT --- Nested FOR loops ---;
+    sum := 0;
+    FOR i := 1 STEP 1 UNTIL 3 DO
+        FOR j := 1 STEP 1 UNTIL 3 DO
+            sum := sum + 1;
+    IF sum <> 9 THEN error("Nested FOR failed");
+    
+    COMMENT --- FOR with compound body ---;
+    sum := 0;
+    count := 0;
+    FOR i := 1 STEP 1 UNTIL 5 DO
+    BEGIN
+        sum := sum + i;
+        count := count + 1;
+    END;
+    IF sum <> 15 THEN error("FOR compound body sum failed");
+    IF count <> 5 THEN error("FOR compound body count failed");
+    
+    COMMENT --- Nested WHILE in FOR ---;
+    sum := 0;
+    FOR i := 1 STEP 1 UNTIL 3 DO
+    BEGIN
+        j := 1;
+        WHILE j <= i DO
+        BEGIN
+            sum := sum + 1;
+            j := j + 1;
+        END;
+    END;
+    IF sum <> 6 THEN error("Nested WHILE in FOR failed");
+    
+    COMMENT --- All tests passed ---;
+    outtext("Test 02: Control structures - PASSED");
+    outimage;
+END

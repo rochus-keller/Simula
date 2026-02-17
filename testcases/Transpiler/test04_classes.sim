@@ -1,0 +1,154 @@
+COMMENT -----------------------------------------------------------------------
+  Test 04: Classes and Inheritance
+  
+  Tests:
+  - Simple class definition
+  - Class with parameters
+  - Class with attributes (variables)
+  - Class with procedures
+  - NEW expression for object creation
+  - REF variables and reference assignment (:-) 
+  - Dot notation for attribute access
+  - Class inheritance (prefix)
+  - NONE reference
+  - Reference comparison (== and =/=)
+-----------------------------------------------------------------------;
+
+BEGIN
+    COMMENT --- Simple class with parameters and attributes ---;
+    CLASS Point(x, y);
+        REAL x, y;
+    BEGIN
+        REAL PROCEDURE distanceFromOrigin;
+            distanceFromOrigin := sqrt(x*x + y*y);
+        
+        REAL PROCEDURE distanceTo(other); REF(Point) other;
+        BEGIN
+            REAL dx, dy;
+            dx := x - other.x;
+            dy := y - other.y;
+            distanceTo := sqrt(dx*dx + dy*dy);
+        END;
+    END;
+    
+    REF(Point) p1, p2, p3;
+    REAL dist;
+    
+    COMMENT --- Object creation with NEW ---;
+    p1 :- NEW Point(3.0, 4.0);
+    IF p1 == NONE THEN error("NEW Point failed");
+    
+    COMMENT --- Attribute access via dot notation ---;
+    IF p1.x < 2.9 OR p1.x > 3.1 THEN error("Point.x access failed");
+    IF p1.y < 3.9 OR p1.y > 4.1 THEN error("Point.y access failed");
+    
+    COMMENT --- Method call ---;
+    dist := p1.distanceFromOrigin;
+    IF dist < 4.9 OR dist > 5.1 THEN error("distanceFromOrigin failed");
+    
+    COMMENT --- Second object ---;
+    p2 :- NEW Point(0.0, 0.0);
+    dist := p1.distanceTo(p2);
+    IF dist < 4.9 OR dist > 5.1 THEN error("distanceTo failed");
+    
+    COMMENT --- Reference comparison ---;
+    p3 :- p1;
+    IF p3 =/= p1 THEN error("Reference assignment failed");
+    IF p3 == p2 THEN error("Reference comparison failed");
+    
+    COMMENT --- NONE comparison ---;
+    p3 :- NONE;
+    IF p3 =/= NONE THEN error("NONE assignment failed");
+    
+    COMMENT --- Class with inheritance ---;
+    Point CLASS ColorPoint(color);
+        INTEGER color;
+    BEGIN
+        PROCEDURE setColor(c); INTEGER c;
+            color := c;
+        
+        INTEGER PROCEDURE getColor;
+            getColor := color;
+    END;
+    
+    REF(ColorPoint) cp1, cp2;
+    REF(Point) pp;
+    
+    COMMENT --- Create subclass object ---;
+    cp1 :- NEW ColorPoint(10.0, 20.0, 255);
+    IF cp1 == NONE THEN error("NEW ColorPoint failed");
+    
+    COMMENT --- Access inherited attributes ---;
+    IF cp1.x < 9.9 OR cp1.x > 10.1 THEN error("Inherited x access failed");
+    IF cp1.y < 19.9 OR cp1.y > 20.1 THEN error("Inherited y access failed");
+    
+    COMMENT --- Access subclass attributes ---;
+    IF cp1.color <> 255 THEN error("ColorPoint.color access failed");
+    
+    COMMENT --- Call inherited method ---;
+    dist := cp1.distanceFromOrigin;
+    IF dist < 22.3 OR dist > 22.4 THEN error("Inherited method call failed");
+    
+    COMMENT --- Call subclass method ---;
+    cp1.setColor(128);
+    IF cp1.getColor <> 128 THEN error("Subclass method call failed");
+    
+    COMMENT --- Assign subclass to superclass reference ---;
+    pp :- cp1;
+    IF pp == NONE THEN error("Subclass to superclass assignment failed");
+    IF pp.x < 9.9 OR pp.x > 10.1 THEN error("Access via superclass ref failed");
+    
+    COMMENT --- Class with body statements ---;
+    CLASS Counter;
+    BEGIN
+        INTEGER count;
+        count := 0;
+        
+        PROCEDURE increment;
+            count := count + 1;
+        
+        PROCEDURE decrement;
+            count := count - 1;
+        
+        INTEGER PROCEDURE value;
+            value := count;
+    END;
+    
+    REF(Counter) c1, c2;
+    
+    c1 :- NEW Counter;
+    c2 :- NEW Counter;
+    
+    c1.increment;
+    c1.increment;
+    c1.increment;
+    
+    IF c1.value <> 3 THEN error("Counter increment failed");
+    IF c2.value <> 0 THEN error("Counter independence failed");
+    
+    c1.decrement;
+    IF c1.value <> 2 THEN error("Counter decrement failed");
+    
+    COMMENT --- Class with multiple levels of inheritance ---;
+    Counter CLASS LimitedCounter(maxVal);
+        INTEGER maxVal;
+    BEGIN
+        PROCEDURE increment;
+            IF count < maxVal THEN count := count + 1;
+    END;
+    
+    REF(LimitedCounter) lc;
+    
+    lc :- NEW LimitedCounter(3);
+    lc.increment;
+    lc.increment;
+    lc.increment;
+    lc.increment;
+    lc.increment;
+    
+    IF lc.value <> 3 THEN error("LimitedCounter max failed");
+    
+    COMMENT --- All tests passed ---;
+    outtext("Test 04: Classes and inheritance - PASSED");
+    outimage;
+END

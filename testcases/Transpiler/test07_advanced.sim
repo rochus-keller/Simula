@@ -1,0 +1,248 @@
+COMMENT -----------------------------------------------------------------------
+  Test 07: Advanced Features
+  
+  Tests:
+  - INSPECT statement with WHEN clauses
+  - OTHERWISE clause
+  - DO clause
+  - QUA expression for type casting
+  - IS expression for exact type check
+  - IN expression for subclass check
+  - THIS expression
+  - Virtual procedures
+  - Conditional expressions (IF-THEN-ELSE expression)
+  - Block expressions
+-----------------------------------------------------------------------;
+
+BEGIN
+    COMMENT --- Class hierarchy for type testing ---;
+    CLASS Animal;
+    BEGIN
+        TEXT name;
+        
+        TEXT PROCEDURE speak;
+            speak :- "...";
+        
+        PROCEDURE setName(n); TEXT n;
+            name :- n;
+    END;
+    
+    Animal CLASS Dog;
+    BEGIN
+        TEXT PROCEDURE speak;
+            speak :- "Woof!";
+        
+        PROCEDURE fetch;
+        BEGIN
+            COMMENT Dog-specific behavior;
+        END;
+    END;
+    
+    Animal CLASS Cat;
+    BEGIN
+        TEXT PROCEDURE speak;
+            speak :- "Meow!";
+        
+        PROCEDURE purr;
+        BEGIN
+            COMMENT Cat-specific behavior;
+        END;
+    END;
+    
+    Dog CLASS Poodle;
+    BEGIN
+        TEXT PROCEDURE speak;
+            speak :- "Yip!";
+    END;
+    
+    REF(Animal) a;
+    REF(Dog) d;
+    REF(Cat) c;
+    REF(Poodle) p;
+    INTEGER count;
+    BOOLEAN found;
+    
+    COMMENT --- Create objects ---;
+    d :- NEW Dog;
+    d.setName("Buddy");
+    
+    c :- NEW Cat;
+    c.setName("Whiskers");
+    
+    p :- NEW Poodle;
+    p.setName("Fifi");
+    
+    COMMENT --- IS expression (exact type check) ---;
+    a :- d;
+    IF NOT (a IS Dog) THEN error("IS Dog failed");
+    IF a IS Cat THEN error("IS Cat should be false");
+    IF a IS Poodle THEN error("IS Poodle should be false for Dog");
+    
+    a :- p;
+    IF NOT (a IS Poodle) THEN error("IS Poodle failed");
+    IF a IS Dog THEN error("IS Dog should be false for exact Poodle");
+    
+    COMMENT --- IN expression (subclass check) ---;
+    a :- d;
+    IF NOT (a IN Dog) THEN error("IN Dog failed");
+    IF NOT (a IN Animal) THEN error("IN Animal failed for Dog");
+    IF a IN Cat THEN error("IN Cat should be false");
+    
+    a :- p;
+    IF NOT (a IN Poodle) THEN error("IN Poodle failed");
+    IF NOT (a IN Dog) THEN error("IN Dog failed for Poodle");
+    IF NOT (a IN Animal) THEN error("IN Animal failed for Poodle");
+    
+    COMMENT --- INSPECT with WHEN clauses ---;
+    count := 0;
+    
+    a :- d;
+    INSPECT a
+        WHEN Dog DO count := 1
+        WHEN Cat DO count := 2
+        OTHERWISE count := 3;
+    IF count <> 1 THEN error("INSPECT Dog failed");
+    
+    a :- c;
+    INSPECT a
+        WHEN Dog DO count := 1
+        WHEN Cat DO count := 2
+        OTHERWISE count := 3;
+    IF count <> 2 THEN error("INSPECT Cat failed");
+    
+    a :- NONE;
+    INSPECT a
+        WHEN Dog DO count := 1
+        WHEN Cat DO count := 2
+        OTHERWISE count := 3;
+    IF count <> 3 THEN error("INSPECT NONE failed");
+    
+    COMMENT --- INSPECT with DO clause ---;
+    a :- d;
+    found := FALSE;
+    INSPECT a
+        WHEN Dog DO found := TRUE;
+    IF NOT found THEN error("INSPECT DO clause failed");
+    
+    COMMENT --- INSPECT accessing WHEN object ---;
+    a :- d;
+    count := 0;
+    INSPECT a
+        WHEN Dog DO
+        BEGIN
+            this Dog.fetch;
+            count := 1;
+        END
+        WHEN Cat DO
+        BEGIN
+            this Cat.purr;
+            count := 2;
+        END;
+    IF count <> 1 THEN error("INSPECT WHEN body failed");
+    
+    COMMENT --- QUA expression ---;
+    a :- d;
+    d :- a QUA Dog;
+    IF d == NONE THEN error("QUA Dog failed");
+    
+    a :- p;
+    d :- a QUA Dog;
+    IF d == NONE THEN error("QUA Dog for Poodle failed");
+    
+    COMMENT --- THIS expression ---;
+    CLASS Container;
+    BEGIN
+        REF(Container) self;
+        
+        PROCEDURE init;
+            self :- THIS Container;
+        
+        REF(Container) PROCEDURE getSelf;
+            getSelf :- self;
+    END;
+    
+    REF(Container) cont;
+    cont :- NEW Container;
+    cont.init;
+    IF cont.getSelf =/= cont THEN error("THIS expression failed");
+    
+    COMMENT --- Conditional expression (IF-THEN-ELSE expr) ---;
+    INTEGER x, y, maxval;
+    x := 10;
+    y := 20;
+    
+    maxval := IF x > y THEN x ELSE y;
+    IF maxval <> 20 THEN error("Conditional expr max failed");
+    
+    maxval := IF x < y THEN x ELSE y;
+    IF maxval <> 10 THEN error("Conditional expr min failed");
+    
+    COMMENT --- Nested conditional expression ---;
+    INTEGER a1, b1, c1, result;
+    a1 := 5;
+    b1 := 10;
+    c1 := 3;
+    
+    result := IF a1 > b1 THEN a1 ELSE IF b1 > c1 THEN b1 ELSE c1;
+    IF result <> 10 THEN error("Nested conditional expr failed");
+    
+    COMMENT --- Virtual procedures ---;
+    CLASS Shape;
+    VIRTUAL: REAL PROCEDURE area;
+    BEGIN
+        REAL PROCEDURE area;
+            area := 0.0;
+    END;
+    
+    Shape CLASS Rectangle(width, height);
+        REAL width, height;
+    BEGIN
+        REAL PROCEDURE area;
+            area := width * height;
+    END;
+    
+    Shape CLASS Circle(radius);
+        REAL radius;
+    BEGIN
+        REAL PROCEDURE area;
+            area := 3.14159 * radius * radius;
+    END;
+    
+    REF(Shape) s;
+    REF(Rectangle) rect;
+    REF(Circle) circ;
+    REAL ar;
+    
+    rect :- NEW Rectangle(4.0, 5.0);
+    circ :- NEW Circle(3.0);
+    
+    s :- rect;
+    ar := s.area;
+    IF ar < 19.9 OR ar > 20.1 THEN error("Virtual Rectangle.area failed");
+    
+    s :- circ;
+    ar := s.area;
+    IF ar < 28.2 OR ar > 28.3 THEN error("Virtual Circle.area failed");
+    
+    COMMENT --- Procedure returning reference ---;
+    CLASS Node(value);
+        INTEGER value;
+    BEGIN
+        REF(Node) next;
+    END;
+    
+    REF(Node) PROCEDURE makeNode(v); INTEGER v;
+        makeNode :- NEW Node(v);
+    
+    REF(Node) n1, n2;
+    n1 :- makeNode(10);
+    n2 :- makeNode(20);
+    n1.next :- n2;
+    
+    IF n1.value <> 10 THEN error("Node value failed");
+    IF n1.next.value <> 20 THEN error("Node.next.value failed");
+    
+    COMMENT --- All tests passed ---;
+    outtext("Test 07: Advanced features - PASSED");
+    outimage;
+END
