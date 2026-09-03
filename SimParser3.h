@@ -37,10 +37,10 @@ namespace Sim {
     public:
         Parser3(Scanner* s, AstModel* m);
         ~Parser3();
-        
+
         Declaration* RunParser();
         Declaration* takeResult();
-        
+
         struct Error {
             QString msg;
             RowCol pos;
@@ -49,7 +49,7 @@ namespace Sim {
                 : msg(m), pos(rc), path(p) {}
         };
         QList<Error> errors;
-        
+
     protected:
         Declaration* module();
         void module_body_();
@@ -71,7 +71,7 @@ namespace Sim {
         DeclList virtual_part();
         DeclList virtual_spec();
         void procedure_declaration();
-        Declaration *procedure_heading();
+        Declaration *procedure_heading(bool detached = false);
         void mode_part(Declaration* procDecl);
         void value_part(Declaration* procDecl);
         void name_part(Declaration* procDecl);
@@ -103,7 +103,7 @@ namespace Sim {
         void scheduling_clause(Statement* stmt);
         Type* specifier(bool& isArray, bool& isProcedure);
         void specification_part(Declaration* parent);
-        void procedure_specification();
+        Type* procedure_specification(Token& id);
         Declaration* external_item();
         QList<Declaration*> external_list();
         void external_declaration();
@@ -163,14 +163,14 @@ namespace Sim {
         Expression* subscript_expression();
         Token attribute_identifier();
         Expression* string_();
-        
+
     protected:
         Token cur;
         Token la;
         Scanner* scanner;
         AstModel* mdl;
         Declaration* thisMod;
-        
+
         void next();
         Token peek(int off);
         void error(const Token& t, const QString& msg);
@@ -179,7 +179,8 @@ namespace Sim {
         bool expect(int tt, bool pkw, const char* where);
         void fixParamTypes(Declaration*);
         void appendName(Declaration* d, const Token& id);
-        
+        static Type* toProcType(Type* resultType, Declaration* heading);
+
         RowCol toRowCol(const Token& t) const;
         bool versionCheck(SimulaVersion minVersion, const char* feature = 0);
         bool versionMax(SimulaVersion maxVersion, const char* feature = 0);

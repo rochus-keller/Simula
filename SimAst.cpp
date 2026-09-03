@@ -56,7 +56,11 @@ const char* Type::name[] = {
 static QList<Node*> nodes;
 #endif
 
-Node::Node(Meta m) : meta(m), isExternal(0), ownstype(0), owned(0), _ty(0), mode(0),
+Node::Node(Meta m) :
+#ifndef _DEBUG
+    kind(0),
+#endif
+    meta(m), isExternal(0), ownstype(0), owned(0), type(0), mode(0),
     visi(0), id(0), isVirtual(0), re(0), prior(0), ownsexpr(0),validated(0), hasErrors(0)
 {
 #ifdef SIM_TRACK_LEFTOVERS
@@ -65,8 +69,8 @@ Node::Node(Meta m) : meta(m), isExternal(0), ownstype(0), owned(0), _ty(0), mode
 }
 
 Node::~Node() {
-    if (_ty && ownstype)
-       delete _ty;
+    if( type && ownstype )
+       delete type;
 #ifdef SIM_TRACK_LEFTOVERS
     nodes.removeAll(this);
 #endif
@@ -78,7 +82,7 @@ void Node::reportLeftovers()
     qDebug() << "*** nodes not deleted:" << nodes.size();
     foreach( Node* n, nodes )
     {
-        switch(n->meta)
+        switch( n->meta )
         {
         case T: {
             Type* t = (Type*)n;
@@ -106,39 +110,41 @@ void Node::reportLeftovers()
 }
 
 void Node::setType(Type* t) {
-    if (_ty == t)
+    if( type == t )
         return;
-    if (_ty && ownstype) {
-        delete _ty;
+    if( type && ownstype ) {
+        delete type;
         ownstype = false;
     }
-    _ty = t;
-    if (t && !t->owned) {
+    type = t;
+    if( t && !t->owned ) {
         ownstype = true;
         t->owned = true;
     }
 }
 
-Type::Type(Kind k) : Node(T), kind(k), expr(0)
+Type::Type(Kind k) : Node(T), expr(0)
 {
-
+    kind = k;
 }
 
 Type::~Type() {
-    if (expr && ownsexpr)
+    if( expr && ownsexpr )
         delete expr;
+    foreach( Declaration* d, subs )
+        Declaration::deleteAll(d);
 }
 
 void Type::setExpr(Expression *e)
 {
-    if (expr == e)
+    if( expr == e )
         return;
-    if (expr && ownsexpr) {
+    if( expr && ownsexpr ) {
         delete expr;
         ownsexpr = false;
     }
     expr = e;
-    if (e && !e->owned) {
+    if( e && !e->owned ) {
         ownsexpr = true;
         e->owned = true;
     }
@@ -153,30 +159,41 @@ Declaration *Type::getRefType() const
 
 bool Type::isArithmetic() const { return kind >= Integer && kind <= LongReal; }
 
-Declaration::Declaration(Kind k) : Node(D), kind(k), link(0), next(0), outer(0), body(0), prefix(0),sym(0), nameRef(0)
+Declaration* Type::findSub(Atom sym) const
 {
+    foreach( Declaration* d, subs )
+        if( d->sym == sym )
+            return d;
+    return 0;
+}
 
+Declaration::Declaration(Kind k) : Node(D), link(0), next(0), outer(0), body(0), prefix(0),sym(0), nameRef(0)
+{
+    kind = k;
 }
 
 Declaration::~Declaration() {
-    if (link)
+    if( link )
         deleteAll(link); // Recursive delete of members
-    if (body)
+    if( body )
         Statement::deleteAll(body);     // Delete statement tree
-    if (nameRef)
+    if( nameRef )
         delete nameRef;
 
     // Union cleanup based on Kind
-    switch (kind) {
+    switch( kind ) {
     case Switch:
-        if (list) delete list;
+        if( list )
+            delete list;
         break;
     case Module:
-        if( path) delete path;
+        if( path )
+            delete path;
         break;
     case Variable:
     case Parameter:
-        if (init) delete init;
+        if( init )
+            delete init;
         break;
     default:
         break;
@@ -188,7 +205,7 @@ Declaration *Declaration::find(const char *id, bool recursive) const
     Declaration* d = link;
     while( d )
     {
-        if( d->sym == id)
+        if( d->sym == id )
             return d;
         d = d->next;
     }
@@ -209,91 +226,130 @@ Declaration *Declaration::getModule()
 
 const char *Declaration::getKindName() const
 {
-    switch (kind) {
-        case Declaration::Invalid: return "Invalid";
-        case Declaration::Module: return "Module";
-        case Declaration::Program: return "Program";
-        case Declaration::Class: return "Class";
-        case Declaration::Procedure: return "Procedure";
-        case Declaration::Block: return "BlockDecls"; // never printed
-        case Declaration::Variable: return "Variable";
-        case Declaration::Array: return "Array";
-        case Declaration::Switch: return "Switch";
-        case Declaration::Parameter: return "Parameter";
-        case Declaration::VirtualSpec: return "Virtual";
-        case Declaration::ExternalProc: return "External Procecure";
-        case Declaration::ExternalClass: return "External Class";
-        case Declaration::LabelDecl: return "Label";
-        case Declaration::Builtin: return "Builtin";
-        case Declaration::StandardClass: return "Standard Class";
-        default: return "Unknown";
+    switch( kind ) {
+    case Declaration::Invalid:
+        return "Invalid";
+    case Declaration::Module:
+        return "Module";
+    case Declaration::Program:
+        return "Program";
+    case Declaration::Class:
+        return "Class";
+    case Declaration::Procedure:
+        return "Procedure";
+    case Declaration::Block:
+        return "BlockDecls"; // never printed
+    case Declaration::Variable:
+        return "Variable";
+    case Declaration::Array:
+        return "Array";
+    case Declaration::Switch:
+        return "Switch";
+    case Declaration::Parameter:
+        return "Parameter";
+    case Declaration::VirtualSpec:
+        return "Virtual";
+    case Declaration::ExternalProc:
+        return "External Procecure";
+    case Declaration::ExternalClass:
+        return "External Class";
+    case Declaration::LabelDecl:
+        return "Label";
+    case Declaration::Builtin:
+        return "Builtin";
+    case Declaration::StandardClass:
+        return "Standard Class";
+    default: return "Unknown";
     }
 }
 
 void Declaration::appendMember(Declaration* d) {
-    if (!link) link = d;
+    if( !link ) link = d;
     else {
         Declaration* cur = link;
-        while (cur->next) cur = cur->next;
+        while( cur->next )
+            cur = cur->next;
         cur->next = d;
     }
 }
 
 void Declaration::deleteAll(Declaration* d) {
-    while (d) {
+    while( d ) {
         Declaration* next = d->next;
         delete d;
         d = next;
     }
 }
 
-Expression::Expression(Kind k, const RowCol& rc) : Node(E), kind(k), lhs(0), rhs(0), next(0), condition(0), u(0) { pos = rc; }
+Expression::Expression(Kind k, const RowCol& rc) : Node(E), lhs(0), rhs(0), next(0), condition(0), u(0)
+{
+    kind = k;
+    pos = rc;
+}
+
 Expression::~Expression() {
-    if (lhs) delete lhs;
-    if (rhs) delete rhs;
-    if (next) delete next;
-    if (condition) delete condition;
+    if( lhs )
+        delete lhs;
+    if( rhs )
+        delete rhs;
+    if( next )
+        delete next;
+    if( condition )
+        delete condition;
 }
 void Expression::append(Expression* list, Expression* elem) {
-    while (list->next) list = list->next;
+    while( list->next )
+        list = list->next;
     list->next = elem;
 }
 
-Statement::Statement(Kind k, const RowCol& p) : Node(S), kind(k), body(0), next(0),
-    prefix(0), args(0), scope(0) { pos = p; }
+Statement::Statement(Kind k, const RowCol& p) : Node(S), body(0), next(0),
+    prefix(0), args(0), scope(0)
+{
+    kind = k;
+    pos = p;
+}
 
 Statement::~Statement() {
-    if (body)
+    if( body )
         deleteAll(body); // Recursively delete child statements (Block/Compound/Then)
 
     // Note: 'next' is NOT deleted here recursively to avoid stack overflow on long blocks,
-    // handled by deleteAll or manual iteration in parent. 
+    // handled by deleteAll or manual iteration in parent.
 
-    switch (kind) {
+    switch( kind ) {
     case Compound:
     case Block:
-        if (prefix) delete prefix;
-        if (args) delete args;
+        if( prefix )
+            delete prefix;
+        if( args )
+            delete args;
         // no: if (scope) delete scope;
         break;
     case If:
     case While:
-        if (cond) delete cond;
-        if (elseStmt)
+        if( cond )
+            delete cond;
+        if( elseStmt )
             deleteAll(elseStmt);
         break;
     case For:
-        if (var) delete var;
-        if (list) delete list; // Deletes the chain
+        if( var )
+            delete var;
+        if( list )
+            delete list; // Deletes the chain
         break;
     case Inspect:
-        if (obj) delete obj;
-        if (conn) delete conn;
-        if (otherwise)
+        if( obj )
+            delete obj;
+        if( conn )
+            delete conn;
+        if( otherwise )
             deleteAll(otherwise);
         break;
     case Activate:
-        if (activate) delete activate;
+        if( activate )
+            delete activate;
         break;
     case Assign:
     case Call:
@@ -301,8 +357,10 @@ Statement::~Statement() {
     case Resume:
     case Goto:
     case Inner:
-        if (lhs) delete lhs;
-        if (rhs) delete rhs;
+        if( lhs )
+            delete lhs;
+        if( rhs )
+            delete rhs;
         break;
     default:
         break;
@@ -319,15 +377,16 @@ Declaration *Statement::getScope() const
 
 void Statement::append(Statement* s) {
     Statement* last = this;
-    while(last->next) last = last->next;
+    while( last->next )
+        last = last->next;
     last->next = s;
 }
 
 void Statement::deleteAll(Statement* s) {
-    while (s) {
+    while( s ) {
         Statement* next = s->next;
         // Detach next to prevent double delete if destructor were recursive
-        s->next = 0; 
+        s->next = 0;
         delete s;
         s = next;
     }
@@ -335,9 +394,9 @@ void Statement::deleteAll(Statement* s) {
 
 Connection::Connection() : Node(Node::C), classDecl(0), body(0), next(0), className(0) {}
 Connection::~Connection() {
-    if(body)
+    if( body )
         Statement::deleteAll(body);
-    if(next)
+    if( next )
         delete next;
 }
 
@@ -355,7 +414,8 @@ void AstModel::openScope(Declaration* scope) {
 }
 
 Declaration* AstModel::closeScope() {
-    if (scopes.isEmpty()) return 0;
+    if( scopes.isEmpty() )
+        return 0;
     Declaration* s = scopes.takeLast();
     return s;
 }
@@ -364,7 +424,7 @@ Declaration* AstModel::addDecl(const char* id, const QByteArray &name, Declarati
     Declaration* d = new Declaration(k);
     d->name = name;
     d->sym = id;
-    if (!scopes.isEmpty()) {
+    if( !scopes.isEmpty() ) {
         d->outer = scopes.last();
         scopes.last()->appendMember(d);
     }
@@ -378,7 +438,8 @@ Declaration* AstModel::currentScope() const {
 Declaration* AstModel::getTopScope() const { return globalScope; }
 
 Type* AstModel::getType(Type::Kind k) const {
-    if (k < Type::MaxBasicType) return basicTypes[k];
+    if( k < Type::MaxBasicType )
+        return basicTypes[k];
     return 0;
 }
 
@@ -410,14 +471,14 @@ void AstModel::clear()
 
 Declaration* AstModel::resolveInClass(Declaration* cls, Atom name)
 {
-    if (!cls)
+    if( !cls )
         return 0;
 
     // Search in class and its prefix chain
     Declaration* cur = cls;
-    while (cur) {
+    while( cur ) {
         Declaration* d = findInScope(cur, name);
-        if (d)
+        if( d )
             return d;
         cur = cur->prefix;
     }
@@ -427,12 +488,12 @@ Declaration* AstModel::resolveInClass(Declaration* cls, Atom name)
 
 Declaration* AstModel::findInScope(Declaration* scope, const char *sym, bool includeBodyscope)
 {
-    if (!scope)
+    if( !scope )
         return 0;
 
     Declaration* d = scope->link;
-    while (d) {
-        if (d->sym == sym)
+    while( d ) {
+        if( d->sym == sym )
             return d;
         d = d->next;
     }
@@ -440,8 +501,8 @@ Declaration* AstModel::findInScope(Declaration* scope, const char *sym, bool inc
     if( includeBodyscope && scope->kind == Declaration::Class && scope->body && scope->body->scope )
     {
         d = scope->body->scope->link;
-        while (d) {
-            if (d->sym == sym)
+        while( d ) {
+            if( d->sym == sym )
                 return d;
             d = d->next;
         }
@@ -463,15 +524,13 @@ Type* AstModel::newType(Type::Kind k) {
 }
 
 void AstModel::initBuiltins() {
-    for (int i = 0; i < Builtin::Max; ++i) {
+    for( int i = 0; i < Builtin::Max; ++i ) {
         const QByteArray name = Builtin::name[i];
         Declaration* d = addDecl(Lexer::toId(name.toLower()), name, Declaration::Builtin);
         d->id = i;
     }
 
-    Declaration* textobj = addDecl(Lexer::toId("textobj"), "TEXTOBJ", Declaration::StandardClass);
-    // TODO: CONSTANT, START, LENGTH, MAIN, POS, SETPOS, MORE, GETCHAR, PUTCHAR
-
+    addDecl(Lexer::toId("textobj"), "TEXTOBJ", Declaration::StandardClass);
 }
 
 class AstDumper
@@ -481,7 +540,7 @@ public:
 
     void dump(Declaration* d)
     {
-        if (!d) return;
+        if( !d ) return;
         dumpDecl(d);
     }
 
@@ -492,10 +551,10 @@ private:
     void writeIndent()
     {
 #if 0
-        for (int i = 0; i < indent; ++i)
+        for( int i = 0; i < indent; ++i )
             out << "  ";
 #else
-        for (int i = 0; i < indent; ++i)
+        for( int i = 0; i < indent; ++i )
         {
             if( i % 2 == 0 )
                 out << "| ";
@@ -507,7 +566,7 @@ private:
 
     const char* exprKindName(Expression::Kind k)
     {
-        switch (k) {
+        switch( k ) {
             case Expression::Invalid: return "Invalid";
             case Expression::Neg: return "Negate";
             case Expression::Add: return "Plus";
@@ -556,7 +615,7 @@ private:
 
     const char* stmtKindName(Statement::Kind k)
     {
-        switch (k) {
+        switch( k ) {
             case Statement::Invalid: return "Invalid";
             case Statement::Compound: return "Compound";
             case Statement::Block: return "Block";
@@ -580,9 +639,9 @@ private:
 
     const char* typeKindName(Type::Kind k)
     {
-        if (k < Type::MaxBasicType)
+        if( k < Type::MaxBasicType )
             return Type::name[k];
-        switch (k) {
+        switch( k ) {
             case Type::Ref: return "Ref";
             case Type::Array: return "Array";
             case Type::Procedure: return "Procedure";
@@ -604,7 +663,7 @@ private:
 
     void dumpDecl(Declaration* d)
     {
-        while (d) {
+        while( d ) {
             if( d->kind == Declaration::Block || d->kind == Declaration::LabelDecl )
             {
                 // logically a decl block belongs to block statement the scope of which points to this block
@@ -614,37 +673,37 @@ private:
             }
             writeIndent();
             out << d->getKindName();
-            if (!d->name.isEmpty())
+            if( !d->name.isEmpty() )
                 out << " \"" << d->name << "\"";
-            if (d->sym)
+            if( d->sym )
                 out << " sym=" << d->sym;
             out << " [" << d->pos.d_row << ":" << d->pos.d_col << "]";
 
-            if (d->mode == Declaration::ModeValue)
+            if( d->mode == Declaration::ModeValue )
                 out << " value";
-            else if (d->mode == Declaration::ModeName)
+            else if( d->mode == Declaration::ModeName )
                 out << " name";
 
-            if (d->visi == Declaration::Private)
+            if( d->visi == Declaration::Private )
                 out << " hidden";
-            else if (d->visi == Declaration::Protected)
+            else if( d->visi == Declaration::Protected )
                 out << " protected";
 
-            if (d->isVirtual)
+            if( d->isVirtual )
                 out << " virtual";
 
-            if (d->nameRef)
+            if( d->nameRef )
                 out << " nameRef=" << d->nameRef;
 
             // Union fields based on kind
-            switch (d->kind) {
+            switch( d->kind ) {
             case Declaration::Class:
             case Declaration::Procedure:
-                if (d->prefix)
+                if( d->prefix )
                     out << " prefix=" << d->prefix->name;
                 break;
             case Declaration::Module:
-                if (d->path)
+                if( d->path )
                     out << " path=\"" << *d->path << "\"";
                 break;
             default:
@@ -653,14 +712,14 @@ private:
 
             out << "\n";
 
-            if (d->type()) {
+            if( d->getType() ) {
                 ++indent;
-                dumpType(d->type());
+                dumpType(d->getType());
                 --indent;
             }
 
             // Dump switch list for Switch declarations
-            if (d->kind == Declaration::Switch && d->list) {
+            if( d->kind == Declaration::Switch && d->list ) {
                 ++indent;
                 writeIndent();
                 out << "switch_list:\n";
@@ -671,7 +730,7 @@ private:
             }
 
             // Dump init expression for Variable/Parameter
-            if ((d->kind == Declaration::Variable || d->kind == Declaration::Parameter) && d->init) {
+            if( (d->kind == Declaration::Variable || d->kind == Declaration::Parameter) && d->init ) {
                 ++indent;
                 writeIndent();
                 out << "init:\n";
@@ -681,7 +740,7 @@ private:
                 --indent;
             }
 
-            if (d->link && hasTrueDecls(d->link) ) {
+            if( d->link && hasTrueDecls(d->link) ) {
                 ++indent;
                 writeIndent();
                 out << "members:\n";
@@ -691,7 +750,7 @@ private:
                 --indent;
             }
 
-            if (d->body) {
+            if( d->body ) {
                 ++indent;
                 writeIndent();
                 out << "body:\n";
@@ -707,12 +766,12 @@ private:
 
     void dumpType(Type* t)
     {
-        if (!t) return;
+        if( !t ) return;
         writeIndent();
-        out << "type: " << typeKindName(t->kind);
+        out << "type: " << typeKindName((Type::Kind)t->kind);
         out << "\n";
 
-        if (t->getExpr()) {
+        if( t->getExpr() ) {
             ++indent;
             writeIndent();
             out << "expr:\n";
@@ -725,7 +784,7 @@ private:
 
     void dumpExprList(Expression* e)
     {
-        while (e) {
+        while( e ) {
             dumpExpr(e);
             e = e->next;
         }
@@ -733,18 +792,19 @@ private:
 
     void dumpExpr(Expression* e)
     {
-        if (!e) return;
+        if( !e )
+            return;
 
         writeIndent();
-        out << exprKindName(e->kind);
+        out << exprKindName((Expression::Kind)e->kind);
         out << " [" << e->pos.d_row << ":" << e->pos.d_col << "]";
 
         // Print value based on expression kind
-        switch (e->kind) {
+        switch( e->kind ) {
         case Expression::Identifier:
         case Expression::StringConst:
         case Expression::TypeRef:
-            if (e->a)
+            if( e->a )
                 out << " \"" << e->a << "\"";
             break;
         case Expression::CharConst:
@@ -760,11 +820,11 @@ private:
             out << " " << (e->u ? "true" : "false");
             break;
         case Expression::DeclRef:
-            if (e->d)
+            if( e->d )
                 out << " -> " << e->d->name;
             break;
         case Expression::This:
-            if (e->a)
+            if( e->a )
                 out << " " << e->a;
             break;
         default:
@@ -772,7 +832,7 @@ private:
         }
         out << "\n";
 
-        if (e->condition) {
+        if( e->condition ) {
             ++indent;
             writeIndent();
             out << "condition:\n";
@@ -782,7 +842,7 @@ private:
             --indent;
         }
 
-        if (e->lhs) {
+        if( e->lhs ) {
             ++indent;
             writeIndent();
             out << "lhs:\n";
@@ -792,14 +852,14 @@ private:
             --indent;
         }
 
-        if (e->rhs) {
+        if( e->rhs ) {
             ++indent;
             writeIndent();
             out << "rhs:\n";
             ++indent;
             // For Call expressions, rhs is a list of arguments
-            if (e->kind == Expression::Call || e->kind == Expression::Subscript ||
-                e->kind == Expression::New) {
+            if( e->kind == Expression::Call || e->kind == Expression::Subscript ||
+                e->kind == Expression::New ) {
                 dumpExprList(e->rhs);
             } else {
                 dumpExpr(e->rhs);
@@ -811,23 +871,23 @@ private:
 
     void dumpStmt(Statement* s)
     {
-        while (s) {
+        while( s ) {
             writeIndent();
-            out << stmtKindName(s->kind);
+            out << stmtKindName((Statement::Kind)s->kind);
             out << " [" << s->pos.d_row << ":" << s->pos.d_col << "]";
 
-            if (s->kind == Statement::Activate && s->re)
+            if( s->kind == Statement::Activate && s->re )
                 out << " reactivate";
-            if (s->prior)
+            if( s->prior )
                 out << " prior";
 
             out << "\n";
 
             // Dump based on statement kind (union fields)
-            switch (s->kind) {
+            switch( s->kind ) {
             case Statement::Compound:
             case Statement::Block:
-                if (s->scope) {
+                if( s->scope ) {
                     Q_ASSERT(s->scope->kind == Declaration::Block);
                     // blockdecls logically belong to the statement, even if they
                     // are owned by the outer decl
@@ -837,7 +897,7 @@ private:
                         writeIndent();
                         out << "scope name: " << s->scope->name << "\n";
                     }
-                    if (s->scope->link) {
+                    if( s->scope->link ) {
                         writeIndent();
                         out << "locals:\n";
                         ++indent;
@@ -846,7 +906,7 @@ private:
                     }
                     --indent;
                 }
-                if (s->prefix) {
+                if( s->prefix ) {
                     ++indent;
                     writeIndent();
                     out << "prefix:\n";
@@ -855,7 +915,7 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->args) {
+                if( s->args ) {
                     ++indent;
                     writeIndent();
                     out << "args:\n";
@@ -864,7 +924,7 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->body) {
+                if( s->body ) {
                     ++indent;
                     writeIndent();
                     out << "body:\n";
@@ -877,7 +937,7 @@ private:
 
             case Statement::If:
             case Statement::While:
-                if (s->cond) {
+                if( s->cond ) {
                     ++indent;
                     writeIndent();
                     out << "cond:\n";
@@ -886,7 +946,7 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->body) {
+                if( s->body ) {
                     ++indent;
                     writeIndent();
                     out << "then:\n";
@@ -895,7 +955,7 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->elseStmt) {
+                if( s->elseStmt ) {
                     ++indent;
                     writeIndent();
                     out << "else:\n";
@@ -907,7 +967,7 @@ private:
                 break;
 
             case Statement::For:
-                if (s->var) {
+                if( s->var ) {
                     ++indent;
                     writeIndent();
                     out << "var:\n";
@@ -916,7 +976,7 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->list) {
+                if( s->list ) {
                     ++indent;
                     writeIndent();
                     out << "for_list:\n";
@@ -925,7 +985,7 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->body) {
+                if( s->body ) {
                     ++indent;
                     writeIndent();
                     out << "do:\n";
@@ -937,7 +997,7 @@ private:
                 break;
 
             case Statement::Inspect:
-                if (s->obj) {
+                if( s->obj ) {
                     ++indent;
                     writeIndent();
                     out << "obj:\n";
@@ -946,7 +1006,7 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->conn) {
+                if( s->conn ) {
                     ++indent;
                     writeIndent();
                     out << "when_clauses:\n";
@@ -955,7 +1015,7 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->otherwise) {
+                if( s->otherwise ) {
                     ++indent;
                     writeIndent();
                     out << "otherwise:\n";
@@ -964,7 +1024,7 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->body) {
+                if( s->body ) {
                     ++indent;
                     writeIndent();
                     out << "do:\n";
@@ -976,30 +1036,30 @@ private:
                 break;
 
             case Statement::Activate:
-                if (s->activate) {
+                if( s->activate ) {
                     ++indent;
-                    if (s->activate->obj) {
+                    if( s->activate->obj ) {
                         writeIndent();
                         out << "obj:\n";
                         ++indent;
                         dumpExpr(s->activate->obj);
                         --indent;
                     }
-                    if (s->activate->at) {
+                    if( s->activate->at ) {
                         writeIndent();
                         out << "at:\n";
                         ++indent;
                         dumpExpr(s->activate->at);
                         --indent;
                     }
-                    if (s->activate->delay) {
+                    if( s->activate->delay ) {
                         writeIndent();
                         out << "delay:\n";
                         ++indent;
                         dumpExpr(s->activate->delay);
                         --indent;
                     }
-                    if (s->activate->priorObj) {
+                    if( s->activate->priorObj ) {
                         writeIndent();
                         out << "priorObj:\n";
                         ++indent;
@@ -1015,7 +1075,7 @@ private:
             case Statement::Detach:
             case Statement::Resume:
             case Statement::Goto:
-                if (s->lhs) {
+                if( s->lhs ) {
                     ++indent;
                     writeIndent();
                     out << "lhs:\n";
@@ -1024,12 +1084,12 @@ private:
                     --indent;
                     --indent;
                 }
-                if (s->rhs) {
+                if( s->rhs ) {
                     ++indent;
                     writeIndent();
                     out << "rhs:\n";
                     ++indent;
-                    if (s->kind == Statement::Call) {
+                    if( s->kind == Statement::Call ) {
                         dumpExprList(s->rhs);
                     } else {
                         dumpExpr(s->rhs);
@@ -1055,16 +1115,16 @@ private:
 
     void dumpConnection(Connection* c)
     {
-        while (c) {
+        while( c ) {
             writeIndent();
             out << "WHEN";
-            if (c->className)
+            if( c->className )
                 out << " " << c->className;
-            if (c->classDecl)
+            if( c->classDecl )
                 out << " -> " << c->classDecl->name;
             out << " [" << c->pos.d_row << ":" << c->pos.d_col << "]\n";
 
-            if (c->body) {
+            if( c->body ) {
                 ++indent;
                 writeIndent();
                 out << "do:\n";
@@ -1091,7 +1151,7 @@ void AstModel::initGlobals()
     openScope(globalScope);
 
     // Init basic types
-    for (int i = 0; i < Type::MaxBasicType; ++i)
+    for( int i = 0; i < Type::MaxBasicType; ++i )
         basicTypes[i] = 0;
 
     basicTypes[Type::Integer] = newType(Type::Integer);
@@ -1111,8 +1171,8 @@ void AstModel::clearGlobals()
 {
     scopes.clear();
     Declaration::deleteAll(globalScope);
-    for (int i=0; i<Type::MaxBasicType; ++i)
-        if(basicTypes[i])
+    for( int i=0; i<Type::MaxBasicType; ++i )
+        if( basicTypes[i] )
             delete basicTypes[i];
     globalScope = 0;
 }

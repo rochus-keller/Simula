@@ -38,6 +38,7 @@ namespace Sim
     class Connection;
 
     typedef const char* Atom;
+    typedef QList<Declaration*> DeclList;
 
     struct Builtin
     {
@@ -70,12 +71,15 @@ namespace Sim
     {
     public:
         enum Meta { T, D, E, S, C }; // Type, Declaration, Expression, Statement, Connection
+
+#ifndef _DEBUG
+        uint kind : 6; // the Kind enum of the subclass
+#endif
         uint meta : 3;
         uint ownstype : 1;
         uint owned : 1;
         uint validated : 1;
         uint hasErrors : 1;
-        // 7
 
         // Declaration
         uint visi : 2;
@@ -83,30 +87,25 @@ namespace Sim
         uint isVirtual : 1;
         uint isExternal : 1;
         uint id : 16;
-        // 22
 
         // Statement
         uint re : 1;               // reactivate
         uint prior: 1;
-        // 2
 
         // Type
         uint ownsexpr : 1;
-        // 1
-
-        // all 32
 
         RowCol pos;
 
-        Type* type() const { return _ty; }
+        Type* getType() const { return type; }
         void setType(Type*);
-        
+
         Node(Meta m);
         virtual ~Node();
 
         static void reportLeftovers();
-    private:
-        Type* _ty;
+    protected:
+        Type* type;
     };
 
     class Type : public Node
@@ -122,8 +121,11 @@ namespace Sim
             Ref, Array, Procedure, Switch
         };
         static const char* name[];
-
+#ifdef _DEBUG
         Kind kind;
+#endif
+
+        DeclList subs; // Procedure: the formal parameters, owned
 
         bool isArithmetic() const;
         bool isInteger() const { return kind == Integer || kind == ShortInteger; }
@@ -136,10 +138,9 @@ namespace Sim
         void setExpr(Expression* e); // ref(Expression::Identifier), array bounds
         Expression* getExpr() const { return expr; }
         Declaration* getRefType() const; // for Type::Ref
+        Declaration* findSub(Atom sym) const;
     private:
-        // For Array: 'expr' is the head of a linked list of bound pairs (Expression nodes)
-        // For String/Text: 'expr' is the length
-        Expression* expr; // Dimension or Length, owned TODO: many Type might point to the same expr
+        Expression* expr; // Ref qualification, Array bounds, Text length, owned
     };
 
     class Declaration : public Node
@@ -151,8 +152,10 @@ namespace Sim
         };
         enum ParamMode { ModeDefault, ModeValue, ModeName };
         enum Visi { NA, Private, Protected, Public };
-
+#ifdef _DEBUG
         Kind kind;
+#endif
+
         QByteArray name;
         Atom sym; // the internalized, lower-case version of name
 
@@ -183,7 +186,7 @@ namespace Sim
 
 
         Declaration(Kind k = Invalid);
-        
+
         Declaration* find(const char* id, bool recursive = true) const;
         Declaration* getModule();
         const char* getKindName() const;
@@ -213,8 +216,10 @@ namespace Sim
             TypeRef,   // a = type name
             MAX
         };
-
+#ifdef _DEBUG
         Kind kind;
+#endif
+
         union {
             quint64 u;
             double r;
@@ -240,10 +245,14 @@ namespace Sim
         Expression* priorObj;
         ActivateData():obj(0),at(0),delay(0),priorObj(0){}
         ~ActivateData() {
-            if(obj) delete obj;
-            if(at) delete at;
-            if(delay) delete delay;
-            if(priorObj) delete priorObj;
+            if( obj )
+                delete obj;
+            if( at )
+                delete at;
+            if( delay )
+                delete delay;
+            if( priorObj )
+                delete priorObj;
         }
     };
 
@@ -256,8 +265,10 @@ namespace Sim
             Activate, Detach, Resume, Inner, Dummy, End,
             Label
         };
-
+#ifdef _DEBUG
         Kind kind;
+#endif
+
         Statement* next;
         Statement* body;  // If, While, For, Compound, Block, Inspect do
 
@@ -304,7 +315,7 @@ namespace Sim
 
         Statement(Kind k = Invalid, const RowCol& p = RowCol());
         ~Statement();
-        
+
         Declaration* getScope() const;
 
         void append(Statement* s);
@@ -314,14 +325,14 @@ namespace Sim
     class Connection : public Node {
     public:
         Atom className;
-        Declaration* classDecl; 
+        Declaration* classDecl;
         Statement* body;
         Connection* next;
-        
+
         Connection();
         ~Connection();
     };
-    
+
     class Symbol {
     public:
         enum Kind { Invalid, Decl, Use, Module, Subclass };
@@ -346,7 +357,6 @@ namespace Sim
     };
 
     typedef QList<Symbol*> SymList;
-    typedef QList<Declaration*> DeclList;
 
     class Loader {
     public:
@@ -370,6 +380,8 @@ namespace Sim
         Declaration* getSimSet() const;
         Declaration* getSimulation() const;
         Declaration* getPrimitiveText() const;
+        SimulaVersion getVersion() const { return version; }
+        void setVersion(SimulaVersion v) { version = v; }
         void clear();
 
         static Declaration* resolveInClass(Declaration* cls, Atom name);
@@ -387,7 +399,7 @@ namespace Sim
         QList<Declaration*> scopes;
         Declaration* globalScope;
         Type* basicTypes[Type::MaxBasicType];
-        
+
         void initBuiltins();
     };
 }

@@ -58,10 +58,6 @@ QString CeeGen::newLabel(const QString& prefix)
     return QString("%1_%2").arg(prefix).arg(++labelCounter);
 }
 
-// ============================================================================
-// Name Mangling
-// ============================================================================
-
 QString CeeGen::mangleName(Declaration* d)
 {
     if (!d)
@@ -182,10 +178,6 @@ QString CeeGen::mangleTypeName(Type* t)
         return "void";
     return mapType(t);
 }
-
-// ============================================================================
-// Type Mapping
-// ============================================================================
 
 QString CeeGen::mapType(Type* t)
 {
@@ -369,10 +361,6 @@ QString CeeGen::getBuiltinProcName(Declaration* d)
     return QString("sim_%1").arg(name);
 }
 
-// ============================================================================
-// Main Entry Point
-// ============================================================================
-
 bool CeeGen::transpile(Declaration* module, const QString& outputPath)
 {
     if (!module) {
@@ -462,11 +450,6 @@ void CeeGen::emitRuntimeDecls(QTextStream& out)
     out << "typedef void* SimProcRef;\n";
     out << "\n";
 }
-
-// ============================================================================
-// Module Generation
-// ============================================================================
-
 
 void CeeGen::emitModule(Declaration* mod)
 {
@@ -569,10 +552,6 @@ void CeeGen::emitDeclaration(Declaration* d)
     }
 }
 
-// ============================================================================
-// Class Generation
-// ============================================================================
-
 void CeeGen::emitClass(Declaration* cls)
 {
     if (!cls || emittedClasses.contains(cls))
@@ -622,7 +601,7 @@ void CeeGen::emitClassStruct(Declaration* cls)
     
     // First emit parameters as members
     while (member && member->kind == Declaration::Parameter) {
-        QString varType = mapType(member->type());
+        QString varType = mapType(member->getType());
         QString varName = mangleVarName(member);
         out << "    " << varType << " " << varName << ";\n";
         member = member->next;
@@ -631,7 +610,7 @@ void CeeGen::emitClassStruct(Declaration* cls)
     // Then emit other members
     while (member) {
         if (member->kind == Declaration::Variable) {
-            QString varType = mapType(member->type());
+            QString varType = mapType(member->getType());
             QString varName = mangleVarName(member);
             out << "    " << varType << " " << varName << ";\n";
         } else if (member->kind == Declaration::Array) {
@@ -699,14 +678,20 @@ void CeeGen::emitClassVtable(Declaration* cls)
     
     for (int i = 0; i < virtuals.size(); i++) {
         Declaration* v = virtuals[i];
-        QString retType = v->type() ? mapType(v->type()) : "void";
+        Type* sig = v->getType() && v->getType()->kind == Type::Procedure ? v->getType() : 0;
+        QString retType = mapType(sig ? sig->getType() : v->getType());
         out << "    " << retType << " (*" << v->name.constData() << ")(" << className << "* self";
         
         // Add parameter types
-        Declaration* param = v->link;
-        while (param && param->kind == Declaration::Parameter) {
-            out << ", " << mapType(param->type());
-            param = param->next;
+        if (sig) {
+            foreach (Declaration* param, sig->subs)
+                out << ", " << mapType(param->getType());
+        } else {
+            Declaration* param = v->link;
+            while (param && param->kind == Declaration::Parameter) {
+                out << ", " << mapType(param->getType());
+                param = param->next;
+            }
         }
         out << ");\n";
     }
@@ -761,7 +746,7 @@ void CeeGen::emitClassConstructor(Declaration* cls)
     
     for (int i = 0; i < allParams.size(); i++) {
         if (i > 0) out << ", ";
-        out << mapType(allParams[i]->type()) << " " << mangleVarName(allParams[i]);
+        out << mapType(allParams[i]->getType()) << " " << mangleVarName(allParams[i]);
     }
     if (allParams.isEmpty())
         out << "void";
@@ -782,7 +767,7 @@ void CeeGen::emitClassConstructor(Declaration* cls)
     while (member) {
         if (member->kind == Declaration::Variable) {
             QString varName = mangleVarName(member);
-            Type* t = member->type();
+            Type* t = member->getType();
             if (t) {
                 switch (t->kind) {
                 case Type::Integer:
@@ -889,10 +874,6 @@ int CeeGen::getClassId(Declaration* cls)
     return id;
 }
 
-// ============================================================================
-// Procedure Generation
-// ============================================================================
-
 void CeeGen::emitProcedure(Declaration* proc)
 {
     if (!proc || emittedProcs.contains(proc))
@@ -908,7 +889,7 @@ void CeeGen::emitProcedure(Declaration* proc)
     currentProc = proc;
     
     // Return type
-    QString retType = proc->type() ? mapType(proc->type()) : "void";
+    QString retType = proc->getType() ? mapType(proc->getType()) : "void";
     
     // Function name
     QString funcName = mangleProcName(proc);
@@ -931,7 +912,7 @@ void CeeGen::emitProcedure(Declaration* proc)
         if (!first) out << ", ";
         first = false;
         
-        QString paramType = mapType(param->type());
+        QString paramType = mapType(param->getType());
         QString paramName = mangleVarName(param);
         
         // Handle call by name
@@ -953,12 +934,12 @@ void CeeGen::emitProcedure(Declaration* proc)
     Declaration* local = proc->link;
     while (local) {
         if (local->kind == Declaration::Variable) {
-            QString varType = mapType(local->type());
+            QString varType = mapType(local->getType());
             QString varName = mangleVarName(local);
             out << "    " << varType << " " << varName;
             
             // Initialize
-            Type* t = local->type();
+            Type* t = local->getType();
             if (t) {
                 switch (t->kind) {
                 case Type::Integer:
@@ -994,9 +975,9 @@ void CeeGen::emitProcedure(Declaration* proc)
     }
     
     // Return value variable if typed procedure
-    if (proc->type() && proc->type()->kind != Type::NoType) {
+    if (proc->getType() && proc->getType()->kind != Type::NoType) {
         out << "    " << retType << " _result";
-        Type* t = proc->type();
+        Type* t = proc->getType();
         switch (t->kind) {
         case Type::Integer:
         case Type::ShortInteger:
@@ -1034,7 +1015,7 @@ void CeeGen::emitProcedure(Declaration* proc)
     }
     
     // Return statement
-    if (proc->type() && proc->type()->kind != Type::NoType) {
+    if (proc->getType() && proc->getType()->kind != Type::NoType) {
         out << "    return _result;\n";
     }
     
@@ -1071,10 +1052,6 @@ void CeeGen::emitBlock(Declaration* blk)
 {
     // Blocks are handled as statements
 }
-
-// ============================================================================
-// Statement Generation
-// ============================================================================
 
 void CeeGen::emitStatement(Statement* s, QTextStream& out)
 {
@@ -1152,7 +1129,7 @@ void CeeGen::emitCompound(Statement* s, QTextStream& out)
         Declaration* local = s->scope->link;
         while (local) {
             if (local->kind == Declaration::Variable) {
-                QString varType = mapType(local->type());
+                QString varType = mapType(local->getType());
                 QString varName = mangleVarName(local);
                 out << indent() << varType << " " << varName << ";\n";
             }
@@ -1177,12 +1154,12 @@ void CeeGen::emitBlockStmt(Statement* s, QTextStream& out)
         Declaration* local = s->scope->link;
         while (local) {
             if (local->kind == Declaration::Variable) {
-                QString varType = mapType(local->type());
+                QString varType = mapType(local->getType());
                 QString varName = mangleVarName(local);
                 out << indent() << varType << " " << varName;
                 
                 // Initialize
-                Type* t = local->type();
+                Type* t = local->getType();
                 if (t) {
                     switch (t->kind) {
                     case Type::Integer:
@@ -1456,10 +1433,6 @@ void CeeGen::emitResume(Statement* s, QTextStream& out)
     }
 }
 
-// ============================================================================
-// Expression Generation
-// ============================================================================
-
 QString CeeGen::emitExpr(Expression* e, QTextStream& out)
 {
     if (!e)
@@ -1571,27 +1544,27 @@ QString CeeGen::emitBinaryOp(Expression* e, QTextStream& out)
         return QString("((%1) == (%2))").arg(lhs).arg(rhs);
     case Expression::Eq:
         // Check if text comparison
-        if (e->lhs && e->lhs->type() && e->lhs->type()->kind == Type::Text)
+        if (e->lhs && e->lhs->getType() && e->lhs->getType()->kind == Type::Text)
             return QString("sim_text_eq(%1, %2)").arg(lhs).arg(rhs);
         return QString("(%1 == %2)").arg(lhs).arg(rhs);
     case Expression::Neq:
-        if (e->lhs && e->lhs->type() && e->lhs->type()->kind == Type::Text)
+        if (e->lhs && e->lhs->getType() && e->lhs->getType()->kind == Type::Text)
             return QString("!sim_text_eq(%1, %2)").arg(lhs).arg(rhs);
         return QString("(%1 != %2)").arg(lhs).arg(rhs);
     case Expression::Lt:
-        if (e->lhs && e->lhs->type() && e->lhs->type()->kind == Type::Text)
+        if (e->lhs && e->lhs->getType() && e->lhs->getType()->kind == Type::Text)
             return QString("(sim_text_cmp(%1, %2) < 0)").arg(lhs).arg(rhs);
         return QString("(%1 < %2)").arg(lhs).arg(rhs);
     case Expression::Leq:
-        if (e->lhs && e->lhs->type() && e->lhs->type()->kind == Type::Text)
+        if (e->lhs && e->lhs->getType() && e->lhs->getType()->kind == Type::Text)
             return QString("(sim_text_cmp(%1, %2) <= 0)").arg(lhs).arg(rhs);
         return QString("(%1 <= %2)").arg(lhs).arg(rhs);
     case Expression::Gt:
-        if (e->lhs && e->lhs->type() && e->lhs->type()->kind == Type::Text)
+        if (e->lhs && e->lhs->getType() && e->lhs->getType()->kind == Type::Text)
             return QString("(sim_text_cmp(%1, %2) > 0)").arg(lhs).arg(rhs);
         return QString("(%1 > %2)").arg(lhs).arg(rhs);
     case Expression::Geq:
-        if (e->lhs && e->lhs->type() && e->lhs->type()->kind == Type::Text)
+        if (e->lhs && e->lhs->getType() && e->lhs->getType()->kind == Type::Text)
             return QString("(sim_text_cmp(%1, %2) >= 0)").arg(lhs).arg(rhs);
         return QString("(%1 >= %2)").arg(lhs).arg(rhs);
     case Expression::RefEq:
@@ -1732,7 +1705,7 @@ QString CeeGen::emitCall(Expression* e, QTextStream& out)
             Declaration* proc = e->lhs->rhs->d;
             
             // Check for TEXT methods
-            if (e->lhs->lhs && e->lhs->lhs->type() && e->lhs->lhs->type()->kind == Type::Text) {
+            if (e->lhs->lhs && e->lhs->lhs->getType() && e->lhs->lhs->getType()->kind == Type::Text) {
                 QString methodName = QString(proc->name.constData()).toLower();
                 
                 if (methodName == "length") return QString("sim_text_length(%1)").arg(obj);
@@ -1987,7 +1960,7 @@ QString CeeGen::emitAssignExpr(Expression* e, QTextStream& out)
     
     // Value assignment
     // Check for TEXT assignment
-    if (e->lhs && e->lhs->type() && e->lhs->type()->kind == Type::Text) {
+    if (e->lhs && e->lhs->getType() && e->lhs->getType()->kind == Type::Text) {
         return QString("sim_text_assign(&%1, %2)").arg(lhs).arg(rhs);
     }
     

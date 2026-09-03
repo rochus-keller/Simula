@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("me@rochus-keller.ch");
     a.setOrganizationDomain("https://github.com/rochus-keller/Simula");
     a.setApplicationName("SimLc");
-    a.setApplicationVersion("2020-10-26");
+    a.setApplicationVersion("2026-09-03");
 
     QTextStream out(stdout);
     out << "SimLc version: " << a.applicationVersion() <<

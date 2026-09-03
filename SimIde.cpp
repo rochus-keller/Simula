@@ -31,6 +31,7 @@
 #include <LjTools/BcViewer.h>
 #include <LjTools/LuaJitEngine.h>
 #include <LjTools/LjBcDebugger.h>
+#include <LjTools/LuaJitHelper.h>
 #include <QtDebug>
 #include <QDockWidget>
 #include <QApplication>
@@ -1989,7 +1990,7 @@ static void fillRawLocals(QTreeWidget* locals, Lua::Engine2* lua)
         {
             typeAddr(item,v.d_value);
             fillLocalSubs(item,v.d_value.toMap() );
-        }else if( Lua::JitBytecode::isString(v.d_value) )
+        }else if( Lua::JitValue::isString(v.d_value) )
         {
             item->setText(1, "\"" + v.d_value.toString().simplified() + "\"");
             item->setToolTip(1, v.d_value.toString() );
@@ -2047,7 +2048,7 @@ void Ide::fillLocals()
                 if( lua_getlocal( d_rt->getLua()->getCtx(), &ar, cur->id + 1 ) )
                 {
                     item->setText(0,cur->name);
-                    printLocalVal(item,cur->type(), 0);
+                    printLocalVal(item,cur->getType(), 0);
                     lua_pop( d_rt->getLua()->getCtx(), 1 );
                 }else
                     item->setText(0,"<invalid>");
@@ -2078,7 +2079,7 @@ void Ide::fillLocals()
                     item->setText(0,cur->name);
                     const int before = lua_gettop(d_rt->getLua()->getCtx());
                     lua_rawgeti( d_rt->getLua()->getCtx(), mod, cur->id );
-                    printLocalVal(item,cur->type(), 0);
+                    printLocalVal(item,cur->getType(), 0);
                     lua_pop( d_rt->getLua()->getCtx(), 1 );
                     Q_ASSERT( before == lua_gettop(d_rt->getLua()->getCtx()) );
                 }
@@ -2910,7 +2911,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("me@rochus-keller.ch");
     a.setOrganizationDomain("github.com/rochus-keller/Luon");
     a.setApplicationName("Simula 67 IDE (LuaJIT)");
-    a.setApplicationVersion("0.1.1");
+    a.setApplicationVersion("0.1.2");
     a.setStyle("Fusion");    
     QFontDatabase::addApplicationFont(":/fonts/DejaVuSansMono.ttf"); // "DejaVu Sans Mono"
 

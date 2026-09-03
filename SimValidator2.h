@@ -30,10 +30,10 @@ namespace Sim {
     public:
         Validator2(AstModel* mdl, Loader* = 0, bool haveXref = false);
         ~Validator2();
-        
+
         bool validate(Declaration* module);
         Xref takeXref();
-        
+
         struct Error {
             QString msg;
             RowCol pos;
@@ -42,7 +42,7 @@ namespace Sim {
                 : msg(m), pos(rc), path(p) {}
         };
         mutable QList<Error> errors;
-        
+
     protected:
         void Module(Declaration* module);
         void Decl(Declaration* d);
@@ -56,9 +56,9 @@ namespace Sim {
         void ExternalDecl(Declaration* d);
         void BlockDecl(Declaration* d);
         void LabelDecl(Declaration* d);
-        
+
         void Type_(Type* t);
-        
+
         void Body(Statement* s);
         void StatSeq(Statement* s);
         Statement* Stat(Statement* s);
@@ -74,7 +74,7 @@ namespace Sim {
         void ActivateStat(Statement* s);
         void DetachStat(Statement* s);
         void ResumeStat(Statement* s);
-        
+
         bool Expr(Expression* e);
         bool ConstExpr(Expression* e);
         bool BinaryOp(Expression* e);
@@ -89,25 +89,28 @@ namespace Sim {
         bool QuaExpr(Expression* e);
         bool IfExpr(Expression* e);
         bool Literal(Expression* e);
-        
+
+        Type* callResultType(Type* t, Expression* args, const RowCol& pos);
+        void checkArgs(const DeclList& params, Expression* args, const RowCol& pos);
+        void checkVirtualMatch(Declaration* spec, Declaration* impl);
         bool assigCompat(Type* lhs, Type* rhs, bool isRefAssign);
         bool assigCompat(Type* lhs, Expression* rhs, bool isRefAssign);
         bool typeCompat(Type* t1, Type* t2);
         bool isSubclassOf(Declaration* sub, Declaration* super);
         Type* resultType(Expression::Kind op, Type* lhs, Type* rhs);
         Type* deref(Type* t);
-        
+
         Declaration* resolve(Atom sym);
-        
+
         void checkBuiltinCall(Declaration* builtin, Expression* args, const RowCol& pos);
-        
+
     protected:
         void invalid(const char* what, const RowCol& pos);
         bool error(const RowCol& pos, const QString& msg) const;
         void markDecl(Declaration* d);
         Symbol* markRef(Declaration* d, const RowCol& pos);
         Symbol* markUnref(int len, const RowCol& pos);
-        
+
     private:
         Declaration* module;
         QString sourcePath;

@@ -25,40 +25,40 @@ Validator2::Validator2(AstModel* mdl, Loader * l, bool haveXref)
     : module(0), mdl(mdl), first(0), last(0), loader(l)
 {
     Q_ASSERT(mdl);
-    if (haveXref)
+    if( haveXref )
         first = last = new Symbol();
 }
 
 Validator2::~Validator2()
 {
-    if (first)
+    if( first )
         Symbol::deleteAll(first);
 }
 
 bool Validator2::validate(Declaration* mod)
 {
     Q_ASSERT(mod);
-    
-    if (mod->validated)
+
+    if( mod->validated )
         return true;
-    
+
     errors.clear();
-    
-    if (first) {
+
+    if( first ) {
         first->decl = mod;
         first->kind = Symbol::Module;
         first->pos = mod->pos;
         first->len = mod->name.size();
     }
-    
+
     markDecl(mod);
-    
-    if (mod->kind == Declaration::Module) {
+
+    if( mod->kind == Declaration::Module ) {
         sourcePath = *mod->path;
     }
-    
+
     this->module = mod;
-    
+
     Declaration* env = mdl->getEnv();
     if( env )
         scopeStack.push_back(env);
@@ -68,20 +68,20 @@ bool Validator2::validate(Declaration* mod)
 
     try {
         Module(mod);
-    } catch (...) {
+    } catch( ... ) {
     }
 
     if( basicio )
         scopeStack.pop_back();
     if( env )
         scopeStack.pop_back();
-    
-    if (first)
+
+    if( first )
         last->next = first; // close the circle
-    
+
     mod->validated = true;
     mod->hasErrors = !errors.isEmpty();
-    
+
     return errors.isEmpty();
 }
 
@@ -110,7 +110,7 @@ bool Validator2::error(const RowCol& pos, const QString& msg) const
 
 void Validator2::markDecl(Declaration* d)
 {
-    if (!first || !d)
+    if( !first || !d )
         return;
     Symbol* s = new Symbol();
     s->decl = d;
@@ -124,7 +124,7 @@ void Validator2::markDecl(Declaration* d)
 
 Symbol* Validator2::markRef(Declaration* d, const RowCol& pos)
 {
-    if (!first || !d)
+    if( !first || !d )
         return 0;
     Symbol* s = new Symbol();
     s->decl = d;
@@ -139,7 +139,7 @@ Symbol* Validator2::markRef(Declaration* d, const RowCol& pos)
 
 Symbol* Validator2::markUnref(int len, const RowCol& pos)
 {
-    if (!first)
+    if( !first )
         return 0;
     Symbol* s = new Symbol();
     s->decl = 0;
@@ -155,18 +155,18 @@ void Validator2::Module(Declaration* mod)
 {
     scopeStack.push_back(mod);
     DeclSeq(mod->link);
-    if (mod->body)
+    if( mod->body )
         Body(mod->body);
     scopeStack.pop_back();
 }
 
 void Validator2::Decl(Declaration *d)
 {
-    if (!d->validated) {
+    if( !d->validated ) {
         d->validated = true;
         markDecl(d);
 
-        switch (d->kind) {
+        switch( d->kind ) {
         case Declaration::Class:
             ClassDecl(d);
             break;
@@ -210,7 +210,7 @@ void Validator2::Decl(Declaration *d)
 
 void Validator2::DeclSeq(Declaration* d)
 {
-    while (d) {
+    while( d ) {
         Decl(d);
         d = d->next;
     }
@@ -226,26 +226,26 @@ void Validator2::ClassDecl(Declaration* d)
     }
 
     // Validate prefix (superclass)
-    if (d->prefix) {
+    if( d->prefix ) {
         Declaration* super = d->prefix;
-        if (super->kind != Declaration::Class && 
+        if( super->kind != Declaration::Class &&
             super->kind != Declaration::StandardClass &&
-            super->kind != Declaration::ExternalClass) {
+            super->kind != Declaration::ExternalClass ) {
             error(d->pos, QString("prefix '%1' is not a class").arg(super->name.constData()));
         } else {
             // Track subclass relationship
-            if (first)
+            if( first )
                 subs[super].append(d);
         }
     }
-    
+
     // Open class scope
     scopeStack.push_back(d);
-    
+
     // Validate parameters
     Declaration* param = d->link;
-    while (param && param->kind == Declaration::Parameter) {
-        if (!param->validated) {
+    while( param && param->kind == Declaration::Parameter ) {
+        if( !param->validated ) {
 #if 1
             Decl(param);
 #else
@@ -256,96 +256,94 @@ void Validator2::ClassDecl(Declaration* d)
         }
         param = param->next;
     }
-    
+
     // Validate virtual specs
     Declaration* member = d->link;
-    while (member) {
-        if (member->kind == Declaration::VirtualSpec && !member->validated) {
+    while( member ) {
+        if( member->kind == Declaration::VirtualSpec && !member->validated ) {
             member->validated = true;
             if( member->sym )
                 // this is an abstract virtual declaration
                 markDecl(member);
             else
+            {
                 // this is a virtual annotation to a later declaration in the same class
                 markRef(member->forward, member->pos);
-            if (member->type())
-                Type_(member->type());
+                checkVirtualMatch(member, member->forward);
+            }
+            if( member->getType() )
+                Type_(member->getType());
         }
         member = member->next;
     }
-    
+
     // Validate other members
     member = d->link;
-    while (member) {
-        if (member->kind != Declaration::Parameter && 
+    while( member ) {
+        if( member->kind != Declaration::Parameter &&
             member->kind != Declaration::VirtualSpec &&
-            !member->validated) {
+            !member->validated ) {
 
             Decl(member);
         }
         member = member->next;
     }
-    
-    // Validate class body
-    if (d->body)
+
+    if( d->body )
         Body(d->body);
-    
+
     scopeStack.pop_back();
 }
 
 void Validator2::ProcDecl(Declaration* d)
 {
     // Validate return type
-    if (d->type())
-        Type_(d->type());
-    
+    if( d->getType() )
+        Type_(d->getType());
+
     // Open procedure scope
     scopeStack.push_back(d);
-    
+
     // Validate parameters
     Declaration* param = d->link;
-    while (param && param->kind == Declaration::Parameter) {
+    while( param && param->kind == Declaration::Parameter ) {
         Decl(param);
         param = param->next;
     }
-    
-    // Validate local declarations
+
     Declaration* local = d->link;
-    while (local) {
-        if (local->kind != Declaration::Parameter && !local->validated) {
+    while( local ) {
+        if( local->kind != Declaration::Parameter && !local->validated ) {
             Decl(local);
         }
         local = local->next;
     }
-    
-    // Validate procedure body
-    if (d->body)
+
+    if( d->body )
         Body(d->body);
-    
+
     scopeStack.pop_back();
 }
 
 void Validator2::VarDecl(Declaration* d)
 {
-    if (d->type())
-        Type_(d->type());
-    
-    // Validate initialization expression if present
-    if (d->init)
+    if( d->getType() )
+        Type_(d->getType());
+
+    if( d->init )
         Expr(d->init);
 }
 
 void Validator2::ArrayDecl(Declaration* d)
 {
-    if (d->type())
-        Type_(d->type());
+    if( d->getType() )
+        Type_(d->getType());
 }
 
 void Validator2::SwitchDecl(Declaration* d)
 {
-    // Validate switch list (label expressions)
     Expression* e = d->list;
-    while (e) {
+    while( e ) {
         Expr(e);
         // Each element should be a label designator
         e = e->next;
@@ -354,11 +352,11 @@ void Validator2::SwitchDecl(Declaration* d)
 
 void Validator2::ParamDecl(Declaration* d)
 {
-    if (d->type())
-        Type_(d->type());
+    if( d->getType() )
+        Type_(d->getType());
 
     Expression* e = d->nameRef;
-    while(e)
+    while( e )
     {
         Expr(e);
         e = e->next;
@@ -368,8 +366,8 @@ void Validator2::ParamDecl(Declaration* d)
 void Validator2::ExternalDecl(Declaration* d)
 {
     // External declarations may not have full type info
-    if (d->type())
-        Type_(d->type());
+    if( d->getType() )
+        Type_(d->getType());
     if( loader == 0 )
     {
         error(d->pos, "no loader available");
@@ -394,7 +392,7 @@ void Validator2::BlockDecl(Declaration* d)
 {
     scopeStack.push_back(d);
     DeclSeq(d->link);
-    if (d->body)
+    if( d->body )
         Body(d->body);
     scopeStack.pop_back();
 }
@@ -407,23 +405,23 @@ void Validator2::LabelDecl(Declaration* d)
 
 void Validator2::Type_(Type* t)
 {
-    if (!t || t->validated)
+    if( !t || t->validated )
         return;
     t->validated = true;
-    
-    switch (t->kind) {
+
+    switch( t->kind ) {
     case Type::Array:
         // Validate bound expressions
-        if (t->getExpr()) {
+        if( t->getExpr() ) {
             Expression* bound = t->getExpr();
-            while (bound) {
+            while( bound ) {
                 Expr(bound);
                 bound = bound->next;
             }
         }
         break;
     case Type::Ref:
-        if (t->getExpr()) {
+        if( t->getExpr() ) {
             Expression* name = t->getExpr();
             Expr(name);
         }
@@ -444,7 +442,7 @@ void Validator2::Body(Statement* s)
 
 void Validator2::StatSeq(Statement* s)
 {
-    while (s) {
+    while( s ) {
         Declaration* scope = s->getScope();
         if( scope )
             scopeStack.push_back(scope);
@@ -456,10 +454,10 @@ void Validator2::StatSeq(Statement* s)
 
 Statement* Validator2::Stat(Statement* s)
 {
-    if (!s)
+    if( !s )
         return 0;
-    
-    switch (s->kind) {
+
+    switch( s->kind ) {
     case Statement::Block:
         BlockStat(s);
         break;
@@ -510,155 +508,146 @@ Statement* Validator2::Stat(Statement* s)
         invalid("statement", s->pos);
         break;
     }
-    
+
     return s->next;
 }
 
 void Validator2::BlockStat(Statement* s)
 {
     // Push block scope if it has local declarations
-    if (s->scope) {
+    if( s->scope ) {
         scopeStack.push_back(s->scope);
         DeclSeq(s->scope->link);
     }
-    
-    // Validate prefix class arguments if present
-    if (s->prefix) {
+
+    if( s->prefix ) {
         Expr(s->prefix);
     }
-    if (s->args) {
+    if( s->args ) {
         Expression* arg = s->args;
-        while (arg) {
+        while( arg ) {
             Expr(arg);
             arg = arg->next;
         }
     }
-    
-    // Validate body statements
-    if (s->body)
+
+    if( s->body )
         StatSeq(s->body);
-    
-    if (s->scope)
+
+    if( s->scope )
         scopeStack.pop_back();
 }
 
 void Validator2::CompoundStat(Statement* s)
 {
-    // Push compound scope if it has local declarations
-    if (s->scope) {
+    if( s->scope ) {
         scopeStack.push_back(s->scope);
         DeclSeq(s->scope->link);
     }
-    
-    // Validate body statements
-    if (s->body)
+
+    if( s->body )
         StatSeq(s->body);
-    
-    if (s->scope)
+
+    if( s->scope )
         scopeStack.pop_back();
 }
 
 void Validator2::IfStat(Statement* s)
 {
-    // Validate condition
-    if (s->cond) {
+    if( s->cond ) {
         Expr(s->cond);
-        Type* ct = s->cond->type();
-        if (ct && ct->kind != Type::Boolean)
+        Type* ct = s->cond->getType();
+        if( ct && ct->kind != Type::Boolean )
             error(s->cond->pos, "if condition must be boolean");
     }
-    
-    // Validate then branch
-    if (s->body)
+
+    // then branch
+    if( s->body )
         StatSeq(s->body);
-    
-    // Validate else branch
-    if (s->elseStmt)
+
+    if( s->elseStmt )
         StatSeq(s->elseStmt);
 }
 
 void Validator2::WhileStat(Statement* s)
 {
-    // Validate condition
-    if (s->cond) {
+    if( s->cond ) {
         Expr(s->cond);
-        Type* ct = s->cond->type();
-        if (ct && ct->kind != Type::Boolean)
+        Type* ct = s->cond->getType();
+        if( ct && ct->kind != Type::Boolean )
             error(s->cond->pos, "while condition must be boolean");
     }
-    
-    // Validate body
-    if (s->body)
+
+    if( s->body )
         StatSeq(s->body);
 }
 
 void Validator2::ForStat(Statement* s)
 {
-    // Validate control variable
-    if (s->var) {
+    // control variable
+    if( s->var ) {
         Expr(s->var);
     }
-    
-    // Validate for list elements
+
     Expression* elem = s->list;
-    while (elem) {
-        if (elem->kind == Expression::StepUntil) {
+    while( elem ) {
+        if( elem->kind == Expression::StepUntil ) {
             // step-until element: lhs=start, rhs=step, condition=until
-            if (elem->lhs) Expr(elem->lhs);
-            if (elem->rhs) Expr(elem->rhs);
-            if (elem->condition) Expr(elem->condition);
-        } else if (elem->kind == Expression::WhileLoop) {
+            if( elem->lhs ) Expr(elem->lhs);
+            if( elem->rhs ) Expr(elem->rhs);
+            if( elem->condition ) Expr(elem->condition);
+        } else if( elem->kind == Expression::WhileLoop ) {
             // while element: lhs=start, condition=cond
-            if (elem->lhs) Expr(elem->lhs);
-            if (elem->condition) Expr(elem->condition);
+            if( elem->lhs ) Expr(elem->lhs);
+            if( elem->condition ) Expr(elem->condition);
         } else {
             // Simple expression
             Expr(elem);
         }
         elem = elem->next;
     }
-    
+
     // Validate body
-    if (s->body)
+    if( s->body )
         StatSeq(s->body);
 }
 
 void Validator2::InspectStat(Statement* s)
 {
-    // Validate inspect object
+    // inspect object
     Declaration* cls = 0;
-    if (s->obj) {
+    if( s->obj ) {
         Expr(s->obj);
-        Type* ot = s->obj->type();
-        if (ot && ot->kind != Type::Ref && ot->kind != Type::Text)
+        Type* ot = s->obj->getType();
+        if( ot && ot->kind != Type::Ref && ot->kind != Type::Text )
             error(s->obj->pos, "inspect object must be a reference");
         else if( ot && ot->kind == Type::Ref )
             cls = ot->getRefType();
     }
-    
-    // Validate when clauses
+
+    // when clauses
     Connection* conn = s->conn;
-    while (conn) {
+    while( conn ) {
         // Resolve class name
-        if (conn->className != 0) {
+        if( conn->className != 0 ) {
             Declaration* cls = resolve(conn->className);
-            if (cls) {
+            if( cls ) {
                 conn->classDecl = cls;
                 markRef(cls, conn->pos);
-                if (cls->kind != Declaration::Class && 
+                if( cls->kind != Declaration::Class &&
                     cls->kind != Declaration::StandardClass &&
-                    cls->kind != Declaration::ExternalClass) {
+                    cls->kind != Declaration::ExternalClass ) {
                     error(conn->pos, QString("'%1' is not a class").arg(conn->className));
                 }
             } else {
                 error(conn->pos, QString("class '%1' not found").arg(conn->className));
             }
         }
-        
+
         if( conn->classDecl )
             scopeStack.push_back(conn->classDecl);
-        // Validate when body
-        if (conn->body)
+        // when body
+        if( conn->body )
             StatSeq(conn->body);
 
         if( conn->classDecl )
@@ -666,13 +655,11 @@ void Validator2::InspectStat(Statement* s)
 
         conn = conn->next;
     }
-    
-    // Validate otherwise clause
-    if (s->otherwise)
+
+    if( s->otherwise )
         StatSeq(s->otherwise);
-    
-    // Validate do body
-    if (s->body)
+
+    if( s->body )
     {
         if( cls )
             scopeStack.push_back(cls);
@@ -685,7 +672,7 @@ void Validator2::InspectStat(Statement* s)
 void Validator2::GotoStat(Statement* s)
 {
     // Validate label designator
-    if (s->lhs) {
+    if( s->lhs ) {
         Expr(s->lhs);
         // Should resolve to a label
     }
@@ -693,19 +680,16 @@ void Validator2::GotoStat(Statement* s)
 
 void Validator2::AssignStat(Statement* s)
 {
-    // Validate LHS
-    if (s->lhs)
+    if( s->lhs )
         Expr(s->lhs);
-    
-    // Validate RHS
-    if (s->rhs)
+
+    if( s->rhs )
         Expr(s->rhs);
-    
-    // Check assignment compatibility
-    if (s->lhs && s->rhs && s->lhs->type() && s->rhs->type()) {
+
+    if( s->lhs && s->rhs && s->lhs->getType() && s->rhs->getType() ) {
         bool isRefAssign = (s->lhs->kind == Expression::AssignRef);
-        if (!assigCompat(s->lhs->type(), s->rhs, isRefAssign)) {
-            if (isRefAssign)
+        if( !assigCompat(s->lhs->getType(), s->rhs, isRefAssign) ) {
+            if( isRefAssign )
                 error(s->pos, "rhs is not reference assignment compatible with lhs");
             else
                 error(s->pos, "rhs is not assignment compatible with lhs");
@@ -715,15 +699,15 @@ void Validator2::AssignStat(Statement* s)
 
 void Validator2::CallStat(Statement* s)
 {
-    // Validate callable expression
-    if (s->lhs)
+    // callable expression
+    if( s->lhs )
         Expr(s->lhs);
-    
-    // Validate arguments
+
+    // arguments
     // TODO typecheck to param types
-    if (s->rhs) {
+    if( s->rhs ) {
         Expression* arg = s->rhs;
-        while (arg) {
+        while( arg ) {
             Expr(arg);
             arg = arg->next;
         }
@@ -732,49 +716,49 @@ void Validator2::CallStat(Statement* s)
 
 void Validator2::ActivateStat(Statement* s)
 {
-    if (!s->activate)
+    if( !s->activate )
         return;
-    
+
     ActivateData* act = s->activate;
-    
-    // Validate object expression
-    if (act->obj)
+
+    // object expression
+    if( act->obj )
         Expr(act->obj);
-    
-    // Validate timing expressions
-    if (act->at)
+
+    // timing expressions
+    if( act->at )
         Expr(act->at);
-    if (act->delay)
+    if( act->delay )
         Expr(act->delay);
-    if (act->priorObj)
+    if( act->priorObj )
         Expr(act->priorObj);
 }
 
 void Validator2::DetachStat(Statement* s)
 {
-    // Detach may have an expression
-    if (s->lhs)
+    // detach may have an expression
+    if( s->lhs )
         Expr(s->lhs);
 }
 
 void Validator2::ResumeStat(Statement* s)
 {
-    // Resume takes an object expression
-    if (s->lhs)
+    // resume takes an object expression
+    if( s->lhs )
         Expr(s->lhs);
 }
 
 bool Validator2::Expr(Expression* e)
 {
-    if (!e)
+    if( !e )
         return false;
-    if (e->validated)
-        return e->type() != 0;
+    if( e->validated )
+        return e->getType() != 0;
     e->validated = true;
-    
+
     bool ok = false;
-    
-    switch (e->kind) {
+
+    switch( e->kind ) {
     case Expression::Add:
     case Expression::Sub:
     case Expression::Mul:
@@ -842,8 +826,10 @@ bool Validator2::Expr(Expression* e)
     case Expression::AssignVal:
     case Expression::AssignRef:
         // These are handled as statements
-        if (e->lhs) Expr(e->lhs);
-        if (e->rhs) Expr(e->rhs);
+        if( e->lhs )
+            Expr(e->lhs);
+        if( e->rhs )
+            Expr(e->rhs);
         ok = true;
         break;
     case Expression::StepUntil:
@@ -859,7 +845,7 @@ bool Validator2::Expr(Expression* e)
         invalid("expression", e->pos);
         break;
     }
-    
+
     return ok;
 }
 
@@ -871,25 +857,25 @@ bool Validator2::ConstExpr(Expression* e)
 bool Validator2::BinaryOp(Expression* e)
 {
     Q_ASSERT(e->lhs && e->rhs);
-    if (!e->lhs || !e->rhs)
+    if( !e->lhs || !e->rhs )
         return false;
-    
+
     Expr(e->lhs);
     Expr(e->rhs);
-    
-    Type* lt = e->lhs->type();
-    Type* rt = e->rhs->type();
-    
-    if (!lt || !rt)
+
+    Type* lt = e->lhs->getType();
+    Type* rt = e->rhs->getType();
+
+    if( !lt || !rt )
         return false;
-    
-    Type* res = resultType(e->kind, lt, rt);
-    if (res) {
+
+    Type* res = resultType((Expression::Kind)e->kind, lt, rt);
+    if( res ) {
         e->setType(res);
         return true;
     }else
-        resultType(e->kind, lt, rt);
-    
+        resultType((Expression::Kind)e->kind, lt, rt);
+
     error(e->pos, "incompatible operand types for binary operator");
     return false;
 }
@@ -897,38 +883,38 @@ bool Validator2::BinaryOp(Expression* e)
 bool Validator2::UnaryOp(Expression* e)
 {
     Q_ASSERT(e->rhs);
-    if (!e->rhs)
+    if( !e->rhs )
         return false;
-    
+
     Expr(e->rhs);
-    Type* t = e->rhs->type();
-    
-    if (!t)
+    Type* t = e->rhs->getType();
+
+    if( !t )
         return false;
-    
-    if (e->kind == Expression::Not) {
-        if (t->kind != Type::Boolean) {
+
+    if( e->kind == Expression::Not ) {
+        if( t->kind != Type::Boolean ) {
             error(e->pos, "NOT operator requires boolean operand");
             return false;
         }
         e->setType(mdl->getType(Type::Boolean));
-    } else if (e->kind == Expression::Neg) {
-        if (!t->isArithmetic()) {
+    } else if( e->kind == Expression::Neg ) {
+        if( !t->isArithmetic() ) {
             error(e->pos, "unary +/- requires arithmetic operand");
             return false;
         }
         e->setType(t);
     }else
         Q_ASSERT(false);
-    
+
     return true;
 }
 
 bool Validator2::Identifier(Expression* e)
 {
     Declaration* d = resolve(e->a);
-    
-    if (!d) {
+
+    if( !d ) {
         // d = resolve(e->a); // TEST
         error(e->pos, QString("declaration for '%1' not found").arg(e->a));
         markUnref(strlen(e->a), e->pos);
@@ -936,167 +922,157 @@ bool Validator2::Identifier(Expression* e)
     }
 
     Decl(d); // make sure variables declared later are validated
-    
+
     markRef(d, e->pos);
-    
-    // Convert to DeclRef
+
     e->kind = Expression::DeclRef;
     e->d = d;
-    
-    if (d->type())
-        e->setType(d->type());
-    
+
+    if( d->getType() )
+        e->setType(deref(d->getType()));
+
     return true;
 }
 
 bool Validator2::DeclRefExpr(Expression* e)
 {
     Declaration* d = e->d;
-    if (!d)
+    if( !d )
         return false;
-    
-    if (d->type())
-        e->setType(d->type());
-    
+
+    if( d->getType() )
+        e->setType(deref(d->getType()));
+
     return true;
 }
 
 bool Validator2::DotExpr(Expression* e)
 {
     Q_ASSERT(e->lhs);
-    if (!e->lhs)
+    if( !e->lhs )
         return false;
-    
+
     Expr(e->lhs);
-    Type* lt = e->lhs->type();
-    
-    if (!lt)
+    Type* lt = e->lhs->getType();
+
+    if( !lt )
         return false;
-    
+
     Type_(lt);
 
-    // Get the class/object type
+    // the class/object type
     Declaration* cls = 0;
-    if (lt->kind == Type::Ref)
+    if( lt->kind == Type::Ref )
         cls = lt->getRefType();
     else if( lt->kind == Type::Text )
         cls = mdl->getPrimitiveText();
-    
-    // Get member name from rhs
-    if (e->rhs && e->rhs->kind == Expression::Identifier) {
+
+    // member name from rhs
+    if( e->rhs && e->rhs->kind == Expression::Identifier ) {
         Atom memberName = e->rhs->a;
-        
-        // Try to resolve in the class
-        if (cls) {
+
+        // try to resolve in the class
+        if( cls ) {
             Declaration* member = AstModel::resolveInClass(cls, memberName);
-            if (member) {
+            if( member ) {
                 markRef(member, e->rhs->pos);
                 e->rhs->kind = Expression::DeclRef;
                 e->rhs->d = member;
-                if (member->type())
-                    e->setType(member->type());
+                if( member->getType() )
+                    e->setType(deref(member->getType()));
                 return true;
             }else
                 error(e->pos,"member not found in class");
         }else
             error(e->pos,"cannot apply the dot operator to this type");
-        // If we can't resolve the class, just mark as unresolved
+        // no error
         markUnref(strlen(memberName), e->rhs->pos);
     }else if( e->rhs && e->rhs->kind == Expression::DeclRef )
     {
         Declaration* member = e->rhs->d;
         markRef(member, e->rhs->pos);
-        if (member->type())
-            e->setType(member->type());
+        if( member->getType() )
+            e->setType(deref(member->getType()));
         return true;
     }else
         error(e->pos,"invalid member declaration");
 
-    
+
     return true;
 }
 
 bool Validator2::SubscriptExpr(Expression* e)
 {
     Q_ASSERT(e->lhs);
-    if (!e->lhs)
+    if( !e->lhs )
         return false;
-    
+
     Expr(e->lhs);
-    Type* lt = e->lhs->type();
-    
+    Type* lt = e->lhs->getType();
+
     // Validate subscripts
-    if (e->rhs) {
+    if( e->rhs ) {
         Expression* sub = e->rhs;
-        while (sub) {
+        while( sub ) {
             Expr(sub);
-            Type* st = sub->type();
-            if (st && !st->isInteger()) {
+            Type* st = sub->getType();
+            if( st && !st->isInteger() ) {
                 error(sub->pos, "array subscript must be integer");
             }
             sub = sub->next;
         }
     }
-    
-    // Result type is the element type
-    if (lt && lt->kind == Type::Array) {
-        // For arrays, the element type would be stored somewhere
-        // TODO For now, we don't have element type info in the Type structure
-    }
-    
+
+    if( lt && lt->kind == Type::Array )
+        e->setType(lt->getType());
+    else if( lt && lt->kind == Type::Switch )
+        e->setType(mdl->getType(Type::Label));
+
     return true;
 }
 
 bool Validator2::CallExpr(Expression* e)
 {
     Q_ASSERT(e->lhs);
-    if (!e->lhs)
+    if( !e->lhs )
         return false;
-    
+
     Expr(e->lhs);
-    
-    // Validate arguments
-    if (e->rhs) {
+
+    // arguments
+    if( e->rhs ) {
         Expression* arg = e->rhs;
-        while (arg) {
+        while( arg ) {
             Expr(arg);
             arg = arg->next;
         }
     }
-    
-    // Get return type from procedure
-    if (e->lhs->kind == Expression::DeclRef) {
+
+    if( e->lhs->kind == Expression::DeclRef ) {
         Declaration* d = e->lhs->d;
-        if (d) {
-            if (d->kind == Declaration::Builtin) {
+        if( d ) {
+            if( d->kind == Declaration::Builtin )
                 checkBuiltinCall(d, e->rhs, e->pos);
-            }
-            if (d->type())
-                e->setType(d->type());
+            e->setType(callResultType(d->getType(), e->rhs, e->pos));
         }
     }else
-    {
-        Type* ret = e->lhs->type();
-        if( ret )
-            e->setType(ret);
-    }
-    
+        e->setType(callResultType(e->lhs->getType(), e->rhs, e->pos));
+
     return true;
 }
 
 bool Validator2::NewExpr(Expression* e)
 {
-    // NEW class_identifier(args)
+    //  class_identifier(args)
     Q_ASSERT(e->lhs && e->lhs->kind == Expression::Identifier);
     if( Identifier(e->lhs) )
     {
         Declaration* cls = e->lhs->d;
-        if (cls->kind != Declaration::Class &&
+        if( cls->kind != Declaration::Class &&
             cls->kind != Declaration::StandardClass &&
-            cls->kind != Declaration::ExternalClass) {
+            cls->kind != Declaration::ExternalClass ) {
             error(e->lhs->pos, QString("'%1' is not a class").arg(cls->sym));
         }
-        // Set type to Ref of this class
         Type* refType = new Type(Type::Ref);
         refType->setExpr(e->lhs);
         e->lhs = 0;
@@ -1108,18 +1084,16 @@ bool Validator2::NewExpr(Expression* e)
 
 bool Validator2::ThisExpr(Expression* e)
 {
-    // THIS class_identifier
     Atom className = e->a;
-    
-    if (className != 0) {
+
+    if( className != 0 ) {
         Declaration* cls = resolve(className);
-        if (cls) {
+        if( cls ) {
             markRef(cls, e->pos);
-            if (cls->kind != Declaration::Class && 
-                cls->kind != Declaration::StandardClass) {
+            if( cls->kind != Declaration::Class &&
+                cls->kind != Declaration::StandardClass ) {
                 error(e->pos, QString("'%1' is not a class").arg(className));
             }
-            // Set type to Ref of this class
             Type* refType = new Type(Type::Ref);
             Expression* ref = new Expression(Expression::DeclRef);
             ref->pos = e->pos;
@@ -1130,25 +1104,23 @@ bool Validator2::ThisExpr(Expression* e)
             error(e->pos, QString("class '%1' not found").arg(className));
         }
     }
-    
+
     return true;
 }
 
 bool Validator2::QuaExpr(Expression* e)
 {
-    // expr QUA class_identifier
-    if (e->lhs)
+    if( e->lhs )
         Expr(e->lhs);
-    
-    if (e->rhs && e->rhs->kind == Expression::Identifier) {
+
+    if( e->rhs && e->rhs->kind == Expression::Identifier ) {
         Atom className = e->rhs->a;
         Declaration* cls = resolve(className);
-        if (cls) {
+        if( cls ) {
             markRef(cls, e->rhs->pos);
             e->rhs->kind = Expression::DeclRef;
             e->rhs->d = cls;
-            
-            // Set type to Ref of the target class
+
             Type* refType = new Type(Type::Ref);
             Expression* ref = new Expression(Expression::DeclRef);
             ref->pos = e->pos;
@@ -1159,35 +1131,34 @@ bool Validator2::QuaExpr(Expression* e)
             error(e->rhs->pos, QString("class '%1' not found").arg(className));
         }
     }
-    
+
     return true;
 }
 
 bool Validator2::IfExpr(Expression* e)
 {
-    // IF cond THEN expr ELSE expr
-    if (e->condition) {
+    if( e->condition ) {
         Expr(e->condition);
-        Type* ct = e->condition->type();
-        if (ct && ct->kind != Type::Boolean)
+        Type* ct = e->condition->getType();
+        if( ct && ct->kind != Type::Boolean )
             error(e->condition->pos, "if expression condition must be boolean");
     }
-    
-    if (e->lhs)
+
+    if( e->lhs )
         Expr(e->lhs);
-    if (e->rhs)
+    if( e->rhs )
         Expr(e->rhs);
-    
-    // Result type is the common type of then/else branches
-    if (e->lhs && e->lhs->type())
-        e->setType(e->lhs->type());
-    
+
+    // result type is the common type of then/else branches
+    if( e->lhs && e->lhs->getType() )
+        e->setType(e->lhs->getType());
+
     return true;
 }
 
 bool Validator2::Literal(Expression* e)
 {
-    switch (e->kind) {
+    switch( e->kind ) {
     case Expression::UnsignedConst:
         e->setType(mdl->getType(Type::Integer));
         break;
@@ -1215,72 +1186,135 @@ bool Validator2::Literal(Expression* e)
     return true;
 }
 
+Type* Validator2::callResultType(Type* t, Expression* args, const RowCol& pos)
+{
+    if( t == 0 || t->kind != Type::Procedure )
+        return t;
+    if( !t->subs.isEmpty() )
+        checkArgs(t->subs, args, pos);
+    return t->getType();
+}
+
+void Validator2::checkArgs(const DeclList& params, Expression* args, const RowCol& pos)
+{
+    int n = 0;
+    while( args )
+    {
+        if( n < params.size() && params[n]->mode == Declaration::ModeValue &&
+                args->getType() && params[n]->getType() &&
+                !assigCompat(params[n]->getType(), args, args->kind == Expression::AssignRef) )
+            error(args->pos, QString("actual parameter is not compatible with formal parameter '%1'").
+                  arg(params[n]->name.constData()));
+        n++;
+        args = args->next;
+    }
+    if( n != params.size() )
+        error(pos, QString("expecting %1 actual parameters, got %2").arg(params.size()).arg(n));
+}
+
+void Validator2::checkVirtualMatch(Declaration* spec, Declaration* impl)
+{
+    Type* st = spec->getType();
+    if( st == 0 || st->kind != Type::Procedure )
+        // only a procedure specification (5.5.3) constrains the matching declaration
+        return;
+
+    if( impl->kind != Declaration::Procedure )
+    {
+        error(impl->pos, "a specified virtual procedure can only be matched by a procedure");
+        return;
+    }
+
+    Type* res = impl->getType();
+    if( res && res->kind == Type::NoType )
+        res = 0;
+    if( ( st->getType() == 0 ) != ( res == 0 ) ||
+            ( res && !typeCompat(st->getType(), res) ) )
+        error(impl->pos, "the result type doesn't match the virtual procedure specification");
+
+    Declaration* param = impl->link;
+    int n = 0;
+    while( param && param->kind == Declaration::Parameter )
+    {
+        if( n < st->subs.size() )
+        {
+            Declaration* formal = st->subs[n];
+            if( formal->mode != param->mode || formal->kind != param->kind ||
+                    !typeCompat(formal->getType(), param->getType()) )
+                error(param->pos, QString("parameter '%1' doesn't match the virtual procedure specification").
+                      arg(param->name.constData()));
+        }
+        n++;
+        param = param->next;
+    }
+    if( n != st->subs.size() )
+        error(impl->pos, "the number of parameters doesn't match the virtual procedure specification");
+}
+
 bool Validator2::assigCompat(Type* lhs, Type* rhs, bool isRefAssign)
 {
-    if (!lhs || !rhs)
+    if( !lhs || !rhs )
         return false;
-    
-    if (isRefAssign) {
+
+    if( isRefAssign ) {
         // Reference assignment: both must be reference types
-        if (!lhs->isRef() || !rhs->isRef())
+        if( !lhs->isRef() || !rhs->isRef() )
             return false;
         // For now, accept if both are references
         return true;
     }
-    
-    // Value assignment
-    if (lhs->kind == rhs->kind)
+
+    if( lhs->kind == rhs->kind )
         return true;
-    
-    // Arithmetic widening
-    if (lhs->isArithmetic() && rhs->isArithmetic()) {
+
+    // arithmetic widening
+    if( lhs->isArithmetic() && rhs->isArithmetic() ) {
         // Integer can be assigned to Real
-        if (lhs->isReal() && rhs->isInteger())
+        if( lhs->isReal() && rhs->isInteger() )
             return true;
         // Same arithmetic type
-        if (lhs->kind == rhs->kind)
+        if( lhs->kind == rhs->kind )
             return true;
         // LongReal accepts Real
-        if (lhs->kind == Type::LongReal && rhs->kind == Type::Real)
+        if( lhs->kind == Type::LongReal && rhs->kind == Type::Real )
             return true;
         // ShortInteger to Integer
-        if (lhs->kind == Type::Integer && rhs->kind == Type::ShortInteger)
+        if( lhs->kind == Type::Integer && rhs->kind == Type::ShortInteger )
             return true;
     }
-    
-    // Text assignment
-    if (lhs->kind == Type::Text && rhs->kind == Type::Text)
+
+    if( lhs->kind == Type::Text && rhs->kind == Type::Text )
         return true;
-    
+
     return false;
 }
 
 bool Validator2::assigCompat(Type* lhs, Expression* rhs, bool isRefAssign)
 {
-    if (!rhs)
+    if( !rhs )
         return false;
-    return assigCompat(lhs, rhs->type(), isRefAssign);
+    return assigCompat(lhs, rhs->getType(), isRefAssign);
 }
 
 bool Validator2::typeCompat(Type* t1, Type* t2)
 {
-    if (!t1 || !t2)
+    if( !t1 || !t2 )
         return false;
-    if (t1->kind == t2->kind)
+    if( t1->kind == t2->kind )
         return true;
-    if (t1->isArithmetic() && t2->isArithmetic())
+    if( t1->isArithmetic() && t2->isArithmetic() )
         return true;
     return false;
 }
 
 bool Validator2::isSubclassOf(Declaration* sub, Declaration* super)
 {
-    if (!sub || !super)
+    if( !sub || !super )
         return false;
-    
+
     Declaration* cur = sub;
-    while (cur) {
-        if (cur == super)
+    while( cur ) {
+        if( cur == super )
             return true;
         cur = cur->prefix;
     }
@@ -1289,45 +1323,45 @@ bool Validator2::isSubclassOf(Declaration* sub, Declaration* super)
 
 Type* Validator2::resultType(Expression::Kind op, Type* lhs, Type* rhs)
 {
-    if (!lhs || !rhs)
+    if( !lhs || !rhs )
         return 0;
-    
-    switch (op) {
+
+    switch( op ) {
     case Expression::Add:
     case Expression::Sub:
     case Expression::Mul:
     case Expression::Div:
     case Expression::Exp:
-        if (lhs->isArithmetic() && rhs->isArithmetic()) {
+        if( lhs->isArithmetic() && rhs->isArithmetic() ) {
             // Return the wider type
-            if (lhs->kind == Type::LongReal || rhs->kind == Type::LongReal)
+            if( lhs->kind == Type::LongReal || rhs->kind == Type::LongReal )
                 return mdl->getType(Type::LongReal);
-            if (lhs->kind == Type::Real || rhs->kind == Type::Real)
+            if( lhs->kind == Type::Real || rhs->kind == Type::Real )
                 return mdl->getType(Type::Real);
-            if (lhs->kind == Type::Integer || rhs->kind == Type::Integer)
+            if( lhs->kind == Type::Integer || rhs->kind == Type::Integer )
                 return mdl->getType(Type::Integer);
             return mdl->getType(Type::ShortInteger);
         }
         // Text concatenation
-        if (op == Expression::Add && lhs->kind == Type::Text && rhs->kind == Type::Text)
+        if( op == Expression::Add && lhs->kind == Type::Text && rhs->kind == Type::Text )
             return mdl->getType(Type::Text);
         break;
-        
+
     case Expression::IntDiv:
-        if (lhs->isInteger() && rhs->isInteger())
+        if( lhs->isInteger() && rhs->isInteger() )
             return mdl->getType(Type::Integer);
         break;
-        
+
     case Expression::And:
     case Expression::AndThen:
     case Expression::Or:
     case Expression::OrElse:
     case Expression::Imp:
     case Expression::Eqv:
-        if (lhs->kind == Type::Boolean && rhs->kind == Type::Boolean)
+        if( lhs->kind == Type::Boolean && rhs->kind == Type::Boolean )
             return mdl->getType(Type::Boolean);
         break;
-        
+
     case Expression::Eq:
     case Expression::Neq:
     case Expression::Lt:
@@ -1336,48 +1370,51 @@ Type* Validator2::resultType(Expression::Kind op, Type* lhs, Type* rhs)
     case Expression::Geq:
     case Expression::Is:
     case Expression::In:
-        if (typeCompat(lhs, rhs))
+        if( typeCompat(lhs, rhs) )
             return mdl->getType(Type::Boolean);
         break;
-        
+
     case Expression::RefEq:
     case Expression::RefNeq:
-        if (lhs->isRef() && rhs->isRef())
+        if( lhs->isRef() && rhs->isRef() )
             return mdl->getType(Type::Boolean);
         break;
-        
+
     default:
         break;
     }
-    
+
     return 0;
 }
 
 Type* Validator2::deref(Type* t)
 {
+    if( t && t->kind == Type::Procedure )
+        // an identifier denoting a procedure is a call of the procedure
+        return t->getType();
     return t;
 }
 
 Declaration* Validator2::resolve(Atom sym)
 {
     // Search scope stack from innermost to outermost
-    for (int i = scopeStack.size() - 1; i >= 0; --i) {
+    for( int i = scopeStack.size() - 1; i >= 0; --i ) {
         Declaration* scope = scopeStack[i];
 
         if( scope->kind == Declaration::Class )
             Decl(scope); // many names are resolved from classes defined after the reference
 
         Declaration* d = AstModel::findInScope(scope, sym);
-        if (d)
+        if( d )
             return d;
-        
-        // Also search prefix chain for classes
-        if (scope->kind == Declaration::Class) {
+
+        // also search prefix chain for classes
+        if( scope->kind == Declaration::Class ) {
             Declaration* prefix = scope->prefix;
-            while (prefix) {
+            while( prefix ) {
                 Decl(prefix); // many names are resolved from classes defined after the reference
                 d = AstModel::findInScope(prefix, sym);
-                if (d)
+                if( d )
                     return d;
                 prefix = prefix->prefix;
             }
@@ -1388,21 +1425,21 @@ Declaration* Validator2::resolve(Atom sym)
 
 void Validator2::checkBuiltinCall(Declaration* builtin, Expression* args, const RowCol& pos)
 {
-    if (!builtin)
+    if( !builtin )
         return;
-    
+
     int id = builtin->id;
-    
+
     // Count arguments
     int argCount = 0;
     Expression* arg = args;
-    while (arg) {
+    while( arg ) {
         argCount++;
         arg = arg->next;
     }
-    
+
 #if 0
-    switch (id) {
+    switch( id ) {
     case Builtin::ABS:
     case Builtin::SIGN:
     case Builtin::ENTIER:
@@ -1412,31 +1449,31 @@ void Validator2::checkBuiltinCall(Declaration* builtin, Expression* args, const 
     case Builtin::ARCTAN:
     case Builtin::LN:
     case Builtin::EXP:
-        if (argCount != 1)
+        if( argCount != 1 )
             error(pos, QString("builtin '%1' expects 1 argument").arg(Builtin::name[id]));
         break;
-        
+
     case Builtin::MOD:
     case Builtin::REM:
     case Builtin::LOWTEN:
-        if (argCount != 2)
+        if( argCount != 2 )
             error(pos, QString("builtin '%1' expects 2 arguments").arg(Builtin::name[id]));
         break;
-        
+
     case Builtin::COPY:
-        if (argCount != 1)
+        if( argCount != 1 )
             error(pos, QString("builtin '%1' expects 1 argument").arg(Builtin::name[id]));
         break;
-                
+
     case Builtin::DETACH:
     case Builtin::RESUME:
     case Builtin::CALL:
         // These may have 0 or 1 argument
         break;
-        
+
     case Builtin::TIME:
     case Builtin::SOURCELINE:
-        if (argCount != 0)
+        if( argCount != 0 )
             error(pos, QString("builtin '%1' expects no arguments").arg(Builtin::name[id]));
         break;
         // TODO

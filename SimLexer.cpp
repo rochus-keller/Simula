@@ -151,7 +151,7 @@ bool Lexer::isValidIdent(const QByteArray &str)
         return false;
     for( int i = 1; i < str.size(); i++ )
     {
-        if( !::isalnum(str[i]) && str[i] != '_')
+        if( !::isalnum(str[i]) && str[i] != '_' )
             return false;
     }
     if( tokenTypeFromString( str.toUpper() ) != Tok_Invalid )
@@ -208,7 +208,7 @@ Token Lexer::nextTokenImp()
             return string();
         if( ch == '!' )
             return comment();
-        if( ch == '\'')
+        if( ch == '\'' )
             return character();
         if( ch.isLetter() )
             return identifier();
@@ -287,9 +287,9 @@ QChar Lexer::lookAhead(int off) const
 Token Lexer::token(TokenType tt, int len, const QByteArray& val)
 {
     Token t( tt, d_lineNr, d_colNr + 1, len, val );
-    if( tt == Tok_identifier)
+    if( tt == Tok_identifier )
         t.d_id = toId(val);
-    else if( tokenTypeIsKeyword(tt))
+    else if( tokenTypeIsKeyword(tt) )
         t.d_val.clear();
     d_lastToken = t;
     d_colNr += len;
@@ -377,7 +377,7 @@ Token Lexer::number()
     const QString str = d_line.mid(d_colNr, off );
     Q_ASSERT( !str.isEmpty() );
 
-    if( isReal)
+    if( isReal )
         return token( Tok_decimal_number, off, str.toUtf8() );
     else
         return token( Tok_unsigned_integer, off, str.toUtf8() );
@@ -525,7 +525,7 @@ Token Lexer::character()
     {
         const QChar c = lookAhead(off);
         off++;
-        if( c == other && lookAhead(off) != other)
+        if( c == other && lookAhead(off) != other )
             break;
         if( c.isNull() )
             return token( Tok_Invalid, off, "non-terminated character" );
