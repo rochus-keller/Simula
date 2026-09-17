@@ -47,6 +47,7 @@ namespace Sim
         TokenList tokens( const QString& code );
         TokenList tokens( const QByteArray& code, const QString& path = QString() );
         static const char *toId( const QByteArray& );
+        static const char *toStr( const QByteArray& );
         static bool isValidIdent( const QByteArray& str );
     protected:
         Token nextTokenImp();
@@ -70,6 +71,7 @@ namespace Sim
         QString d_line;
         TokenList d_buffer;
         static QHash<QByteArray,QByteArray> d_symbols;
+        static QHash<QByteArray,QByteArray> d_strings;
         Token d_lastToken;
         bool d_ignoreComments;  // don't deliver comment tokens
         bool d_packComments;    // Only deliver one Tok_Comment for (*...*) instead of Tok_Latt and Tok_Ratt

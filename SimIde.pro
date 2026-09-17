@@ -27,7 +27,6 @@ DEFINES += _LJTOOLS_DONT_CREATE_TAIL_CALLS # HAVE_SDL
 
 SOURCES +=  \
     ../LjTools/LuaJitHelper.cpp \
-    SimCeeGen.cpp \
     SimHighlighter.cpp \
     ../GuiTools/CodeEditor.cpp \
     ../LjTools/LuaJitBytecode.cpp \
@@ -46,7 +45,6 @@ SOURCES +=  \
 
 HEADERS  +=  \
     ../LjTools/LuaJitHelper.h \
-    SimCeeGen.h \
     SimHighlighter.h \
     ../GuiTools/CodeEditor.h \
     ../LjTools/LuaJitBytecode.h \

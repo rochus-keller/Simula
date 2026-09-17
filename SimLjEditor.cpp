@@ -19,7 +19,6 @@
 
 #include "SimLjEditor.h"
 #include "SimHighlighter.h"
-#include "SimFileCache.h"
 #include <LjTools/Engine2.h>
 #include <LjTools/Terminal2.h>
 #include <LjTools/BcViewer2.h>
@@ -391,7 +390,7 @@ void LjEditor::onCursor()
     d_lock = true;
     QTextCursor cur = d_edit->textCursor();
     const int line = cur.blockNumber() + 1;
-    d_bcv->gotoLine(Lua::JitComposer::packRowCol(line,cur.positionInBlock() + 1));
+    d_bcv->gotoLine(Lua::JitRowCol::packRowCol(line,cur.positionInBlock() + 1));
     d_lock = false;
 }
 

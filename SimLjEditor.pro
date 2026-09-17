@@ -30,6 +30,7 @@ SOURCES += SimLjEditor.cpp \
     ../GuiTools/CodeEditor.cpp \
     ../LjTools/LuaJitBytecode.cpp \
     ../LjTools/Engine2.cpp \
+    ../LjTools/LuaJitHelper.cpp \
     ../LjTools/Terminal2.cpp \
     ../LjTools/ExpressionParser.cpp \
     ../LjTools/BcViewer.cpp \
@@ -43,6 +44,7 @@ HEADERS  += SimLjEditor.h \
     ../GuiTools/CodeEditor.h \
     ../LjTools/LuaJitBytecode.h \
     ../LjTools/Engine2.h \
+    ../LjTools/LuaJitHelper.h \
     ../LjTools/Terminal2.h \
     ../LjTools/ExpressionParser.h \
     ../LjTools/BcViewer.h \

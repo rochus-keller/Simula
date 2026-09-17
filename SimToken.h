@@ -42,7 +42,7 @@ namespace Sim
 #endif
         quint32 d_lineNr;
         quint16 d_colNr, d_len; // counts unicode chars, not bytes!
-        QByteArray d_val; // utf-8
+        QByteArray d_val; // Latin1 for idents and strings, Utf8 for error messages
         Atom d_id; // lower-case internalized version of d_val
         QString d_sourcePath;
         Token(quint16 t = Tok_Invalid, quint32 line = 0, quint16 col = 0, quint16 len = 0, const QByteArray& val = QByteArray() ):

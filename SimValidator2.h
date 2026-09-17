@@ -100,7 +100,8 @@ namespace Sim {
         Type* resultType(Expression::Kind op, Type* lhs, Type* rhs);
         Type* deref(Type* t);
 
-        Declaration* resolve(Atom sym);
+        Declaration* resolve(Atom sym, bool classOnly = false);
+        Declaration* resolveClass(Expression* name);
 
         void checkBuiltinCall(Declaration* builtin, Expression* args, const RowCol& pos);
 

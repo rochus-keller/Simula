@@ -28,7 +28,6 @@
 #include "SimAst.h"
 #include "SimValidator2.h"
 #include "SimLexer.h"
-#include "SimCeeGen.h"
 
 static QStringList collectFiles( const QDir& dir )
 {
@@ -58,7 +57,7 @@ public:
 };
 
 
-static void run( const QStringList& files, bool dump, bool cgen )
+static void run( const QStringList& files, bool dump )
 {
     Sim::AstModel mdl;
     {
@@ -105,7 +104,7 @@ static void run( const QStringList& files, bool dump, bool cgen )
                 QTextStream out(stdout);
                 Sim::AstModel::dump(out, module);
             }
-#if 1
+
             Sim::Validator2 va(&mdl);
             va.validate(module);
             if( !va.errors.isEmpty() )
@@ -114,14 +113,8 @@ static void run( const QStringList& files, bool dump, bool cgen )
                     qCritical() << e.path << e.pos.d_row << e.pos.d_col << e.msg;
             }else
             {
-                Sim::CeeGen gen;
-                if( !gen.transpile(module, module->name + ".c") )
-                {
-                    foreach( const Sim::CeeGen::Error& e, gen.errors )
-                        qCritical() << module->name << e.pos.d_row << e.msg;
-                }
+                // TODO
             }
-#endif
         }
 
     }
@@ -133,7 +126,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("me@rochus-keller.ch");
     a.setOrganizationDomain("https://github.com/rochus-keller/Simula");
     a.setApplicationName("SimLc");
-    a.setApplicationVersion("2026-09-03");
+    a.setApplicationVersion("2026-09-17");
 
     QTextStream out(stdout);
     out << "SimLc version: " << a.applicationVersion() <<
@@ -142,7 +135,6 @@ int main(int argc, char *argv[])
     QStringList dirOrFilePaths;
     QString outPath;
     bool dump = false;
-    bool cgen = false;
     QString ns;
     QString mod;
     const QStringList args = QCoreApplication::arguments();
@@ -157,13 +149,10 @@ int main(int argc, char *argv[])
             out << "  -o=path   path where to save generated files (default like first source)" << endl;
             out << "  -ns=name  namespace for the generated files (default empty)" << endl;
             out << "  -mod=name directory of the generated files (default empty)" << endl;
-            out << "  -cgen     generate C code from classes" << endl;
             out << "  -h        display this information" << endl;
             return 0;
         }else if( args[i] == "-dst" )
             dump = true;
-        else if( args[i] == "-cgen" )
-            cgen = true;
         else if( args[i].startsWith("-o=") )
             outPath = args[i].mid(3);
         else if( args[i].startsWith("-ns=") )
@@ -197,7 +186,7 @@ int main(int argc, char *argv[])
             files << path;
     }
 
-    run(files, dump, cgen);
+    run(files, dump);
     Sim::Node::reportLeftovers();
 
     return 0;

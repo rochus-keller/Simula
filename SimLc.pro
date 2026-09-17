@@ -27,8 +27,7 @@ TEMPLATE = app
 
 INCLUDEPATH +=  ..
 
-SOURCES += SimLc.cpp \
-    SimCeeGen.cpp
+SOURCES += SimLc.cpp
 
 include( Simula.pri )
 
@@ -41,8 +40,7 @@ QMAKE_CXXFLAGS += -Wno-reorder -Wno-unused-parameter -Wno-unused-function -Wno-u
 RESOURCES += \
     SimLc.qrc
 
-HEADERS += \
-    SimCeeGen.h
+HEADERS +=
 
 
 

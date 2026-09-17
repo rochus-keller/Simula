@@ -1294,7 +1294,7 @@ Declaration* Parser3::module() {
     mod->path = new QString();
     *mod->path = scanner->source().toUtf8();
 
-    mod->name = QFileInfo(*mod->path).baseName().toUtf8();
+    mod->name = QFileInfo(*mod->path).baseName().toLatin1();
 
     mdl->openScope(mod);
 
@@ -1417,10 +1417,30 @@ Statement* Parser3::main_block(const Token &prefixName, const QList<Expression*>
         }
     }
 
-    // Open a new scope for the block
-    Declaration* blockScope = mdl->addDecl("", "", Declaration::Block);
-    blockScope->pos = pos;
-    mdl->openScope(blockScope);
+    // a BEGIN without declarations is a compound statement, not a block; it has
+    // no scope of its own, so its labels belong to the enclosing block
+    const bool isBlock = prefixName.d_id != 0 ||
+            (peek(1).d_type == Tok_ARRAY || peek(1).d_type == Tok_BOOLEAN ||
+             peek(1).d_type == Tok_CHARACTER || peek(1).d_type == Tok_CLASS ||
+             peek(1).d_type == Tok_EXTERNAL || peek(1).d_type == Tok_INTEGER ||
+             peek(1).d_type == Tok_LONG || peek(1).d_type == Tok_PROCEDURE ||
+             peek(1).d_type == Tok_REAL || peek(1).d_type == Tok_REF ||
+             peek(1).d_type == Tok_SHORT || peek(1).d_type == Tok_SWITCH ||
+             peek(1).d_type == Tok_TEXT) ||
+            (peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_CLASS);
+
+    Declaration* blockScope = 0;
+    if( isBlock ) {
+        blockScope = mdl->addDecl("", "", Declaration::Block);
+        blockScope->pos = pos;
+        if( prefixName.d_id != 0 ) {
+            // the scope needs the prefix too, since declarations are validated there
+            Expression* prefixExpr = new Expression(Expression::Identifier, toRowCol(prefixName));
+            prefixExpr->a = prefixName.d_id;
+            blockScope->nameRef = prefixExpr;
+        }
+        mdl->openScope(blockScope);
+    }
 
     // Parse declarations
     if( ((peek(1).d_type == Tok_ARRAY || peek(1).d_type == Tok_BOOLEAN ||
@@ -1449,8 +1469,11 @@ Statement* Parser3::main_block(const Token &prefixName, const QList<Expression*>
 
     blk->body = compound_tail();
 
-    mdl->closeScope();
+    if( blockScope )
+        mdl->closeScope();
     blk->scope = blockScope;
+    if( blockScope == 0 )
+        blk->kind = Statement::Compound;
     return blk;
 }
 
@@ -2193,16 +2216,20 @@ Statement* Parser3::unlabelled_basic_statement() {
             Expression* rhs = expression();
 
             // Handle multiple assignments (SIM75+)
+            QList<Expression*> parts;
             while( la.d_type == Tok_ColonEq ) {
                 if( !versionCheck(Sim75, "multiple assignment") ) {
                     break;
                 }
                 expect(Tok_ColonEq, false, "unlabelled_basic_statement");
-                Expression* next = expression();
-                // Chain assignments
+                parts << rhs;
+                rhs = expression();
+            }
+            // the left part list is right associative, the value is the innermost right part
+            for( int i = parts.size() - 1; i >= 0; i-- ) {
                 Expression* assign = new Expression(Expression::AssignVal, pos);
-                assign->lhs = rhs;
-                assign->rhs = next;
+                assign->lhs = parts[i];
+                assign->rhs = rhs;
                 rhs = assign;
             }
 
@@ -2217,15 +2244,19 @@ Statement* Parser3::unlabelled_basic_statement() {
             Expression* rhs = expression();
 
             // Handle multiple assignments (SIM75+)
+            QList<Expression*> parts;
             while( la.d_type == Tok_ColonMinus ) {
                 if( !versionCheck(Sim75, "multiple assignment") ) {
                     break;
                 }
                 expect(Tok_ColonMinus, false, "unlabelled_basic_statement");
-                Expression* next = expression();
+                parts << rhs;
+                rhs = expression();
+            }
+            for( int i = parts.size() - 1; i >= 0; i-- ) {
                 Expression* assign = new Expression(Expression::AssignRef, pos);
-                assign->lhs = rhs;
-                assign->rhs = next;
+                assign->lhs = parts[i];
+                assign->rhs = rhs;
                 rhs = assign;
             }
 
@@ -3216,7 +3247,12 @@ Expression* Parser3::primary() {
     } else if( la.d_type == Tok_character ) {
         expect(Tok_character, false, "primary");
         result = new Expression(Expression::CharConst, toRowCol(cur));
-        result->u = QString::fromUtf8(cur.d_val)[0].unicode();
+        const QString ch = QString::fromUtf8(cur.d_val);
+        if( ch.size() > 1 && ch.startsWith('!') && ch.endsWith('!') )
+            // an ISO code denotes the character by its rank, see 1.7
+            result->u = ch.mid(1, ch.size()-2).toUInt();
+        else
+            result->u = ch[0].unicode();
     } else if( FIRST_string_(la.d_type) ) {
         result = string_();
     } else if( la.d_type == Tok_NOTEXT ) {
@@ -3417,6 +3453,34 @@ Expression* Parser3::logical_value() {
     }
 }
 
+static double toReal(const QByteArray& str)
+{
+    // the exponent symbol is & for real, && for long real, alternatively # or U+23E8
+    QByteArray s = str;
+    int len = 2;
+    int pos = s.indexOf("&&");
+    if( pos < 0 ) {
+        pos = s.indexOf('&');
+        len = 1;
+    }
+    if( pos < 0 ) {
+        pos = s.indexOf('#');
+        len = 1;
+    }
+#if 0
+    // token.value is no longer utf8, but plain latin1
+    if( pos < 0 ) {
+        pos = s.indexOf(QString(QChar(0x23e8)).toUtf8());
+        len = 3;
+    }
+#endif
+    if( pos >= 0 )
+        s = s.left(pos) + "e" + s.mid(pos+len);
+    if( s.startsWith('e') )
+        s = "1" + s;
+    return s.toDouble();
+}
+
 Expression* Parser3::unsigned_number() {
     if( la.d_type == Tok_unsigned_integer ) {
         expect(Tok_unsigned_integer, false, "unsigned_number");
@@ -3426,7 +3490,7 @@ Expression* Parser3::unsigned_number() {
     } else if( la.d_type == Tok_decimal_number ) {
         expect(Tok_decimal_number, false, "unsigned_number");
         Expression* expr = new Expression(Expression::RealConst, toRowCol(cur));
-        expr->r = cur.d_val.toDouble();
+        expr->r = toReal(cur.d_val);
         return expr;
     } else {
         invalid("unsigned_number");
@@ -3483,6 +3547,6 @@ Expression* Parser3::string_() {
         val += cur.d_val;
     }
 
-    expr->a = Lexer::toId(val);
+    expr->a = Lexer::toStr(val);
     return expr;
 }

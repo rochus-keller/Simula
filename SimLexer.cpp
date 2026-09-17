@@ -26,6 +26,7 @@
 using namespace Sim;
 
 QHash<QByteArray,QByteArray> Lexer::d_symbols;
+QHash<QByteArray,QByteArray> Lexer::d_strings;
 
 Lexer::Lexer(QObject *parent) : QObject(parent),
     d_lastToken(Tok_Invalid),d_lineNr(0),d_colNr(0),d_in(0),
@@ -142,6 +143,17 @@ const char* Lexer::toId(const QByteArray& ident)
     return sym.constData();
 }
 
+const char* Lexer::toStr(const QByteArray& str)
+{
+    // in contrast to identifiers the case of a string is significant
+    if( str.isEmpty() )
+        return "";
+    QByteArray& sym = d_strings[str];
+    if( sym.isEmpty() )
+        sym = str;
+    return sym.constData();
+}
+
 bool Lexer::isValidIdent(const QByteArray &str)
 {
     if( str.isEmpty() )
@@ -183,27 +195,27 @@ Token Lexer::nextTokenImp()
         const QChar ch = d_line[d_colNr];
 
         if( ch == L'¬' )
-            return token( Tok_Unot, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Unot, 1 );
         if( ch == L'×' )
-            return token( Tok_Umul, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Umul, 1 );
         if( ch == L'÷' )
-            return token( Tok_Udiv, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Udiv, 1 );
         if( ch == L'↑' )
-            return token( Tok_Uexp, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Uexp, 1 );
         if( ch == L'∧' )
-            return token( Tok_Uand, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Uand, 1 );
         if( ch == L'∨' )
-            return token( Tok_Uor, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Uor, 1 );
         if( ch == L'≠' )
-            return token( Tok_Uneq, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Uneq, 1 );
         if( ch == L'≡' )
-            return token( Tok_Ueq, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Ueq, 1 );
         if( ch == L'≤' )
-            return token( Tok_Uleq, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Uleq, 1 );
         if( ch == L'≥' )
-            return token( Tok_Ugeq, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Ugeq, 1 );
         if( ch == L'⊃' )
-            return token( Tok_Uimpl, 1, d_line.mid(d_colNr,1).toUtf8() );
+            return token( Tok_Uimpl, 1 );
         if( ch == '"' || ch == L'‘' || ch == L'`' )
             return string();
         if( ch == '!' )
@@ -217,7 +229,7 @@ Token Lexer::nextTokenImp()
             if( lookAhead(1).isDigit() )
                 return number();
             else
-                return token( Tok_Dot, 1, d_line.mid(d_colNr,1).toUtf8() );
+                return token( Tok_Dot, 1 );
         }
         if( ch == '&' )
         {
@@ -234,16 +246,10 @@ Token Lexer::nextTokenImp()
         const QString part = d_line.mid(d_colNr);
         TokenType tt = tokenTypeFromString(part.toUtf8(),&pos);
 
-        /*if( tt == Tok_Latt )
-            return comment();
-        else if( d_enableExt && tt == Tok_2Slash )
-        {
-            const int len = d_line.size() - d_colNr;
-            return token( Tok_Comment, len, d_line.mid(d_colNr,len) );
-        }else */if( tt == Tok_Invalid || pos == 0 )
+        if( tt == Tok_Invalid || pos == 0 )
             return token( Tok_Invalid, 1, QString("unexpected character '%1' %2").arg(ch).arg(ch.unicode()).toUtf8() );
         else {
-            return token( tt, pos, part.left(pos).toUtf8() );
+            return token( tt, pos, part.left(pos).toLatin1() );
         }
     }
     Q_ASSERT(false);
@@ -324,8 +330,7 @@ Token Lexer::identifier()
     Q_ASSERT( !str.isEmpty() );
     int pos = 0;
     QString keyword = str;
-    // if( isAllLowerCase(keyword) )
-        keyword = keyword.toUpper(); // case insensitive keywords
+    keyword = keyword.toUpper(); // case insensitive keywords
     TokenType t = tokenTypeFromString( keyword.toUtf8(), &pos );
     if( t != Tok_Invalid && pos != keyword.size() )
         t = Tok_Invalid;
@@ -342,7 +347,7 @@ Token Lexer::identifier()
     if( t != Tok_Invalid )
         return token( t, off );
     else
-        return token( Tok_identifier, off, str.toUtf8() );
+        return token( Tok_identifier, off, str.toLatin1() );
 }
 
 Token Lexer::number()
@@ -374,13 +379,14 @@ Token Lexer::number()
     }else if( explen < 0 )
         return token( Tok_Invalid, qMax(off,1), "invalid decimal_number" );
 
-    const QString str = d_line.mid(d_colNr, off );
+    QString str = d_line.mid(d_colNr, off );
     Q_ASSERT( !str.isEmpty() );
 
+    str.replace( L'⏨', '&'); // we don't want a unicode character in the token
     if( isReal )
-        return token( Tok_decimal_number, off, str.toUtf8() );
+        return token( Tok_decimal_number, off, str.toLatin1() );
     else
-        return token( Tok_unsigned_integer, off, str.toUtf8() );
+        return token( Tok_unsigned_integer, off, str.toLatin1() );
 }
 
 Token Lexer::comment()
@@ -425,7 +431,7 @@ Token Lexer::comment()
     Token t;
     if( d_packComments )
     {
-        t = Token(Tok_Comment,startLine, startCol + 1, str.size(), str.toUtf8() );
+        t = Token(Tok_Comment,startLine, startCol + 1, str.size(), str.toLatin1() );
         d_colNr += str.size();
         t.d_sourcePath = d_sourcePath;
         d_lastToken = t;
@@ -434,7 +440,7 @@ Token Lexer::comment()
         t = Token( Tok_COMMENT, startLine, startCol + 1, symLen );
 
         // also send Tok_Comment for empty strings because "comment" could be followed immediately by \n
-        Token t2( Tok_Comment, startLine, startCol + 1 + symLen, str.size(), str.toUtf8() );
+        Token t2( Tok_Comment, startLine, startCol + 1 + symLen, str.size(), str.toLatin1() );
         t2.d_sourcePath = d_sourcePath;
         d_lastToken = t2;
         d_colNr += symLen + str.size();
@@ -485,11 +491,36 @@ Token Lexer::comment2()
         pos = d_line.size();
 
     // Col + 1 weil wir immer bei Spalte 1 beginnen, nicht bei Spalte 0
-    Token t( ( str.isEmpty() ? Tok_Invalid : Tok_Comment ), startLine, startCol + 1, str.size(), str.toUtf8() );
+    Token t( ( str.isEmpty() ? Tok_Invalid : Tok_Comment ), startLine, startCol + 1, str.size(), str.toLatin1() );
     t.d_sourcePath = d_sourcePath;
     d_lastToken = t;
     d_colNr = pos;
     return t;
+}
+
+static QString isocodes(const QString& str)
+{
+    // an ISO code is a character rank of at most three digits and less than 256,
+    // otherwise the construction is a character sequence, see 1.6
+    QString res;
+    int i = 0;
+    while( i < str.size() )
+    {
+        int j = i + 1;
+        while( j < str.size() && j - i <= 3 && str[j].isDigit() )
+            j++;
+        const int code = str.mid(i+1, j-i-1).toInt();
+        if( str[i] == '!' && j > i + 1 && j < str.size() && str[j] == '!' && code < 256 )
+        {
+            res += QChar(code);
+            i = j + 1;
+        }else
+        {
+            res += str[i];
+            i++;
+        }
+    }
+    return res;
 }
 
 Token Lexer::string()
@@ -514,7 +545,7 @@ Token Lexer::string()
     QString str = d_line.mid(d_colNr + 1, off - 2 );
     const QString doubleQuote = QString(2, other);
     str.replace(doubleQuote, other);
-    return token( Tok_string, off, str.toUtf8() ); // lenght of the whole string including double quotes
+    return token( Tok_string, off, isocodes(str).toLatin1() ); // lenght of the whole string including double quotes
 }
 
 Token Lexer::character()
@@ -543,7 +574,7 @@ Token Lexer::character()
                 return token( Tok_Invalid, off, "invalid character format" );
         }
     }
-    return token( Tok_character, off, str.toUtf8() );
+    return token( Tok_character, off, str.toLatin1() );
 }
 
 int Lexer::exponential_part(int off)
