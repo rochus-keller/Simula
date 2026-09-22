@@ -18,11 +18,12 @@
 */
 
 #include "SimValidator2.h"
+#include "SimLexer.h"
 #include <QtDebug>
 using namespace Sim;
 
-Validator2::Validator2(AstModel* mdl, Loader * l, bool haveXref)
-    : module(0), mdl(mdl), first(0), last(0), loader(l)
+Validator2::Validator2(AstModel* mdl, Importer * i, bool haveXref)
+    : module(0), mdl(mdl), first(0), last(0), imp(i)
 {
     Q_ASSERT(mdl);
     if( haveXref )
@@ -67,6 +68,8 @@ bool Validator2::validate(Declaration* mod)
         scopeStack.push_back(basicio);
 
     try {
+        if( env )
+            Decl(env);
         Module(mod);
     } catch( ... ) {
     }
@@ -154,6 +157,7 @@ Symbol* Validator2::markUnref(int len, const RowCol& pos)
 void Validator2::Module(Declaration* mod)
 {
     scopeStack.push_back(mod);
+    checkDuplicates(mod);
     DeclSeq(mod->link);
     if( mod->body )
         Body(mod->body);
@@ -165,6 +169,15 @@ void Validator2::Decl(Declaration *d)
     if( !d->validated ) {
         d->validated = true;
         markDecl(d);
+
+        // a declaration referenced before it was reached is validated in its own context
+        const QList<Scope> saved = scopeStack;
+        for( int i = scopeStack.size() - 1; i >= 0; i-- ) {
+            if( scopeStack[i].d == d->outer ) {
+                scopeStack.erase(scopeStack.begin() + i + 1, scopeStack.end());
+                break;
+            }
+        }
 
         switch( d->kind ) {
         case Declaration::Class:
@@ -206,13 +219,18 @@ void Validator2::Decl(Declaration *d)
         default:
             break;
         }
+
+        scopeStack = saved;
     }
 }
 
 void Validator2::DeclSeq(Declaration* d)
 {
     while( d ) {
-        Decl(d);
+        if( d->kind != Declaration::Block )
+            // a subordinate block is validated with its statement
+	    // which knows the prefix and the connection
+            Decl(d);
         d = d->next;
     }
 }
@@ -239,6 +257,10 @@ void Validator2::ClassDecl(Declaration* d)
                 subs[super].append(d);
         }
     }
+
+    ProtectionPart(d);
+
+    checkDuplicates(d->body ? d->body->scope : 0, d);
 
     // Open class scope
     scopeStack.push_back(d);
@@ -290,10 +312,54 @@ void Validator2::ClassDecl(Declaration* d)
         member = member->next;
     }
 
+    markInheritedVirtuals(d->prefix, d->body ? d->body->scope : 0);
+
     if( d->body )
         Body(d->body);
 
     scopeStack.pop_back();
+}
+
+static Declaration* findVirtualSpec(Declaration* cls, Atom name)
+{
+    while( cls )
+    {
+        if( cls->hidden.contains(name) )
+            // hiding a virtual disables further matching at inner levels
+            return 0;
+        Declaration* v = cls->link;
+        while( v )
+        {
+            // the matching declaration carries the symbol
+            if( v->kind == Declaration::VirtualSpec &&
+                    ( v->sym == name || ( v->forward && v->forward->sym == name ) ) )
+                return v;
+            v = v->next;
+        }
+        cls = cls->prefix;
+    }
+    return 0;
+}
+
+void Validator2::markInheritedVirtuals(Declaration* prefix, Declaration* scope)
+{
+    if( prefix == 0 || scope == 0 )
+        return;
+    Declaration* m = scope->link;
+    while( m )
+    {
+        // a declaration matching a virtual of an outer class is virtual as well
+        if( m->kind == Declaration::Procedure && !m->isVirtual )
+        {
+            Declaration* spec = findVirtualSpec(prefix, m->sym);
+            if( spec )
+            {
+                m->isVirtual = true;
+                checkVirtualMatch(spec, m);
+            }
+        }
+        m = m->next;
+    }
 }
 
 void Validator2::ProcDecl(Declaration* d)
@@ -301,6 +367,12 @@ void Validator2::ProcDecl(Declaration* d)
     // Validate return type
     if( d->getType() )
         Type_(d->getType());
+
+    // the formal parameters are local to a fictitious block embracing the procedure body block
+    // so the body block may redeclare a formal parameter
+    checkDuplicates(d);
+    if( d->body && d->body->scope )
+        checkDuplicates(d->body->scope);
 
     // Open procedure scope
     scopeStack.push_back(d);
@@ -369,15 +441,42 @@ void Validator2::ExternalDecl(Declaration* d)
     // External declarations may not have full type info
     if( d->getType() )
         Type_(d->getType());
-    if( loader == 0 )
+
+    Import imp_;
+    imp_.moduleName = d->nameRef && d->nameRef->a ? d->nameRef->a : d->sym;
+    imp_.importer = module;
+    imp_.importedAt = d->pos;
+
+    if( imp == 0 )
     {
-        error(d->pos, "no loader available");
+        error(d->pos, "no importer available to resolve external declarations");
         return;
     }
-    Declaration* ext = loader->loadExternal(d->nameRef->a);
+    Declaration* mod = imp->loadModule(imp_);
+    if( mod == 0 )
+    {
+        error(d->pos, QString("cannot load the source module '%1'").arg(imp_.moduleName));
+        return;
+    }
+    if( mod->hasErrors )
+    {
+        error(d->pos, QString("the source module '%1' has errors").arg(imp_.moduleName));
+        return;
+    }
+    if( !imported.contains(mod) )
+        imported.append(mod);
+    imp_.resolved = mod;
+
+    // an external declaration is a substitute for a complete introduction of the
+    // source module, so every declaration of the module is visible here; the
+    // external identifier itself designates the one with the same name
+    Declaration* ext = AstModel::findInScope(mod, d->sym, false);
+    if( ext == 0 && d->sym != imp_.moduleName )
+        ext = AstModel::findInScope(mod, imp_.moduleName, false);
     if( ext == 0 )
     {
-        error(d->pos, "external cannot be loaded");
+        error(d->pos, QString("the source module '%1' has no declaration of '%2'").
+              arg(imp_.moduleName).arg(d->name.constData()));
         return;
     }
     if( (d->kind == Declaration::ExternalClass && ext->kind != Declaration::Class) ||
@@ -386,7 +485,96 @@ void Validator2::ExternalDecl(Declaration* d)
         error(d->pos, "loaded external object is not compatible with the declaration");
         return;
     }
-    d->ext = d;
+    d->ext = ext;
+    d->setType(ext->getType());
+}
+
+void Validator2::ProtectionPart(Declaration* cls)
+{
+    foreach( const Declaration::Prot& p, cls->prot )
+    {
+        // a class parameter is an attribute too
+        Declaration* here = AstModel::findInScope(cls, p.sym, true);
+        if( p.flags & Declaration::Prot::Hide )
+        {
+            Declaration* d = here;
+            bool isProt = here && ( here->visi == Declaration::Protected ||
+                                    ( p.flags & Declaration::Prot::Protect ) );
+            for( Declaration* super = cls->prefix; super; super = super->prefix )
+            {
+                Declaration* o = AstModel::findInScope(super, p.sym, true);
+                if( o == 0 )
+                    continue;
+                if( d == 0 )
+                    d = o;
+                if( o->visi == Declaration::Protected )
+                    isProt = true;
+            }
+            if( d == 0 )
+            {
+                error(p.pos, QString("no attribute '%1' to be hidden").arg(p.sym));
+                continue;
+            }
+            if( !isProt )
+            {
+                error(p.pos, QString("only a protected attribute may be hidden: '%1'").arg(p.sym));
+                continue;
+            }
+            if( here )
+                here->visi = Declaration::Protected;
+            cls->hidden.append(p.sym);
+        }else
+        {
+            if( here == 0 )
+            {
+                if( findAttr(cls->prefix, p.sym, true, false) )
+                    error(p.pos, QString("an attribute may only be protected at the prefix "
+                                         "level where it is declared: '%1'").arg(p.sym));
+                else
+                    error(p.pos, QString("unknown attribute in protection part: '%1'").arg(p.sym));
+                continue;
+            }
+            here->visi = Declaration::Protected;
+        }
+    }
+}
+
+void Validator2::checkDuplicates(Declaration* scope, Declaration* params)
+{
+    if( ( scope && dupChecked.contains(scope) ) || ( params && dupChecked.contains(params) ) )
+        return;
+    if( scope )
+        dupChecked.insert(scope);
+    if( params )
+        dupChecked.insert(params);
+
+    QHash<Atom, Declaration*> seen;
+    for( int pass = 0; pass < 2; pass++ )
+    {
+        Declaration* d = pass == 0 ? (params ? params->link : 0) : (scope ? scope->link : 0);
+        for( ; d; d = d->next )
+        {
+            if( d->sym == 0 || d->name.isEmpty() || d->kind == Declaration::VirtualSpec ||
+                    d->kind == Declaration::Block )
+                continue; // a virtual specification is not a declaration of its own,
+                          // and a nested block does not declare an identifier
+            Declaration* prev = seen.value(d->sym);
+            if( prev )
+                error(d->pos, QString("'%1' has already been declared in this block "
+                                      "(line %2)").arg(d->name.constData()).arg(prev->pos.d_row));
+            else
+                seen.insert(d->sym, d);
+        }
+    }
+}
+
+Declaration* Validator2::external(Declaration* d)
+{
+    if( d == 0 || ( d->kind != Declaration::ExternalClass &&
+                    d->kind != Declaration::ExternalProc ) )
+        return d;
+    Decl(d); // loads the source module if this is the first occurrence
+    return d->ext && d->ext != d ? d->ext : d;
 }
 
 void Validator2::BlockDecl(Declaration* d)
@@ -397,9 +585,11 @@ void Validator2::BlockDecl(Declaration* d)
     else if( d->nameRef && d->nameRef->kind == Expression::DeclRef )
         prefix = d->nameRef->d;
     if( prefix )
-        scopeStack.push_back(prefix);
+        scopeStack.push_back(Scope(prefix, PrefixScope));
     scopeStack.push_back(d);
+    checkDuplicates(d);
     DeclSeq(d->link);
+    markInheritedVirtuals(prefix, d);
     if( d->body )
         Body(d->body);
     scopeStack.pop_back();
@@ -542,12 +732,18 @@ void Validator2::BlockStat(Statement* s)
         prefix = resolveClass(s->prefix);
     else if( s->prefix )
         Expr(s->prefix);
+    if( s->scope && s->scope->nameRef &&
+            s->scope->nameRef->kind == Expression::Identifier )
+        resolveClass(s->scope->nameRef);
     if( prefix )
-        scopeStack.push_back(prefix);
+        scopeStack.push_back(Scope(prefix, PrefixScope));
 
     if( s->scope ) {
+        s->scope->validated = true;
         scopeStack.push_back(s->scope);
+        checkDuplicates(s->scope);
         DeclSeq(s->scope->link);
+        markInheritedVirtuals(prefix, s->scope);
     }
 
     if( s->body )
@@ -563,6 +759,7 @@ void Validator2::CompoundStat(Statement* s)
 {
     if( s->scope ) {
         scopeStack.push_back(s->scope);
+        checkDuplicates(s->scope);
         DeclSeq(s->scope->link);
     }
 
@@ -661,7 +858,7 @@ void Validator2::InspectStat(Statement* s)
         }
 
         if( conn->classDecl )
-            scopeStack.push_back(conn->classDecl);
+            scopeStack.push_back(Scope(conn->classDecl, ConnectedScope));
         // when body
         if( conn->body )
             StatSeq(conn->body);
@@ -678,7 +875,7 @@ void Validator2::InspectStat(Statement* s)
     if( s->body )
     {
         if( cls )
-            scopeStack.push_back(cls);
+            scopeStack.push_back(Scope(cls, ConnectedScope));
         StatSeq(s->body);
         if( cls )
             scopeStack.pop_back();
@@ -781,6 +978,7 @@ bool Validator2::Expr(Expression* e)
     case Expression::Div:
     case Expression::IntDiv:
     case Expression::Exp:
+    case Expression::Concat:
     case Expression::And:
     case Expression::AndThen:
     case Expression::Or:
@@ -1002,7 +1200,7 @@ bool Validator2::DotExpr(Expression* e)
 
         // try to resolve in the class
         if( cls ) {
-            Declaration* member = AstModel::resolveInClass(cls, memberName);
+            Declaration* member = findAttr(cls, memberName, true, true);
             if( member ) {
                 markRef(member, e->rhs->pos);
                 e->rhs->kind = Expression::DeclRef;
@@ -1010,8 +1208,16 @@ bool Validator2::DotExpr(Expression* e)
                 if( member->getType() )
                     e->setType(deref(member->getType()));
                 return true;
-            }else
-                error(e->pos,"member not found in class");
+            }
+            // detach is an attribute of every object and thus not declared as an attribute of the class
+            Declaration* det = AstModel::findInScope(mdl->getBasicIo(), memberName);
+            if( det && memberName == Lexer::toId("detach") ) {
+                markRef(det, e->rhs->pos);
+                e->rhs->kind = Expression::DeclRef;
+                e->rhs->d = det;
+                return true;
+            }
+            error(e->pos,"member not found in class");
         }else
             error(e->pos,"cannot apply the dot operator to this type");
         // no error
@@ -1098,6 +1304,7 @@ bool Validator2::CallExpr(Expression* e)
             if( d->kind == Declaration::Builtin )
                 checkBuiltinCall(d, e->rhs, e->pos);
             e->setType(callResultType(d->getType(), e->rhs, e->pos));
+            stdResultType(d, e);
         }
     }else
         e->setType(callResultType(e->lhs->getType(), e->rhs, e->pos));
@@ -1198,7 +1405,7 @@ bool Validator2::Literal(Expression* e)
         e->setType(mdl->getType(Type::Integer));
         break;
     case Expression::RealConst:
-        e->setType(mdl->getType(Type::Real));
+        e->setType(mdl->getType(e->lng ? Type::LongReal : Type::Real));
         break;
     case Expression::CharConst:
         e->setType(mdl->getType(Type::Character));
@@ -1356,6 +1563,41 @@ bool Validator2::isSubclassOf(Declaration* sub, Declaration* super)
     return false;
 }
 
+static inline bool isTextType(Type* t)
+{
+    return t && ( t->kind == Type::Text || t->kind == Type::Notext );
+}
+
+void Validator2::stdResultType(Declaration* proc, Expression* e)
+{
+    // abs delivers the type of its parameter, max and min the type resulting from the two parameters
+    if( proc == 0 || e == 0 || e->rhs == 0 )
+        return;
+    if( AstModel::findInScope(mdl->getEnv(), proc->sym) != proc )
+        return; // not an attribute of the class environment
+    const bool isAbs = proc->sym == Lexer::toId("abs");
+    const bool isExtremum = proc->sym == Lexer::toId("max") ||
+                            proc->sym == Lexer::toId("min");
+    if( !isAbs && !isExtremum )
+        return;
+    Type* a = deref(e->rhs->getType());
+    if( a == 0 || !a->isArithmetic() )
+        return;
+    if( isAbs ) {
+        e->setType(a);
+        return;
+    }
+    Type* b = e->rhs->next ? deref(e->rhs->next->getType()) : 0;
+    if( b == 0 || !b->isArithmetic() )
+        return;
+    if( a->kind == Type::LongReal || b->kind == Type::LongReal )
+        e->setType(mdl->getType(Type::LongReal));
+    else if( a->kind == Type::Real || b->kind == Type::Real )
+        e->setType(mdl->getType(Type::Real));
+    else
+        e->setType(mdl->getType(Type::Integer));
+}
+
 Type* Validator2::resultType(Expression::Kind op, Type* lhs, Type* rhs)
 {
     if( !lhs || !rhs )
@@ -1376,8 +1618,10 @@ Type* Validator2::resultType(Expression::Kind op, Type* lhs, Type* rhs)
                 return mdl->getType(Type::Real);
             return mdl->getType(Type::Integer);
         }
-        // Text concatenation
-        if( op == Expression::Add && lhs->kind == Type::Text && rhs->kind == Type::Text )
+        break;
+
+    case Expression::Concat:
+        if( isTextType(lhs) && isTextType(rhs) )
             return mdl->getType(Type::Text);
         break;
 
@@ -1435,34 +1679,99 @@ static inline bool isClassDecl(Declaration* d)
             d->kind == Declaration::ExternalClass;
 }
 
+bool Validator2::withinClass(Declaration* cls) const
+{
+    // true if the current context is the body of cls or of a subclass
+    // or a block prefixed by cls or a subclass
+    for( int i = scopeStack.size() - 1; i >= 0; --i ) 
+    {
+        if( scopeStack[i].kind == ConnectedScope || !isClassDecl(scopeStack[i].d) )
+            continue;
+        Declaration* p = scopeStack[i].d;
+        while( p ) {
+            if( p == cls )
+                return true;
+            p = p->prefix;
+        }
+    }
+    return false;
+}
+
+static bool isLabelOrSwitch(Declaration* d)
+{
+    if( d->kind == Declaration::LabelDecl || d->kind == Declaration::Switch )
+        return true;
+    if( d->kind == Declaration::VirtualSpec ) {
+        Type* t = d->getType();
+        return t && ( t->kind == Type::Label || t->kind == Type::Switch );
+    }
+    return false;
+}
+
+int Validator2::contextHides(Declaration* cls, Atom sym) const
+{
+    for( int i = scopeStack.size() - 1; i >= 0; --i )
+    {
+        if( scopeStack[i].kind == ConnectedScope || !isClassDecl(scopeStack[i].d) )
+            continue;
+        int hides = 0;
+        Declaration* p = scopeStack[i].kind == OwnScope ?
+                    scopeStack[i].d->prefix : scopeStack[i].d;
+        for( ; p; p = p->prefix )
+            if( p->hidden.contains(sym) )
+                hides++;
+        return hides;
+    }
+    return 0;
+}
+
+Declaration* Validator2::findAttr(Declaration* cls, Atom sym, bool inclusive, bool remote, bool classOnly)
+{
+    // the prefix chain is searched from the innermost level outwards
+    // each hidden spec makes the innermost accessible attribute of that name invisible
+    int hides = contextHides(cls, sym);
+    Declaration* level = cls;
+    while( level ) {
+        Decl(level); // many names are resolved from classes defined after the reference
+        Declaration* d = external(AstModel::findInScope(level, sym));
+        if( d && remote && isLabelOrSwitch(d) )
+            // label and switch attributes are not accessible by remote access (4.4, 5.5.5)
+            d = 0;
+        if( d && ( !classOnly || isClassDecl(d) ) ) {
+            if( hides > 0 )
+                hides--;
+            else if( !remote || d->visi != Declaration::Protected || withinClass(level) )
+                return d;
+        }
+        level = level->prefix;
+    }
+    return 0;
+}
+
 Declaration* Validator2::resolve(Atom sym, bool classOnly)
 {
     // Search scope stack from innermost to outermost
     for( int i = scopeStack.size() - 1; i >= 0; --i ) {
-        Declaration* scope = scopeStack[i];
+        Declaration* scope = scopeStack[i].d;
 
-        if( scope->kind == Declaration::Class )
-            Decl(scope); // many names are resolved from classes defined after the reference
-
-        Declaration* d = AstModel::findInScope(scope, sym);
+        Declaration* d;
+        if( isClassDecl(scope) )
+            d = findAttr(scope, sym, scopeStack[i].kind != OwnScope,
+                         scopeStack[i].kind == ConnectedScope, classOnly);
+        else
+            d = external(AstModel::findInScope(scope, sym));
         if( d && ( !classOnly || isClassDecl(d) ) )
             return d;
-
-        // also search prefix chain for classes
-        if( scope->kind == Declaration::Class ) {
-            Declaration* prefix = scope->prefix;
-            while( prefix ) {
-                Decl(prefix); // many names are resolved from classes defined after the reference
-                d = AstModel::findInScope(prefix, sym);
-                if( d && ( !classOnly || isClassDecl(d) ) )
-                    return d;
-                prefix = prefix->prefix;
-            }
-        }
     }
-    Declaration* d = AstModel::findInScope(mdl->getGlobals(), sym);
+    Declaration* d = external(AstModel::findInScope(mdl->getGlobals(), sym));
     if( d && ( !classOnly || isClassDecl(d) ) )
         return d;
+    foreach( Declaration* mod, imported )
+    {
+        d = external(AstModel::findInScope(mod, sym, false));
+        if( d && ( !classOnly || isClassDecl(d) ) )
+            return d;
+    }
     return 0;
 }
 

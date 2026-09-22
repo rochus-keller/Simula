@@ -508,7 +508,7 @@ void Ide::loadFile(const QString& path)
 {
     QFileInfo info(path);
 
-    if( info.isDir() && info.suffix() != ".lnpro" )
+    if( info.isDir() && info.suffix() != ".simpro" )
     {
         d_rt->getPro()->initializeFromDir( path );
     }else
@@ -946,15 +946,15 @@ void Ide::onNewPro()
     // we need a path up front because this path is also the first root path to the source code
     QString fileName = QFileDialog::getSaveFileName(this, tr("New Project"),
                                                           QFileInfo(d_rt->getPro()->getProjectPath()).absolutePath(),
-                                                          tr("Luon Project (*.lnpro)") );
+                                                          tr("Simula Project (*.simpro)") );
 
     if (fileName.isEmpty())
         return;
 
     QDir::setCurrent(QFileInfo(fileName).absolutePath());
 
-    if( !fileName.endsWith(".lnpro",Qt::CaseInsensitive ) )
-        fileName += ".lnpro";
+    if( !fileName.endsWith(".simpro",Qt::CaseInsensitive ) )
+        fileName += ".simpro";
 
     d_rt->getPro()->createNew();
     d_tab->onCloseAll();
@@ -973,7 +973,7 @@ void Ide::onOpenPro()
         return;
 
     const QString fileName = QFileDialog::getOpenFileName(this, tr("Open Project"),QString(),
-                                                          tr("Luon Project (*.lnpro)") );
+                                                          tr("Simula Project (*.simpro)") );
     if (fileName.isEmpty())
         return;
 
@@ -1013,15 +1013,15 @@ void Ide::onSaveAs()
 
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save Project"),
                                                           QFileInfo(d_rt->getPro()->getProjectPath()).absolutePath(),
-                                                          tr("Luon Project (*.lnpro)") );
+                                                          tr("Simula Project (*.simpro)") );
 
     if (fileName.isEmpty())
         return;
 
     QDir::setCurrent(QFileInfo(fileName).absolutePath());
 
-    if( !fileName.endsWith(".lnpro",Qt::CaseInsensitive ) )
-        fileName += ".lnpro";
+    if( !fileName.endsWith(".simpro",Qt::CaseInsensitive ) )
+        fileName += ".simpro";
 
     d_rt->getPro()->saveTo(fileName);
     onCaption();
@@ -1410,7 +1410,7 @@ bool Ide::checkSaved(const QString& title)
                 return d_rt->getPro()->save();
             else
             {
-                const QString path = QFileDialog::getSaveFileName( this, title, QString(), "Luon Project (*.lnpro)" );
+                const QString path = QFileDialog::getSaveFileName( this, title, QString(), "Simula Project (*.simpro)" );
                 if( path.isEmpty() )
                     return false;
                 QDir::setCurrent(QFileInfo(path).absolutePath());
@@ -2909,9 +2909,9 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     a.setOrganizationName("me@rochus-keller.ch");
-    a.setOrganizationDomain("github.com/rochus-keller/Luon");
+    a.setOrganizationDomain("github.com/rochus-keller/Simula");
     a.setApplicationName("Simula 67 IDE (LuaJIT)");
-    a.setApplicationVersion("0.1.2");
+    a.setApplicationVersion("0.1.3");
     a.setStyle("Fusion");    
     QFontDatabase::addApplicationFont(":/fonts/DejaVuSansMono.ttf"); // "DejaVu Sans Mono"
 

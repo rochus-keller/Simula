@@ -81,6 +81,10 @@ namespace Sim
         uint validated : 1;
         uint hasErrors : 1;
 
+        // Expression
+        uint paren : 1; // enclosed by parentheses, relevant for text
+        uint lng : 1; // long real
+
         // Declaration
         uint visi : 2;
         uint mode : 2;
@@ -89,8 +93,9 @@ namespace Sim
         uint id : 16;
 
         // Statement
-        uint re : 1;               // reactivate
+        uint re : 1; // reactivate
         uint prior: 1;
+        uint before : 1; // for scheduling clause
 
         // Type
         uint ownsexpr : 1;
@@ -156,8 +161,18 @@ namespace Sim
         Kind kind;
 #endif
 
+        struct Prot {
+            enum Flags { Hide = 1, Protect = 2 };
+            Atom sym;
+            RowCol pos;
+            quint8 flags;
+            Prot(Atom s = 0, const RowCol& p = RowCol(), quint8 f = 0):sym(s),pos(p),flags(f){}
+        };
+
         QByteArray name;
         Atom sym; // the internalized, lower-case version of name
+        QList<Atom> hidden; // attributes hidden at this prefix level
+        QList<Prot> prot; // the protection part of a class, applied by the validator
 
         Declaration* link;   // Members/Locals
         Declaration* next;   // Next in scope
@@ -203,7 +218,7 @@ namespace Sim
         enum Kind {
             Invalid,
             Neg,
-            Add, Sub, Mul, Div, IntDiv, Exp,
+            Add, Sub, Mul, Div, IntDiv, Exp, Concat,
             And, Or, Not, Imp, Eqv, AndThen, OrElse,
             Eq, Neq, Lt, Leq, Gt, Geq, RefEq, RefNeq, Is, In,
             Identifier, DeclRef, Dot, Subscript,
@@ -358,9 +373,17 @@ namespace Sim
 
     typedef QList<Symbol*> SymList;
 
-    class Loader {
+    struct Import {
+        Atom moduleName;
+        Declaration* importer;
+        RowCol importedAt;
+        Declaration* resolved; // the loaded module
+        Import():moduleName(0),importer(0),resolved(0){}
+    };
+
+    class Importer {
     public:
-        virtual Declaration* loadExternal(const char* id) = 0;
+        virtual Declaration* loadModule( const Import& imp ) = 0;
     };
 
     class AstModel

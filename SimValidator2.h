@@ -23,16 +23,19 @@
 #include "SimAst.h"
 #include <QList>
 #include <QHash>
+#include <QSet>
 
 namespace Sim {
 
     class Validator2 {
     public:
-        Validator2(AstModel* mdl, Loader* = 0, bool haveXref = false);
+        Validator2(AstModel* mdl, Importer* = 0, bool haveXref = false);
         ~Validator2();
 
         bool validate(Declaration* module);
         Xref takeXref();
+
+        const DeclList& getImported() const { return imported; }
 
         struct Error {
             QString msg;
@@ -54,6 +57,8 @@ namespace Sim {
         void SwitchDecl(Declaration* d);
         void ParamDecl(Declaration* d);
         void ExternalDecl(Declaration* d);
+        void ProtectionPart(Declaration* cls);
+        void checkDuplicates(Declaration* scope, Declaration* params = 0);
         void BlockDecl(Declaration* d);
         void LabelDecl(Declaration* d);
 
@@ -91,8 +96,11 @@ namespace Sim {
         bool Literal(Expression* e);
 
         Type* callResultType(Type* t, Expression* args, const RowCol& pos);
+        void stdResultType(Declaration* proc, Expression* e);
+        Declaration* external(Declaration* d);
         void checkArgs(const DeclList& params, Expression* args, const RowCol& pos);
         void checkVirtualMatch(Declaration* spec, Declaration* impl);
+        void markInheritedVirtuals(Declaration* prefix, Declaration* scope);
         bool assigCompat(Type* lhs, Type* rhs, bool isRefAssign);
         bool assigCompat(Type* lhs, Expression* rhs, bool isRefAssign);
         bool typeCompat(Type* t1, Type* t2);
@@ -102,6 +110,9 @@ namespace Sim {
 
         Declaration* resolve(Atom sym, bool classOnly = false);
         Declaration* resolveClass(Expression* name);
+        Declaration* findAttr(Declaration* cls, Atom sym, bool inclusive, bool remote, bool classOnly = false);
+        bool withinClass(Declaration* cls) const;
+        int contextHides(Declaration* cls, Atom sym) const;
 
         void checkBuiltinCall(Declaration* builtin, Expression* args, const RowCol& pos);
 
@@ -116,8 +127,20 @@ namespace Sim {
         Declaration* module;
         QString sourcePath;
         AstModel* mdl;
-        Loader* loader;
-        QList<Declaration*> scopeStack;
+        Importer* imp;
+        DeclList imported;
+        QSet<Declaration*> dupChecked;
+        enum ScopeKind {
+            OwnScope, // the scope itself
+            PrefixScope,// the prefix class of a prefixed block
+            ConnectedScope // the qualification of a connection block
+        };
+        struct Scope {
+            Declaration* d;
+            quint8 kind;
+            Scope(Declaration* dd = 0, quint8 k = OwnScope):d(dd),kind(k){}
+        };
+        QList<Scope> scopeStack;
         Symbol* first;
         Symbol* last;
         QHash<Declaration*, QList<Symbol*> > xref;

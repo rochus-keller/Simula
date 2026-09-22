@@ -32,7 +32,7 @@ class QBuffer;
 
 namespace Sim
 {
-    class Project : public QObject, public Loader
+    class Project : public QObject, public Importer
     {
 #ifndef QT_NO_QOBJECT
         Q_OBJECT
@@ -95,6 +95,10 @@ namespace Sim
 
         const FileHash& getFiles() const { return d_files; }
         File* findFile( const QString& file ) const;
+        AstModel* getModel() { return &mdl; }
+        DeclList getModules() const;
+        Declaration* findModuleByName( const QByteArray& name ) const;
+        Declaration* findProgram() const;
 
         Symbol* findSymbolBySourcePos(const QString& file, quint32 line, quint16 col, Declaration** = 0 ) const;
         Symbol* findSymbolByModule(Declaration*, quint32 line, quint16 col, Declaration** scopePtr = 0) const;
@@ -130,7 +134,7 @@ namespace Sim
         File* toFile(const QString& path);
         void clearModules();
         const ModuleSlot* findModule(Declaration*) const;
-        Declaration* loadExternal(const char* id);
+        Declaration* loadModule(const Import& imp);
     private:
         AstModel mdl;
         typedef QList<ModuleSlot> Modules;

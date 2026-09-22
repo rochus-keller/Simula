@@ -19,6 +19,7 @@
 
 HEADERS += \
     $$PWD/SimAst.h \
+    $$PWD/SimImporter.h \
     $$PWD/SimLexer.h \
     $$PWD/SimParser3.h \
     $$PWD/SimRowCol.h \
@@ -29,6 +30,7 @@ HEADERS += \
 
 SOURCES += \
     $$PWD/SimAst.cpp \
+    $$PWD/SimImporter.cpp \
     $$PWD/SimLexer.cpp \
     $$PWD/SimParser3.cpp \
     $$PWD/SimRowCol.cpp \

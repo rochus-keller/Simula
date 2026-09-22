@@ -883,7 +883,7 @@ static inline bool FIRST_simple_expression_(int tt) {
 }
 
 static inline bool FIRST_adding_operator(int tt) {
-    return tt == Tok_Plus || tt == Tok_Minus;
+    return tt == Tok_Plus || tt == Tok_Minus || tt == Tok_Amp;
 }
 
 static inline bool FIRST_or_sym_(int tt) {
@@ -928,7 +928,7 @@ static inline bool FIRST_multiplying_operator(int tt) {
 }
 
 static inline bool FIRST_and_sym_(int tt) {
-    return tt == Tok_Uand || tt == Tok_Amp || tt == Tok_AND;
+    return tt == Tok_Uand || tt == Tok_AND;
 }
 
 static inline bool FIRST_factor(int tt) {
@@ -1609,6 +1609,9 @@ Declaration* Parser3::main_part() {
         expect(Tok_Semi, false, "main_part");
     }
 
+    for( int i = 0; i < visi.size(); i++ )
+        classDecl->prot.append(Declaration::Prot(visi[i].d_id, toRowCol(visi[i]), visi[i].d_len));
+
     DeclList virts = virtual_part();
     classDecl->body = class_body();
 
@@ -1638,26 +1641,6 @@ Declaration* Parser3::main_part() {
                 qWarning() << "abstract declaration" << v->name << "in" << thisMod->name << v->pos.d_row;
             }
         }
-        for( int i = 0; i < visi.size(); i++ )
-        {
-            Declaration* d = classDecl->body->scope->link;
-            while( d )
-            {
-                if( d->sym == visi[i].d_id )
-                {
-                    d->visi = visi[i].d_len;
-                    visi[i].d_type = Tok_Invalid;
-                    // TODO: add the position to d so we can click on the symbol
-                    break;
-                }
-                d = d->next;
-            }
-        }
-        for( int i = 0; i < visi.size(); i++ )
-        {
-            if( visi[i].d_type != Tok_Invalid )
-                error(visi[i], "unknown declaration specified in protection part");
-        }
     }
 
     mdl->closeScope();
@@ -1676,7 +1659,6 @@ TokenList Parser3::protection_part() {
 }
 
 TokenList Parser3::protection_specification() {
-    Declaration::Visi visi = Declaration::NA;
     bool hidden = false;
     bool prot = false;
 
@@ -1698,15 +1680,9 @@ TokenList Parser3::protection_specification() {
         invalid("protection_specification");
     }
 
-    visi = Declaration::Public;
-    if( hidden )
-        visi = Declaration::Private;
-    else if( prot )
-        visi = Declaration::Protected;
-
     TokenList ids = identifier_list();
     for( int i = 0; i < ids.size(); i++ )
-        ids[i].d_len = visi; // cheating
+        ids[i].d_len = (hidden ? 1 : 0) | (prot ? 2 : 0); // cheating
     return ids;
 }
 
@@ -2010,7 +1986,13 @@ Statement* Parser3::Common_Base_conditional_statement() {
     } else if( FIRST_for_statement(la.d_type) ) {
         ifStmt->body = for_statement();
     } else if( FIRST_while_statement(la.d_type) ) {
+        // a while statement is an unconditional statement, so an else part
+        // may follow, in contrast to a for statement
         ifStmt->body = while_statement();
+        if( la.d_type == Tok_ELSE ) {
+            expect(Tok_ELSE, false, "Common_Base_conditional_statement");
+            ifStmt->elseStmt = statement();
+        }
     } else {
         invalid("Common_Base_conditional_statement");
     }
@@ -2404,6 +2386,7 @@ void Parser3::scheduling_clause(Statement* stmt) {
     } else if( la.d_type == Tok_BEFORE ) {
         expect(Tok_BEFORE, false, "scheduling_clause");
         stmt->activate->priorObj = expression();
+        stmt->before = true;
     } else if( la.d_type == Tok_AFTER ) {
         expect(Tok_AFTER, false, "scheduling_clause");
         stmt->activate->priorObj = expression();
@@ -2466,8 +2449,8 @@ void Parser3::specification_part(Declaration* parent) {
                 if( isArray ) {
                     Type* arrType = new Type(Type::Array);
                     arrType->setType(type);
+                    // a formal array remains a parameter, the array is its type
                     param->setType(arrType);
-                    param->kind = Declaration::Array;
                 } else if( isProcedure ) {
                     Type* procType = new Type(Type::Procedure);
                     procType->setType(type);
@@ -2548,7 +2531,8 @@ Declaration* Parser3::external_item() {
     Declaration* extDecl = mdl->addDecl( name.d_id, name.d_val, Declaration::ExternalProc);
     extDecl->pos = toRowCol(name);
     extDecl->nameRef = new Expression(Expression::Identifier, toRowCol(extName));
-    extDecl->nameRef->a = extName.d_id;
+    extDecl->nameRef->a = extName.d_type == Tok_string ?
+                Lexer::toId(extName.d_val) : extName.d_id;
     return extDecl;
 }
 
@@ -3068,6 +3052,9 @@ Expression::Kind Parser3::adding_operator() {
     } else if( la.d_type == Tok_Minus ) {
         expect(Tok_Minus, false, "adding_operator");
         return Expression::Sub;
+    } else if( la.d_type == Tok_Amp ) {
+        expect(Tok_Amp, false, "adding_operator");
+        return Expression::Concat;
     } else {
         invalid("adding_operator");
         return Expression::Invalid;
@@ -3147,8 +3134,6 @@ Expression::Kind Parser3::and_sym_() {
         expect(Tok_AND, false, "and_sym_");
     } else if( la.d_type == Tok_Uand ) {
         expect(Tok_Uand, false, "and_sym_");
-    } else if( la.d_type == Tok_Amp ) {
-        expect(Tok_Amp, false, "and_sym_");
     } else {
         invalid("and_sym_");
     }
@@ -3289,6 +3274,8 @@ Expression* Parser3::primary() {
         expect(Tok_Lpar, false, "primary");
         result = expression();
         expect(Tok_Rpar, false, "primary");
+        if( result )
+            result->paren = 1;
     } else if( la.d_type == Tok_identifier ) {
         expect(Tok_identifier, false, "primary");
         result = new Expression(Expression::Identifier, toRowCol(cur));
@@ -3491,6 +3478,7 @@ Expression* Parser3::unsigned_number() {
         expect(Tok_decimal_number, false, "unsigned_number");
         Expression* expr = new Expression(Expression::RealConst, toRowCol(cur));
         expr->r = toReal(cur.d_val);
+        expr->lng = cur.d_val.contains("&&") || cur.d_val.contains("##");
         return expr;
     } else {
         invalid("unsigned_number");

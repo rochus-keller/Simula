@@ -2578,7 +2578,7 @@ zyqrecvry :- copy("**recovery : ");
 zyqmodulo := 67099547;  zyqseed := 907;
 now := -1020;
 zyqnotelastt := -15.0;
-current :- mpdemos :- new mainprogram( mpdemos );
+current :- mpdemos :- new mainprogram( "mpdemos" );
 mediansqs :- lastsqs :- new entity( "sentinel" );
 mpdemos.evtime := 0.0;
 mpdemos.title :- mpdemos.title.sub(1, 5);

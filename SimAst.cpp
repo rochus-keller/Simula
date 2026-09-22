@@ -61,7 +61,8 @@ Node::Node(Meta m) :
     kind(0),
 #endif
     meta(m), isExternal(0), ownstype(0), owned(0), type(0), mode(0),
-    visi(0), id(0), isVirtual(0), re(0), prior(0), ownsexpr(0),validated(0), hasErrors(0)
+    visi(0), id(0), isVirtual(0), re(0), prior(0), before(0), ownsexpr(0),validated(0), hasErrors(0),
+    paren(0), lng(0)
 {
 #ifdef SIM_TRACK_LEFTOVERS
     nodes << this;
@@ -575,6 +576,7 @@ private:
             case Expression::Div: return "Div";
             case Expression::IntDiv: return "IntDiv";
             case Expression::Exp: return "Exp";
+            case Expression::Concat: return "Concat";
             case Expression::And: return "And";
             case Expression::Or: return "Or";
             case Expression::Not: return "Not";

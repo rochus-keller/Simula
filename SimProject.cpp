@@ -209,6 +209,38 @@ Project::File* Project::findFile(const QString& file) const
     return f;
 }
 
+DeclList Project::getModules() const
+{
+    DeclList res;
+    for( int i = 0; i < modules.size(); i++ )
+        if( modules[i].decl )
+            res << modules[i].decl;
+    return res;
+}
+
+Declaration* Project::findModuleByName(const QByteArray& name) const
+{
+    // the module is designated by the file name, without regard to case
+    const QString n = QString::fromUtf8(name).toLower();
+    for( int i = 0; i < modules.size(); i++ )
+    {
+        if( QFileInfo(modules[i].file).completeBaseName().toLower() == n )
+            return modules[i].decl;
+    }
+    return 0;
+}
+
+Declaration* Project::findProgram() const
+{
+    for( int i = 0; i < modules.size(); i++ )
+    {
+        for( Declaration* d = modules[i].decl ? modules[i].decl->link : 0; d; d = d->next )
+            if( d->kind == Declaration::Program )
+                return modules[i].decl;
+    }
+    return 0;
+}
+
 Project::UsageByMod Project::getUsage(Declaration* n) const
 {
     UsageByMod res;
@@ -577,9 +609,19 @@ const Project::ModuleSlot*Project::findModule(Declaration* m) const
     return 0;
 }
 
-Declaration *Project::loadExternal(const char *id)
+Declaration *Project::loadModule(const Import& imp)
 {
-    return 0; // TODO
+    const QString name = QString::fromUtf8(imp.moduleName).toLower();
+    for( int i = 0; i < modules.size(); i++ )
+    {
+        if( QFileInfo(modules[i].file).completeBaseName().toLower() != name )
+            continue;
+        Declaration* module = modules[i].decl;
+        if( module && !module->validated )
+            validate(module);
+        return module;
+    }
+    return 0;
 }
 
 bool Project::parse()
@@ -597,6 +639,7 @@ bool Project::parse()
         all++;
         if( module )
         {
+            ok++;
             modules.append(ModuleSlot(i.value()->d_filePath, module));
             i.value()->d_mod = module;
         }

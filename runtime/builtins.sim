@@ -14,12 +14,14 @@ BEGIN
     INTEGER PROCEDURE isorank(c); CHARACTER c; EXTERNAL;
     BOOLEAN PROCEDURE digit(c); CHARACTER c; EXTERNAL;
     BOOLEAN PROCEDURE letter(c); CHARACTER c; EXTERNAL;
-    CHARACTER PROCEDURE upcase(c); CHARACTER c; EXTERNAL;
-    CHARACTER PROCEDURE lowcase(c); CHARACTER c; EXTERNAL;
+    CHARACTER PROCEDURE lowten(c); CHARACTER c; EXTERNAL;
+    CHARACTER PROCEDURE decimalmark(c); CHARACTER c; EXTERNAL;
 
     COMMENT --- Text Handling Intrinsics ---;
     TEXT PROCEDURE blanks(n); INTEGER n; EXTERNAL;
     TEXT PROCEDURE copy(t); TEXT t; EXTERNAL;
+    TEXT PROCEDURE upcase(t); TEXT t; EXTERNAL;
+    TEXT PROCEDURE lowcase(t); TEXT t; EXTERNAL;
     
     COMMENT --- Math Intrinsics ---;
     LONG REAL PROCEDURE abs(x); LONG REAL x; EXTERNAL;
@@ -31,11 +33,21 @@ BEGIN
     LONG REAL PROCEDURE arcsin(x); LONG REAL x; EXTERNAL;
     LONG REAL PROCEDURE arccos(x); LONG REAL x; EXTERNAL;
     LONG REAL PROCEDURE arctan(x); LONG REAL x; EXTERNAL;
+    LONG REAL PROCEDURE arctan2(y, x); LONG REAL y, x; EXTERNAL;
+    LONG REAL PROCEDURE sinh(x); LONG REAL x; EXTERNAL;
+    LONG REAL PROCEDURE cosh(x); LONG REAL x; EXTERNAL;
+    LONG REAL PROCEDURE tanh(x); LONG REAL x; EXTERNAL;
     LONG REAL PROCEDURE exp(x); LONG REAL x; EXTERNAL;
     LONG REAL PROCEDURE ln(x); LONG REAL x; EXTERNAL;
-    LONG REAL PROCEDURE sign(x); LONG REAL x; EXTERNAL;
+    LONG REAL PROCEDURE log10(x); LONG REAL x; EXTERNAL;
+    INTEGER PROCEDURE sign(x); LONG REAL x; EXTERNAL;
     INTEGER PROCEDURE entier(x); LONG REAL x; EXTERNAL;
-    LONG REAL PROCEDURE mod(x, y); LONG REAL x, y; EXTERNAL;
+    INTEGER PROCEDURE mod(i, j); INTEGER i, j; EXTERNAL;
+    INTEGER PROCEDURE rem(i, j); INTEGER i, j; EXTERNAL;
+    LONG REAL PROCEDURE addepsilon(x); LONG REAL x; EXTERNAL;
+    LONG REAL PROCEDURE subepsilon(x); LONG REAL x; EXTERNAL;
+    LONG REAL PROCEDURE max(x, y); LONG REAL x, y; EXTERNAL;
+    LONG REAL PROCEDURE min(x, y); LONG REAL x, y; EXTERNAL;
     
     COMMENT --- System Intrinsics ---;
     PROCEDURE error(msg); TEXT msg; EXTERNAL;
@@ -45,236 +57,431 @@ BEGIN
     INTEGER PROCEDURE sourceline; EXTERNAL;
     
     COMMENT --- Random Number Generators (Environment Level) ---;
-    BOOLEAN PROCEDURE draw(a, u); NAME u; REAL a; INTEGER u; EXTERNAL;
+    BOOLEAN PROCEDURE draw(a, u); NAME u; LONG REAL a; INTEGER u; EXTERNAL;
     INTEGER PROCEDURE randint(a, b, u); NAME u; INTEGER a, b; INTEGER u; EXTERNAL;
-    REAL PROCEDURE uniform(a, b, u); NAME u; REAL a, b; INTEGER u; EXTERNAL;
-    REAL PROCEDURE normal(a, b, u); NAME u; REAL a, b; INTEGER u; EXTERNAL;
-    REAL PROCEDURE negexp(a, u); NAME u; REAL a; INTEGER u; EXTERNAL;
-    INTEGER PROCEDURE poisson(a, u); NAME u; REAL a; INTEGER u; EXTERNAL;
-    REAL PROCEDURE erlang(a, b, u); NAME u; REAL a, b; INTEGER u; EXTERNAL;
+    LONG REAL PROCEDURE uniform(a, b, u); NAME u; LONG REAL a, b; INTEGER u; EXTERNAL;
+    LONG REAL PROCEDURE normal(a, b, u); NAME u; LONG REAL a, b; INTEGER u; EXTERNAL;
+    LONG REAL PROCEDURE negexp(a, u); NAME u; LONG REAL a; INTEGER u; EXTERNAL;
+    INTEGER PROCEDURE poisson(a, u); NAME u; LONG REAL a; INTEGER u; EXTERNAL;
+    LONG REAL PROCEDURE erlang(a, b, u); NAME u; LONG REAL a, b; INTEGER u; EXTERNAL;
     INTEGER PROCEDURE discrete(a, u); NAME u; REAL ARRAY a; INTEGER u; EXTERNAL;
     INTEGER PROCEDURE histd(a, u); NAME u; REAL ARRAY a; INTEGER u; EXTERNAL;
-    REAL PROCEDURE linear(a, b, u); NAME u; REAL ARRAY a, b; INTEGER u; EXTERNAL;
+    LONG REAL PROCEDURE linear(a, b, u); NAME u; REAL ARRAY a, b; INTEGER u; EXTERNAL;
 
     COMMENT --- Array Attributes (handled by compiler, but good for symbol table) ---;
     INTEGER PROCEDURE lowerbound(a, i); NAME a; REAL ARRAY a; INTEGER i; EXTERNAL;
     INTEGER PROCEDURE upperbound(a, i); NAME a; REAL ARRAY a; INTEGER i; EXTERNAL;
 
     COMMENT --- Utility Constants ---;
-    LONG REAL maxreal;
-    LONG REAL minreal;
+    LONG REAL maxlongreal;
+    LONG REAL minlongreal;
+    REAL maxreal;
+    REAL minreal;
     INTEGER maxint;
     INTEGER minint;
+    INTEGER maxrank;
+    TEXT simulaid;
     REAL simula_pi;
-    CHARACTER decimalmark;
-    BOOLEAN lowten;
     
 	CLASS basicio;
 	BEGIN
 		COMMENT --- Basic IO Primitives ---;
 		
-		CLASS file(fname); VALUE fname; TEXT fname;
-		VIRTUAL: PROCEDURE open, close, isopen, setpos, pos, length, more;
+		CLASS file(FILENAME); VALUE FILENAME; TEXT FILENAME;
+		VIRTUAL: BOOLEAN PROCEDURE open, close;
 		BEGIN
-            PROCEDURE open(image); TEXT image; EXTERNAL;
-            PROCEDURE close; EXTERNAL;
+            COMMENT --- FILEKIND tells the runtime which kind of file this is ---;
+            INTEGER FILEKIND;
             BOOLEAN PROCEDURE isopen; EXTERNAL;
-            PROCEDURE setpos(i); INTEGER i; EXTERNAL;
-            INTEGER PROCEDURE pos; EXTERNAL;
-            INTEGER PROCEDURE length; EXTERNAL;
-            BOOLEAN PROCEDURE more; EXTERNAL;
-            TEXT filename; 
-            filename :- fname;
+            BOOLEAN PROCEDURE setaccess(mode); TEXT mode; EXTERNAL;
 		END;
 
 		file CLASS imagefile;
 		BEGIN
             TEXT image;
-            PROCEDURE setimage(t); TEXT t; EXTERNAL;
-            PROCEDURE outimage; EXTERNAL;
-            PROCEDURE inimage; EXTERNAL;
+            PROCEDURE setpos(i); INTEGER i; EXTERNAL;
+            INTEGER PROCEDURE pos; EXTERNAL;
+            BOOLEAN PROCEDURE more; EXTERNAL;
+            INTEGER PROCEDURE length; EXTERNAL;
 		END;
 
 		imagefile CLASS infile;
 		BEGIN
-            PROCEDURE inchar(c); NAME c; CHARACTER c; EXTERNAL;
+            BOOLEAN PROCEDURE endfile; EXTERNAL;
+            BOOLEAN PROCEDURE open(fileimage); TEXT fileimage; EXTERNAL;
+            BOOLEAN PROCEDURE close; EXTERNAL;
+            PROCEDURE inimage; EXTERNAL;
+            BOOLEAN PROCEDURE inrecord; EXTERNAL;
+            CHARACTER PROCEDURE inchar; EXTERNAL;
             BOOLEAN PROCEDURE lastitem; EXTERNAL;
+            TEXT PROCEDURE intext(w); INTEGER w; EXTERNAL;
             INTEGER PROCEDURE inint; EXTERNAL;
             LONG REAL PROCEDURE inreal; EXTERNAL;
             INTEGER PROCEDURE infrac; EXTERNAL;
-            TEXT PROCEDURE intext(w); INTEGER w; EXTERNAL;
-            
-            COMMENT --- DEMOS extension often found here ---;
-            BOOLEAN PROCEDURE endfile; EXTERNAL; 
+            FILEKIND := 1;
 		END;
 
 		imagefile CLASS outfile;
 		BEGIN
+            BOOLEAN PROCEDURE open(fileimage); TEXT fileimage; EXTERNAL;
+            BOOLEAN PROCEDURE close; EXTERNAL;
+            PROCEDURE outimage; EXTERNAL;
+            PROCEDURE outrecord; EXTERNAL;
+            PROCEDURE breakoutimage; EXTERNAL;
+            BOOLEAN PROCEDURE checkpoint; EXTERNAL;
             PROCEDURE outchar(c); CHARACTER c; EXTERNAL;
-            PROCEDURE outint(i, w); INTEGER i, w; EXTERNAL;
-            PROCEDURE outreal(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
-            PROCEDURE outfix(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
-            PROCEDURE outfrac(i, n, w); INTEGER i, n, w; EXTERNAL;
             PROCEDURE outtext(t); TEXT t; EXTERNAL;
+            PROCEDURE outint(i, w); INTEGER i, w; EXTERNAL;
+            PROCEDURE outfix(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
+            PROCEDURE outreal(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
+            PROCEDURE outfrac(i, n, w); INTEGER i, n, w; EXTERNAL;
+            FILEKIND := 2;
 		END;
-		
+
 		outfile CLASS printfile;
 		BEGIN
-            PROCEDURE lines(n); INTEGER n; EXTERNAL;
+            INTEGER PROCEDURE line; EXTERNAL;
+            INTEGER PROCEDURE page; EXTERNAL;
+            INTEGER PROCEDURE linesperpage(n); INTEGER n; EXTERNAL;
             PROCEDURE spacing(n); INTEGER n; EXTERNAL;
             PROCEDURE eject(n); INTEGER n; EXTERNAL;
-            INTEGER PROCEDURE line; EXTERNAL;
+            FILEKIND := 3;
 		END;
 
-        file CLASS directfile;
-        BEGIN
-            PROCEDURE locate(i); INTEGER i; EXTERNAL;
+		imagefile CLASS directfile;
+		BEGIN
             INTEGER PROCEDURE location; EXTERNAL;
-            PROCEDURE inchar(c); NAME c; CHARACTER c; EXTERNAL;
+            BOOLEAN PROCEDURE endfile; EXTERNAL;
+            BOOLEAN PROCEDURE locked; EXTERNAL;
+            BOOLEAN PROCEDURE open(fileimage); TEXT fileimage; EXTERNAL;
+            BOOLEAN PROCEDURE close; EXTERNAL;
+            INTEGER PROCEDURE lastloc; EXTERNAL;
+            INTEGER PROCEDURE maxloc; EXTERNAL;
+            PROCEDURE locate(i); INTEGER i; EXTERNAL;
+            PROCEDURE inimage; EXTERNAL;
+            PROCEDURE outimage; EXTERNAL;
+            BOOLEAN PROCEDURE deleteimage; EXTERNAL;
+            CHARACTER PROCEDURE inchar; EXTERNAL;
+            INTEGER PROCEDURE lock(t, i, j); REAL t; INTEGER i, j; EXTERNAL;
+            BOOLEAN PROCEDURE unlock; EXTERNAL;
+            BOOLEAN PROCEDURE checkpoint; EXTERNAL;
+            BOOLEAN PROCEDURE lastitem; EXTERNAL;
+            TEXT PROCEDURE intext(w); INTEGER w; EXTERNAL;
             INTEGER PROCEDURE inint; EXTERNAL;
             LONG REAL PROCEDURE inreal; EXTERNAL;
+            INTEGER PROCEDURE infrac; EXTERNAL;
             PROCEDURE outchar(c); CHARACTER c; EXTERNAL;
+            PROCEDURE outtext(t); TEXT t; EXTERNAL;
             PROCEDURE outint(i, w); INTEGER i, w; EXTERNAL;
-            PROCEDURE outreal(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
             PROCEDURE outfix(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
-        END;
+            PROCEDURE outreal(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
+            PROCEDURE outfrac(i, n, w); INTEGER i, n, w; EXTERNAL;
+            FILEKIND := 4;
+		END;
 
-		COMMENT --- SysIn and SysOut are usually instantiated by the system ---;
-		REF(infile) SysIn;
-		REF(printfile) SysOut;
-		
-        COMMENT -------------------------------------------------------------;
-        COMMENT --- WRAPPER PROCEDURES (Redirect to SysIn/SysOut)         ---;
-        COMMENT -------------------------------------------------------------;
+		file CLASS bytefile;
+		BEGIN
+            SHORT INTEGER PROCEDURE bytesize; EXTERNAL;
+		END;
 
-        COMMENT --- Input Wrappers (SysIn) ---;
-        PROCEDURE inimage;
-            SysIn.inimage;
-        
-        INTEGER PROCEDURE inint;
-            inint := SysIn.inint;
-            
-        LONG REAL PROCEDURE inreal;
-            inreal := SysIn.inreal;
-            
-        INTEGER PROCEDURE infrac;
-            infrac := SysIn.infrac;
-            
-        PROCEDURE inchar(c); NAME c; CHARACTER c;
-            SysIn.inchar(c);
-            
-        BOOLEAN PROCEDURE lastitem;
-            lastitem := SysIn.lastitem;
-            
-        TEXT PROCEDURE intext(w); INTEGER w;
-            intext :- SysIn.intext(w);
+		bytefile CLASS inbytefile;
+		BEGIN
+            BOOLEAN PROCEDURE endfile; EXTERNAL;
+            BOOLEAN PROCEDURE open; EXTERNAL;
+            BOOLEAN PROCEDURE close; EXTERNAL;
+            SHORT INTEGER PROCEDURE inbyte; EXTERNAL;
+            TEXT PROCEDURE intext(t); TEXT t; EXTERNAL;
+            FILEKIND := 5;
+		END;
 
-        COMMENT --- Output Wrappers (SysOut) ---;
-        PROCEDURE outimage;
-            SysOut.outimage;
-            
-        PROCEDURE outint(val, w); INTEGER val, w;
-            SysOut.outint(val, w);
-            
-        PROCEDURE outreal(val, n, w); LONG REAL val; INTEGER n, w;
-            SysOut.outreal(val, n, w);
-            
-        PROCEDURE outfrac(val, n, w); INTEGER val, n, w;
-            SysOut.outfrac(val, n, w);
-            
-        PROCEDURE outchar(c); CHARACTER c;
-            SysOut.outchar(c);
-            
-        PROCEDURE outtext(t); TEXT t;
-            SysOut.outtext(t);
-            
-        PROCEDURE outfix(val, n, w); LONG REAL val; INTEGER n, w;
-            SysOut.outfix(val, n, w);
-            
-        PROCEDURE setpos(i); INTEGER i; 
-        	SysOut.setpos(i);
+		bytefile CLASS outbytefile;
+		BEGIN
+            BOOLEAN PROCEDURE open; EXTERNAL;
+            BOOLEAN PROCEDURE close; EXTERNAL;
+            PROCEDURE outbyte(x); SHORT INTEGER x; EXTERNAL;
+            PROCEDURE outtext(t); TEXT t; EXTERNAL;
+            BOOLEAN PROCEDURE checkpoint; EXTERNAL;
+            FILEKIND := 6;
+		END;
 
-		INTEGER PROCEDURE pos;
-			pos := SysOut.pos;
-			
-		PROCEDURE eject(n); INTEGER n;
-			SysOut.eject(n);
-			
-		INTEGER PROCEDURE line;
-			line := SysOut.line;
-            
-        COMMENT --- Coroutine / Process Intrinsics ---;
-        COMMENT These are usually context-dependent keywords or belong to
-                Simulation, but 'detach' and 'resume' are strictly speaking 
-                class attributes if not in Simulation. 
-                However, standard Simula defines 'call', 'resume', 'detach' 
-                as system keywords/primitives rather than normal procedures.
-                Defining them here as EXTERNAL is safe for symbol resolution.;
-                
+		bytefile CLASS directbytefile;
+		BEGIN
+            BOOLEAN PROCEDURE endfile; EXTERNAL;
+            INTEGER PROCEDURE location; EXTERNAL;
+            INTEGER PROCEDURE maxloc; EXTERNAL;
+            BOOLEAN PROCEDURE locked; EXTERNAL;
+            BOOLEAN PROCEDURE open; EXTERNAL;
+            BOOLEAN PROCEDURE close; EXTERNAL;
+            INTEGER PROCEDURE lastloc; EXTERNAL;
+            PROCEDURE locate(i); INTEGER i; EXTERNAL;
+            SHORT INTEGER PROCEDURE inbyte; EXTERNAL;
+            PROCEDURE outbyte(x); SHORT INTEGER x; EXTERNAL;
+            BOOLEAN PROCEDURE checkpoint; EXTERNAL;
+            INTEGER PROCEDURE lock(t, i, j); REAL t; INTEGER i, j; EXTERNAL;
+            BOOLEAN PROCEDURE unlock; EXTERNAL;
+            PROCEDURE intext(t); TEXT t; EXTERNAL;
+            PROCEDURE outtext(t); TEXT t; EXTERNAL;
+            FILEKIND := 7;
+		END;
+
+
+		COMMENT --- the standard files, whose attributes are visible in the
+		            program as if it were enclosed in two connection blocks ;
+		REF(infile) PROCEDURE sysin; EXTERNAL;
+		REF(printfile) PROCEDURE sysout; EXTERNAL;
+
+        COMMENT --- the connected attributes of sysin ---;
+        BOOLEAN PROCEDURE endfile; EXTERNAL;
+        PROCEDURE inimage; EXTERNAL;
+        BOOLEAN PROCEDURE inrecord; EXTERNAL;
+        CHARACTER PROCEDURE inchar; EXTERNAL;
+        BOOLEAN PROCEDURE lastitem; EXTERNAL;
+        TEXT PROCEDURE intext(w); INTEGER w; EXTERNAL;
+        INTEGER PROCEDURE inint; EXTERNAL;
+        LONG REAL PROCEDURE inreal; EXTERNAL;
+        INTEGER PROCEDURE infrac; EXTERNAL;
+
+        COMMENT --- the connected attributes of sysout ---;
+        TEXT PROCEDURE image; EXTERNAL;
+        PROCEDURE setpos(i); INTEGER i; EXTERNAL;
+        INTEGER PROCEDURE pos; EXTERNAL;
+        BOOLEAN PROCEDURE more; EXTERNAL;
+        INTEGER PROCEDURE length; EXTERNAL;
+        PROCEDURE outimage; EXTERNAL;
+        PROCEDURE outrecord; EXTERNAL;
+        PROCEDURE breakoutimage; EXTERNAL;
+        BOOLEAN PROCEDURE checkpoint; EXTERNAL;
+        PROCEDURE outchar(c); CHARACTER c; EXTERNAL;
+        PROCEDURE outtext(t); TEXT t; EXTERNAL;
+        PROCEDURE outint(i, w); INTEGER i, w; EXTERNAL;
+        PROCEDURE outfix(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
+        PROCEDURE outreal(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
+        PROCEDURE outfrac(i, n, w); INTEGER i, n, w; EXTERNAL;
+        INTEGER PROCEDURE line; EXTERNAL;
+        INTEGER PROCEDURE page; EXTERNAL;
+        INTEGER PROCEDURE linesperpage(n); INTEGER n; EXTERNAL;
+        PROCEDURE spacing(n); INTEGER n; EXTERNAL;
+        PROCEDURE eject(n); INTEGER n; EXTERNAL;
+
       	PROCEDURE terminate_program; EXTERNAL;
         PROCEDURE detach; EXTERNAL;
-        PROCEDURE resume(obj); REF(BasicIO) obj; EXTERNAL; 
-        PROCEDURE call(obj); REF(BasicIO) obj; EXTERNAL; 
+        PROCEDURE resume(obj); REF(BasicIO) obj; EXTERNAL;
+        PROCEDURE call(obj); REF(BasicIO) obj; EXTERNAL;
 	END;
+
 
 	COMMENT -----------------------------------------------------------------------;
 
 	basicio CLASS simset;
 	BEGIN
+		COMMENT --- the successor and predecessor fields are called SUC and PRED
+		            in the standard, which collides with the procedures of the
+		            same name since Simula is case insensitive ;
 		CLASS linkage;
 		BEGIN
-		    REF(link) PROCEDURE suc; suc :- NONE;
-		    REF(link) PROCEDURE pred; pred :- NONE;
-		    REF(linkage) PROCEDURE prev; prev :- NONE;
+		    REF(linkage) nxt___, prv___;
+		    REF(link) PROCEDURE suc;
+			suc :- IF nxt___ IN link THEN nxt___ QUA link ELSE NONE;
+		    REF(link) PROCEDURE pred;
+			pred :- IF prv___ IN link THEN prv___ QUA link ELSE NONE;
+		    REF(linkage) PROCEDURE prev; prev :- prv___;
 		END;
 
 		linkage CLASS link;
 		BEGIN
-		    PROCEDURE out; ;
-		    PROCEDURE follow(l); REF(linkage) l; ;
-		    PROCEDURE precede(l); REF(linkage) l; ;
-		    PROCEDURE into(h); REF(head) h; ;
+		    PROCEDURE out;
+		    BEGIN
+			IF nxt___ =/= NONE THEN
+			BEGIN
+			    nxt___.prv___ :- prv___; prv___.nxt___ :- nxt___;
+			    nxt___ :- NONE; prv___ :- NONE
+			END
+		    END;
+
+		    PROCEDURE follow(ptr); REF(linkage) ptr;
+		    BEGIN
+			out;
+			IF ptr =/= NONE AND THEN ptr.nxt___ =/= NONE THEN
+			BEGIN
+			    prv___ :- ptr; nxt___ :- ptr.nxt___;
+			    nxt___.prv___ :- THIS link; prv___.nxt___ :- THIS link
+			END
+		    END;
+
+		    PROCEDURE precede(ptr); REF(linkage) ptr;
+		    BEGIN
+			out;
+			IF ptr =/= NONE AND THEN ptr.prv___ =/= NONE THEN
+			BEGIN
+			    nxt___ :- ptr; prv___ :- ptr.prv___;
+			    nxt___.prv___ :- THIS link; prv___.nxt___ :- THIS link
+			END
+		    END;
+
+		    PROCEDURE into(s); REF(head) s;
+		    BEGIN
+			IF s =/= NONE THEN precede(s) ELSE out
+		    END;
 		END;
 
 		linkage CLASS head;
 		BEGIN
-		    REF(link) PROCEDURE first; first :- NONE;
-		    REF(link) PROCEDURE last; last :- NONE;
-		    BOOLEAN PROCEDURE empty; empty := TRUE;
-		    INTEGER PROCEDURE cardinal; cardinal := 0;
-		    PROCEDURE clear; ;
+		    REF(link) PROCEDURE first; first :- suc;
+		    REF(link) PROCEDURE last; last :- pred;
+		    BOOLEAN PROCEDURE empty; empty := nxt___ == THIS head;
+		    INTEGER PROCEDURE cardinal;
+		    BEGIN INTEGER i; REF(link) ptr;
+			ptr :- first;
+			WHILE ptr =/= NONE DO BEGIN i := i + 1; ptr :- ptr.suc END;
+			cardinal := i
+		    END;
+		    PROCEDURE clear;
+		    BEGIN REF(link) ptr;
+			ptr :- first;
+			WHILE ptr =/= NONE DO BEGIN ptr.out; ptr :- first END
+		    END;
+
+		    nxt___ :- THIS head; prv___ :- THIS head;
 		END;
 	END;
 
 	COMMENT -----------------------------------------------------------------------;
 
+	COMMENT --- the standard class simulation of chapter 12, with the sequencing
+	            procedures of the standard, restructured where the standard
+	            uses labels inside conditional statements ;
+
 	simset CLASS simulation;
 	BEGIN
-		REF(process) current;
-		LONG REAL sim_time;
+		REF(head) SQS;
 
-		LONG REAL PROCEDURE time; time := sim_time;
-		PROCEDURE hold(t); LONG REAL t; ;
-		PROCEDURE passivate; ;
-		PROCEDURE wait(h); REF(head) h; ;
-		PROCEDURE cancel(p); REF(process) p; ;
+		link CLASS EVENT_NOTICE(EVTIME, PROC);
+		LONG REAL EVTIME; REF(process) PROC;
+		BEGIN
+		    REF(EVENT_NOTICE) PROCEDURE sucev___;
+			sucev___ :- IF suc IS EVENT_NOTICE THEN suc QUA EVENT_NOTICE ELSE NONE;
+		    REF(EVENT_NOTICE) PROCEDURE predev___;
+			predev___ :- IF pred IS EVENT_NOTICE THEN pred QUA EVENT_NOTICE ELSE NONE;
 
-		COMMENT --- Non-standard Extension for DEMOS ---;
-		REAL PROCEDURE elapsed; elapsed := 0.0; 
+		    PROCEDURE RANK_IN_SQS(afore); BOOLEAN afore;
+		    BEGIN REF(EVENT_NOTICE) evt;
+			evt :- SQS.last QUA EVENT_NOTICE;
+			WHILE evt.EVTIME > EVTIME DO evt :- evt.predev___;
+			IF afore THEN
+			    WHILE evt.EVTIME = EVTIME DO evt :- evt.predev___;
+			follow(evt)
+		    END;
+		END;
 
-		PROCEDURE accum(a, b, c, d); NAME a, b, c; REAL a, b, c, d; ;
+		REF(MAIN_PROGRAM) main;
+
+		REF(EVENT_NOTICE) PROCEDURE FIRSTEV;
+		    FIRSTEV :- SQS.first QUA EVENT_NOTICE;
+		REF(process) PROCEDURE current; current :- FIRSTEV.PROC;
+		LONG REAL PROCEDURE time; time := FIRSTEV.EVTIME;
 
 		link CLASS process;
 		BEGIN
-		    BOOLEAN PROCEDURE idle; idle := TRUE;
-		    BOOLEAN PROCEDURE terminated; terminated := FALSE;
-		    LONG REAL PROCEDURE evtime; evtime := 0.0;
-		    REF(process) PROCEDURE nextev; nextev :- NONE;
-		    PROCEDURE detach; ;
-		    PROCEDURE resume(p); REF(process) p; ;
+		    REF(EVENT_NOTICE) EVENT;
+		    BOOLEAN TERMINATED___;
+
+		    BOOLEAN PROCEDURE idle; idle := EVENT == NONE;
+		    BOOLEAN PROCEDURE terminated; terminated := TERMINATED___;
+		    LONG REAL PROCEDURE evtime;
+			IF idle THEN error("no evtime for an idle process")
+			ELSE evtime := EVENT.EVTIME;
+		    REF(process) PROCEDURE nextev;
+			nextev :- IF idle OR ELSE EVENT.sucev___ == NONE THEN NONE
+				  ELSE EVENT.sucev___.PROC;
+
+		    detach;
+		    INNER;
+		    TERMINATED___ := TRUE;
+		    passivate;
+		    error("a terminated process was activated")
 		END;
+
+		PROCEDURE ACTIVAT(REAC, X, CODE, T, Y, PRIO);
+		VALUE CODE; REF(process) X, Y; TEXT CODE; LONG REAL T; BOOLEAN REAC, PRIO;
+		INSPECT X DO IF NOT TERMINATED___ THEN
+		BEGIN REF(process) z; REF(EVENT_NOTICE) EV; BOOLEAN sched___; TEXT cd___;
+		    sched___ := TRUE; cd___ :- CODE;
+		    IF REAC THEN EV :- EVENT
+		    ELSE IF EVENT =/= NONE THEN sched___ := FALSE;
+		    IF sched___ THEN
+		    BEGIN
+			z :- current;
+			IF cd___ = "delay" THEN BEGIN T := T + time; cd___ :- COPY("at") END;
+			IF cd___ = "at" THEN
+			BEGIN
+			    IF T < time THEN T := time;
+			    IF T = time AND THEN PRIO THEN cd___ :- COPY("direct")
+			END;
+			IF cd___ = "direct" THEN
+			BEGIN
+			    EVENT :- NEW EVENT_NOTICE(time, X);
+			    EVENT.precede(FIRSTEV)
+			END
+			ELSE IF cd___ = "at" THEN
+			BEGIN
+			    EVENT :- NEW EVENT_NOTICE(T, X);
+			    EVENT.RANK_IN_SQS(PRIO)
+			END
+			ELSE IF Y == NONE OR ELSE Y.EVENT == NONE THEN EVENT :- NONE
+			ELSE IF X == Y THEN sched___ := FALSE
+			ELSE
+			BEGIN
+			    EVENT :- NEW EVENT_NOTICE(Y.EVENT.EVTIME, X);
+			    IF cd___ = "before" THEN EVENT.precede(Y.EVENT)
+			    ELSE EVENT.follow(Y.EVENT)
+			END;
+			IF sched___ THEN
+			BEGIN
+			    IF EV =/= NONE THEN
+			    BEGIN
+				EV.out;
+				IF SQS.empty THEN error("the sequencing set is empty")
+			    END;
+			    IF z =/= current THEN resume(current)
+			END
+		    END
+		END;
+
+		PROCEDURE hold(T); LONG REAL T;
+		INSPECT FIRSTEV DO
+		BEGIN
+		    IF T > 0 THEN EVTIME := EVTIME + T;
+		    IF sucev___ =/= NONE AND THEN sucev___.EVTIME <= EVTIME THEN
+		    BEGIN out; RANK_IN_SQS(FALSE); resume(current) END
+		END;
+
+		PROCEDURE passivate;
+		BEGIN
+		    INSPECT current DO BEGIN EVENT.out; EVENT :- NONE END;
+		    IF SQS.empty THEN error("the sequencing set is empty")
+		    ELSE resume(current)
+		END;
+
+		PROCEDURE wait(S); REF(head) S;
+		BEGIN current.into(S); passivate END;
+
+		PROCEDURE cancel(X); REF(process) X;
+		IF X == current THEN passivate
+		ELSE INSPECT X DO IF EVENT =/= NONE THEN
+		BEGIN EVENT.out; EVENT :- NONE END;
+
+		process CLASS MAIN_PROGRAM;
+		BEGIN WHILE TRUE DO detach END;
+
+		PROCEDURE accum(a, b, c, d); NAME a, b, c; LONG REAL a, b, c, d;
+		BEGIN a := a + c * (time - b); b := time; c := c + d END;
+
+		SQS :- NEW head;
+		main :- NEW MAIN_PROGRAM;
+		main.EVENT :- NEW EVENT_NOTICE(0, main);
+		main.EVENT.into(SQS)
 	END;
-	
+
 	! This is NOT valid Simula code but a representation of the 
 	! built-in attributes for the compiler's symbol table;
 
@@ -297,10 +504,10 @@ BEGIN
 		LONG REAL PROCEDURE getreal; EXTERNAL;
 		INTEGER PROCEDURE getfrac; EXTERNAL;
 		
-		PROCEDURE putint(i, w); INTEGER i, w; EXTERNAL;
-		PROCEDURE putfix(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
-		PROCEDURE putreal(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
-		PROCEDURE putfrac(i, n, w); INTEGER i, n, w; EXTERNAL;
+		PROCEDURE putint(i); INTEGER i; EXTERNAL;
+		PROCEDURE putfix(r, n); LONG REAL r; INTEGER n; EXTERNAL;
+		PROCEDURE putreal(r, n); LONG REAL r; INTEGER n; EXTERNAL;
+		PROCEDURE putfrac(i, n); INTEGER i, n; EXTERNAL;
 	END;
 
 END;

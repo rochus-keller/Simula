@@ -2636,7 +2636,7 @@ zyqrecvry :- copy("**recovery : ");
 zyqmodulo := 67099547;  zyqseed := 907;
 now := -1020; comment TODO RK in original -10"20 ;
 zyqnotelastt := -15.0;
-current :- root  :- mpdemos :- new mainprogram( mpdemos );
+current :- root  :- mpdemos :- new mainprogram( "mpdemos" );
 mpdemos.evtime := 0.0;
 mpdemos.title :- mpdemos.title.sub(1, 5);
 zyqelapsed:= elapsed;
