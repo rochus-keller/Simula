@@ -1,0 +1,97 @@
+begin  external class demos;
+
+     comment -------------------- program 11 -------------------- ;
+       demos begin
+         ref(sdigger)s;
+         ref(condq)q; ref(waitq)ltq, stq;
+         ref(rdist)nextl, nexts;
+
+         entity class truck;
+         begin
+           real load;
+         end***truck***;
+
+         truck class ltruck;
+         begin
+           load := 20.0;
+           new ltruck("l").schedule(nextl.sample);
+           while load > 0.0 do
+           begin q.signal;
+             ltq.wait;
+           end;
+         end***ltruck***;
+
+         truck class struck;
+         begin
+           load := 5.0;
+           new struck("s").schedule(nexts.sample);
+           if s.t is ltruck then s.interrupt(1) else q.signal;
+           stq.wait;
+         end***struck***;
+
+         entity class digger;
+         begin
+           ref(truck)t; real rate;
+         end***digger***;
+
+         digger class ldigger;
+         begin
+           rate := 240.0;
+         loop: 
+           t :- ltq.coopt;
+           hold(t.load/rate);
+           t.load := 0.0;
+           t.schedule(0.0);
+           t :- none;
+           if ltq.length = 0 and s.t is ltruck then s.interrupt(2);
+           repeat;
+         end***ldigger***;
+
+
+
+         digger class sdigger;
+         begin real start;
+           rate := 60.0;
+         loop: 
+           q.waituntil(stq.length > 0 or ltq.length >
+       ltq.masterq.length);
+           if stq.length > 0 then
+           begin
+             t :- stq.coopt;
+             hold(t.load/rate);
+           end else
+           begin
+             start := time;
+             t :- ltq.coopt;
+             hold(t.load/rate);
+             if interrupted = 0 then t.load := 0.0 else
+             begin t.load := t.load-(time-start)*rate;
+               t.priority := 1;
+               interrupted := 0;
+             end;
+           end;
+           t.schedule(0.0);
+           t :- none;
+           repeat;
+         end***sdigger***;
+
+         outimage;  outimage;  outtext("programme # 11");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         nextl :- new negexp("next large", 22.0);
+         nexts :- new negexp("next small", 10.0);
+         q     :- new condq("sq");
+         stq   :- new waitq("s truck q");
+         ltq   :- new waitq("l truck q");
+         s     :- new sdigger("s digger");
+         s.schedule(0.0);
+         new ldigger("l digger").schedule(0.0);
+         new ldigger("l digger").schedule(0.0);
+         new ltruck("l").schedule(0.0);
+         new struck("s").schedule(0.0);
+         hold(0.5);
+         notrace;
+         hold(9.5);
+       end;
+
+end;

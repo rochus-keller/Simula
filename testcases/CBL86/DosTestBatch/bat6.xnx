@@ -1,0 +1,43 @@
+#  make nonempty input file for simtst66 (contents irrelevant)
+cp bat8.xnx any66
+SIMULA=${1:?'Compiler name missing'}
+VERSION=${2:-0}
+WRKMAX=${3:-1}
+echo $SIMULA version:$VERSION wrkmax:$WRKMAX
+$SIMULA <<endcompile
+set option M
+set sysmode sport
+set version $VERSION
+compile src/simtst60.sim
+load
+simtst60 /w$WRKMAX
+compile src/simtst61.sim
+load
+simtst61 /w$WRKMAX
+compile src/simtst62.sim
+load
+simtst62 /w$WRKMAX
+compile src/simtst63.sim
+load
+simtst63 /w$WRKMAX
+compile src/simtst64.sim
+load
+simtst64 /w$WRKMAX
+compile src/simtst65.sim
+load
+simtst65 /w$WRKMAX
+compile src/simtst66.sim
+load
+simtst66 /w$WRKMAX
+compile src/simtst67.sim
+load
+simtst67 /w$WRKMAX
+compile src/simtst68.sim
+load
+simtst68 /w$WRKMAX
+compile src/simtst69.sim
+load
+simtst69 /w$WRKMAX
+exit
+endcompile
+rm simtst* autolink.par any66

@@ -1,0 +1,36 @@
+begin  external class demos;
+
+ comment -------------------- program 2 --------------------- ;
+   demos begin
+     ref(res)tugs, jetties;
+     ref(rdist)next, discharge;
+
+     entity class boat;
+     begin
+       new boat("boat").schedule(next.sample);
+     dock: 
+       jetties.acquire(1);  tugs.acquire(2);
+       hold(2.0);
+       tugs.release(2);
+     unload: 
+       hold(discharge.sample);
+     leave: 
+       tugs.acquire(1);
+       hold(2.0);
+       tugs.release(1);  jetties.release(1);
+     end***boat***;
+
+     outimage;  outimage;  outtext("programme # 2");
+     outimage;  outimage;  outimage;  outimage;  outimage;
+     trace;
+     tugs      :- new res("tugs", 3);
+     jetties   :- new res("jetties", 2);
+     next      :- new negexp("next boat", 0.1);
+     discharge :- new normal("discharge", 14.0, 3.0);
+     new boat("boat").schedule(0.0);
+     hold(50.0);
+     notrace;
+     hold(28.0*24.0-50.0);
+   end;
+
+end;

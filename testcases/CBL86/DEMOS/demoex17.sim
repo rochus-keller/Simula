@@ -1,0 +1,43 @@
+begin  external class demos;
+
+     comment -------------------- program 17 -------------------- ;
+         demos begin
+           ref(res)cu;
+           ref(res)array disk(1:8);
+           ref(rdist)next, head, rotate;
+
+           entity class request(n); integer n;
+           begin
+             new request("r", n).schedule(next.sample);
+           passseekinfo: 
+             disk(n).acquire(1);
+             cu.acquire(1);
+             hold(0.0);
+             cu.release(1);
+           movearms: 
+             hold(head.sample);
+           dotransfer: 
+             cu.acquire(1);
+             hold(rotate.sample + transfer);
+             cu.release(1);
+             disk(n).release(1);
+           end***request***;
+
+           integer k;
+           real transfer;
+
+           outimage;  outimage;  outtext("programme # 17");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           for k := 1 step 1 until 8 do
+             disk(k) :- new res(edit("disk", k), 1);
+           cu       :- new res("channel unit", 1);
+           next     :- new negexp("next request", 10.0);
+           head     :- new uniform("h-movement" , 0.005, 0.085);
+           rotate   :- new uniform("rotate time", 0.000, 0.018);
+           transfer := 0.001;
+           for k := 1 step 1 until 8 do
+             new request("r", k).schedule(next.sample*k/8);
+           hold(3.0);
+         end;
+
+end;

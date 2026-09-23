@@ -1,0 +1,38 @@
+begin  external class demos;
+
+     comment -------------------- program 9 --------------------- ;
+       demos begin
+         integer k;
+         ref(res)array fork(1:5);
+         ref(idist)think, eat;
+         ref(condq)q;
+
+         entity class philosopher(n); integer n;
+         begin ref(res)l, r;
+           l :- fork(n);
+           r :- fork(if n=5 then 1 else n+1);
+         loop: 
+           hold(think.sample);
+           q.waituntil(l.avail > 0 and r.avail > 0);
+           l.acquire(1);  r.acquire(1);
+           hold(eat.sample);
+           l.release(1); r.release(1);
+           q.signal;
+           repeat;
+         end***philosopher***;
+
+         outimage;  outimage;  outtext("programme # 9");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         q :- new condq("await eat");
+         q.all := true;
+         think :- new randint("think", 20, 30);
+         eat   :- new randint("eat",   10, 20);
+         for k := 1 step 1 until 5 do
+           fork(k) :- new res(edit("fork", k), 1);
+         for k := 1 step 1 until 5 do
+           new philosopher("p", k).schedule(0.0);
+         hold(180.0);
+       end;
+
+end;

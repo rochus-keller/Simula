@@ -1,0 +1,10 @@
+begin  external class demos;
+
+ comment -------------------- program 0 --------------------- ;
+   demos begin
+     outimage;  outimage;  outtext("programme # 0");
+     outimage;  outimage;  outimage;  outimage;  outimage;
+     noreport;
+   end;
+
+end;

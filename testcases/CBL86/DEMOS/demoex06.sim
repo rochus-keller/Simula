@@ -1,0 +1,61 @@
+begin  external class demos;
+
+ comment -------------------- program 6 --------------------- ;
+   demos begin
+     ref(bin)array q(1:2);
+     ref(rdist)array next(1:2);
+     ref(bin)shutdown;
+     ref(rdist)crossing;
+     ref(tally)load;
+     ref(count)trips, empties;
+
+     entity class ferry;
+     begin integer side, c;
+       for side := 1, 2 do
+       begin
+     loading: 
+         c := 0;
+         while c < 6 and q(side).avail > 0 do
+         begin q(side).take(1);
+           hold(0.5);
+           c := c + 1;
+         end;
+         load.update(c);
+         if c = 0 then empties.update(1);
+     cross: 
+         hold(crossing.sample);
+     unload: 
+         hold(c*0.5);
+       end;
+       trips.update(1);
+       if time < 1305.0 then repeat;
+       shutdown.give(1);
+     end***ferry***;
+
+     entity class arrival(side); integer side;
+     begin hold(next(side).sample);
+       q(side).give(1);
+       repeat;
+     end***repeat***;
+
+
+
+     outimage;  outimage;  outtext("programme # 6");
+     outimage;  outimage;  outimage;  outimage;  outimage;
+     hold(420.0);
+     q(1)     :- new bin("mainland", 3);
+     q(2)     :- new bin("island",  1);
+     shutdown :- new bin("shutdown", 0);
+     next(1)  :- new negexp("mainland", 0.15);
+     next(2)  :- new negexp("island",   0.15);
+     crossing :- new normal("crossing", 8.0, 0.5);
+     trips    :- new count("trips");
+     empties  :- new count("empty trips");
+     load     :- new tally("av. load");
+     new arrival("arr", 1).schedule(0.0);
+     new arrival("arr", 2).schedule(0.0);
+     new ferry("ferry").schedule(0.0);
+     shutdown.take(1);
+   end;
+
+end;

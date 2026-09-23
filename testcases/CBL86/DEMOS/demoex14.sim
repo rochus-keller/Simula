@@ -1,0 +1,26 @@
+begin  external class demos;
+
+     comment -------------------- program 14 -------------------- ;
+         demos begin
+           ref(rdist)burst, next;
+           ref(res)cpu;
+
+           entity class program;
+           begin
+             new program("p").schedule(next.sample);
+             cpu.acquire(1);
+             hold(burst.sample);
+             cpu.release(1);
+           end***program***;
+
+           burst :- new negexp("cpu burst", 1.0);
+           next  :- new negexp("next job", 0.875);
+           cpu   :- new res("cpu", 1);
+
+           outimage;  outimage;  outtext("programme # 14");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           new program("p").schedule(0.0);
+           hold(50.0);
+         end;
+
+end;

@@ -1,0 +1,55 @@
+begin  external class demos;
+
+     comment -------------------- program 8 --------------------- ;
+         demos begin
+         ref(res)tugs, jetties;
+         ref(condq)dockq; boolean lowtide;
+         ref(rdist)next, discharge;
+
+         entity class boat;
+         begin
+           new boat("boat").schedule(next.sample);
+         dock: 
+           jetties.acquire(1);
+           dockq.waituntil(tugs.avail >= 2 and not lowtide);
+           tugs.acquire(2);
+           hold(2.0);
+           tugs.release(2);
+           dockq.signal;
+         unload: 
+           hold(discharge.sample);
+         leave: 
+           tugs.acquire(1);
+           hold(2.0);
+           tugs.release(1);  jetties.release(1);
+           dockq.signal;
+         end***boat***;
+
+         entity class tide;
+         begin
+         lowtideon: 
+           lowtide := true;
+           hold(4.0);
+           lowtide := false;
+           dockq.signal;
+         lowtideoff: 
+           hold(9.0);
+           repeat;
+         end***tide***;
+
+         outimage;  outimage;  outtext("programme # 8");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         tugs      :- new res("tugs", 3);
+         jetties   :- new res("jetties", 2);
+         dockq     :- new condq("dockq");
+         next      :- new negexp("next boat", 0.1);
+         discharge :- new normal("discharge", 14.0, 3.0);
+         new tide("tide").schedule(1.0);
+         new boat("boat").schedule(0.0);
+         hold(50.0);
+         notrace;
+         hold(28.0*24.0-50.0);
+       end;
+
+end;

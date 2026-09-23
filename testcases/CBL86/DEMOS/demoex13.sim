@@ -1,0 +1,97 @@
+begin  external class demos;
+
+     comment -------------------- program 13 -------------------- ;
+         demos begin
+           ref(waitq)bayq;
+           ref(rdist)nextlorry, fill, nexttrip;
+           ref(res)weighbridge, crane, bays, vanspaces;
+           ref(bin)fullhoppers, emptyhoppers;
+
+           entity class van;
+           begin
+             integer k;
+           enter: 
+             vanspaces.acquire(1);
+             weighbridge.acquire(1);
+             hold(2.0);
+             weighbridge.release(1);
+           unload: 
+             crane.acquire(1);
+             for k := 1 step 1 until 3 do
+             begin
+               emptyhoppers.take(1);
+               hold(fill.sample);
+               fullhoppers.give(1);
+             end;
+             crane.release(1);
+           leave: 
+             weighbridge.acquire(1);
+             hold(2.0);
+             weighbridge.release(1);
+             vanspaces.release(1);
+           nextload: 
+             hold(98.0 + nexttrip.sample);
+             repeat;
+           end***van***;
+
+           entity class lorry;
+           begin
+             new lorry("lorry").schedule(nextlorry.sample);
+           enter: 
+             bays.acquire(1);
+             weighbridge.acquire(1);
+             hold(3.0);
+             weighbridge.release(1);
+           load: 
+             bayq.wait;
+
+           exit: 
+             weighbridge.acquire(1);
+             hold(3.0);
+             weighbridge.release(1);
+             bays.release(1);
+           end***lorry***;
+
+
+
+           entity class production;
+           begin
+             ref(lorry)l;
+           firsthopper: 
+             fullhoppers.take(1);
+             hold(10.0);
+           findtruck: 
+             l :- bayq.coopt;
+             hold(15.0);
+             emptyhoppers.give(1);
+           secondhopper: 
+             fullhoppers.take(1);
+             hold(25.0);
+             emptyhoppers.give(1);
+             l.schedule(10.0);
+             repeat;
+           end***production line***;
+
+           integer k;
+
+           outimage;  outimage;  outtext("programme # 13");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           nextlorry    :- new negexp("next lorry", 0.1);
+           fill         :- new normal("fill hopper", 5.0, 1.0);
+           nexttrip     :- new negexp("van return", 0.1);
+           weighbridge  :- new res("weighbridge", 1);
+           crane        :- new res("crane", 1);
+           bays         :- new res("bays", 6);
+           vanspaces    :- new res("van spaces", 4);
+           bayq         :- new waitq("await container");
+           fullhoppers  :- new bin("full hoppers",  3);
+           emptyhoppers :- new bin("empty hoppers", 5);
+           new lorry("l").schedule(0.0);
+           for k := 1 step 1 until 7 do
+             new van("v").schedule((k-1)*14);
+           for k := 1 step 1 until 5 do
+             new production("p-line").schedule(0.0);
+           hold(480.0);
+         end;
+
+end;

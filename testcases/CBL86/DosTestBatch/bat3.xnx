@@ -1,0 +1,42 @@
+SIMULA=${1:?'Compiler name missing'}
+VERSION=${2:-0}
+WRKMAX=${3:-1}
+echo $SIMULA version:$VERSION wrkmax:$WRKMAX
+$SIMULA <<endcompile
+set option M
+set sysmode sport
+set version $VERSION
+compile src/simtst30.sim
+load
+simtst30 /w$WRKMAX
+compile src/simtst31.sim
+CC simtst31 has complex switch - error under comp
+CC load
+CC simtst31 /w$WRKMAX
+compile src/simtst32.sim
+load
+simtst32 /w$WRKMAX
+compile src/simtst33.sim
+load
+simtst33 /w$WRKMAX
+compile src/simtst34.sim
+load
+simtst34 /w$WRKMAX
+compile src/simtst35.sim
+load
+simtst35 /w$WRKMAX
+compile src/simtst36.sim
+load
+simtst36 /w$WRKMAX
+compile src/simtst37.sim
+load
+simtst37 /w$WRKMAX
+compile src/simtst38.sim
+load
+simtst38 /w$WRKMAX
+compile src/simtst39.sim
+load
+simtst39 /w$WRKMAX
+exit
+endcompile
+rm simtst* autolink.par

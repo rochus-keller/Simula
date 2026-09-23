@@ -1,0 +1,281 @@
+% $Id: test.sim,v 1.2 1994/07/17 10:41:41 cim Exp $
+
+
+% Copyright (C) 1994 Sverre Hvammen Johansen, Stein Krogdahl and Terje Mjøs
+% Department of Informatics, University of Oslo.
+%
+% This program is free software; you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation; version 2.
+%
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with this program; if not, write to the Free Software
+% Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. */
+
+SimSet begin class Flink(MaxInstr, MaxIntt, MaxReal); integer MaxInstr, MaxIntt, MaxReal;
+begin real array RStore(0:MaxReal); integer array Func, Adrs, Corr(0:MaxInstr),
+IStore(0:MaxIntt); real R; integer I, C, CF, CA, CC, PC; integer TotalTid;
+procedure DumpRegs; begin OutImage; SetPos( 1); OutText("I = "); OutNum(I);
+SetPos(21); OutText("C = "); OutNum(C); SetPos(41); OutText("PC = "); OutNum(PC); OutImage; SetPos( 1); OutText("CF = "); OutNum(CF); SetPos(21); OutText("CA = "); OutNum(CA);
+SetPos(41); OutText("CC = "); OutNum(CC); OutImage; end DumpRegs; procedure DumpIStore; begin
+integer Inx; OutImage; OutText("IStore:"); for Inx := 0 step 1 until MaxIntt do begin if Mod(Inx,6) = 0 then begin
+OutImage; OutInt(Inx,4); OutText(": "); end; OutInt(IStore(Inx), 11);
+end for; OutImage; end DumpIStore; procedure DumpRStore;
+begin integer Inx; OutImage; OutText("RStore:"); for Inx := 0 step 1 until MaxReal do begin
+if Mod(Inx,5) = 0 then begin OutImage; OutInt(Inx,4); OutText(": "); end;
+OutReal(RStore(Inx), 8, 14); end for; OutImage; end DumpRStore;
+procedure OutNum(N); integer N; begin if N < 0 then begin
+OutChar('-'); OutNum(-N); end else begin if N > 9 then OutNum(N//10); OutChar(Char(Rank('0') + Mod(N,10)));
+end; end OutNum; procedure Run; begin
+integer Tid, FinAddr; switch Instr := STOP, LDI, STI, LDC, STC, ADDI, SUBI, MULI, DIVI, INI, OUTI, OLIN, JMP, JRC, JLTI, JLEI, JEQI, JNEI,
+JGTI, JGEI, SETI, INCI, SETC, INCC, CIC, CCI, LDR, STR, ADDR, SUBR, MULR, DIVR, INR, OUTR, JLTR, JLER, JEQR, JNER, JGER, JGTR, ZROR, CIR, CRI; Tid := 0;
+Next: TotalTid := TotalTid+Tid; Tid := 0; CF := Func(PC); CA := Adrs(PC); CC := Corr(PC); PC := PC+1; FinAddr := CA;
+if CC <> 0 then FinAddr := FinAddr+C; if CF < 0 or CF > 42 then begin OutText("Ulovlig instruksjonskode: "); OutNum(CF); OutImage; goto StopRun;
+end; goto Instr(CF+1); STOP: Tid := 1; goto StopRun; LDI: I := IStore(FinAddr); Tid := 2; goto Next;
+STI: IStore(FinAddr) := I; Tid := 2; goto Next; LDC: C := IStore(FinAddr); Tid := 2; goto Next; STC: IStore(FinAddr) := C; Tid := 2; goto Next; ADDI: I := I + IStore(FinAddr); Tid := 2; goto Next;
+SUBI: I := I - IStore(FinAddr); Tid := 2; goto Next; MULI: I := I * IStore(FinAddr); Tid := 10; goto Next; DIVI: if IStore(FinAddr) = 0 then begin OutImage;
+OutText("Integer division by zero."); OutImage; goto StopRun; end; I := I // IStore(FinAddr); Tid := 15; goto Next;
+INI: OutText("Integer value> "); BreakOutImage; InImage; I := InInt; Tid := 100; goto Next; OUTI: OutInt(I, FinAddr); Tid := 50; goto Next; OLIN: OutImage; Tid := 50; goto Next;
+JMP: PC := FinAddr; Tid := 1; goto Next; JRC: C := PC; PC := FinAddr; Tid := 1; goto Next; JLTI: if I < 0 then PC := FinAddr; Tid := 1; goto Next; JLEI: if I <= 0 then PC := FinAddr; Tid := 1; goto Next;
+JEQI: if I = 0 then PC := FinAddr; Tid := 1; goto Next; JNEI: if I <> 0 then PC := FinAddr; Tid := 1; goto Next; JGTI: if I > 0 then PC := FinAddr; Tid := 1; goto Next; JGEI: if I >= 0 then PC := FinAddr; Tid := 1; goto Next;
+SETI: I := FinAddr; Tid := 1; goto Next; INCI: I := I + FinAddr; Tid := 1; goto Next; SETC: C := FinAddr; Tid := 1; goto Next; INCC: C := C + FinAddr; Tid := 1; goto Next;
+CIC: C := I; Tid := 1; goto Next; CCI: I := C; Tid := 1; goto Next; LDR: R := RStore(FinAddr); Tid := 10; goto Next; STR: RStore(FinAddr) := R; Tid := 10; goto Next;
+ADDR: R := R + RStore(FinAddr); Tid := 10; goto Next; SUBR: R := R - RStore(FinAddr); Tid := 10; goto Next; MULR: R := R * RStore(FinAddr); Tid := 15; goto Next; DIVR: if Rstore(FinAddr) = 0 then begin
+OutImage; OutText("Real division by zero."); OutImage; goto StopRun; end;
+R := R / RStore(FinAddr); Tid := 20; goto Next; INR: OutText("Real value> "); BreakOutImage; InImage; R := InReal; Tid := 150; goto Next; OUTR: OutFix(R, I, FinAddr); Tid := 100; goto Next;
+JLTR: if R < 0 then PC := FinAddr; Tid := 10; goto Next; JLER: if R <= 0 then PC := FinAddr; Tid := 10; goto Next; JEQR: if R = 0 then PC := FinAddr; Tid := 10; goto Next; JNER: if R <> 0 then PC := FinAddr; Tid := 10; goto Next;
+JGER: if R >= 0 then PC := FinAddr; Tid := 10; goto Next; JGTR: if R > 0 then PC := FinAddr; Tid := 10; goto Next; ZROR: R := 0; Tid := 1; goto Next; CIR: R := I; Tid := 20; goto Next;
+CRI: I := R; Tid := 20; goto Next; StopRun: TotalTid := TotalTid+Tid; if CF<>0 or FinAddr<>0 then DumpRegs; end Run;
+ PC := 0; I := 0; C := 0; TotalTid := 0; end Flink; ref(Flink) FM;
+ref(OutFile) ListeFil; integer TestMarg1, TestMarg2; boolean RTestUtskrift,
+FTestUtskrift, NTestUtskrift, STestUtskrift, TTestUtskrift;
+procedure Feil1(T); text T; begin Feil4(T, notext, notext, notext);
+end Feil1; procedure Feil2(T1, T2); text T1, T2; begin
+Feil4(T1, T2, notext, notext); end Feil2; procedure Feil3(T1, T2, T3); text T1, T2, T3;
+begin Feil4(T1, T2, T3, notext); end Feil3; procedure Feil4(T1, T2, T3, T4);
+value T1; text T1, T2, T3, T4; begin Tgen.SkrivLinjen(SysOut);
+UpCase(T1.Sub(1,1)); OutText("*** Feil: "); OutText(T1); OutText(T2); OutText(T3); OutText(T4); OutChar('.'); OutImage; inspect ListeFil do begin
+OutText("*** Feil: "); OutText(T1); OutText(T2); OutText(T3); OutText(T4); OutChar('.'); OutImage; end inspect; goto Avslutt;
+end Feil4; ref(TegnGenerator) Tgen; character NT; class TegnGenerator;
+hidden protected F, LinjeNr, NesteNT, NyttTegn; begin text F; integer LinjeNr;
+character NesteNT; procedure SkrivLinjen(UtF); ref(OutFile) UtF; begin
+end SkrivLinjen; procedure LukkFil; begin comment Lukk filen F. ;
+end LukkFil; procedure NyttTegn(C); character C; begin
+comment Et nytt tegn er klar til } sendes videre til Sgen. --"-- Unng} } sende flere blanke etter hverandre. --"-- Gi testutskrift (om |nsket) og send tegnet. ; if NT=' ' and C=' ' then begin
+comment Unng} } sende lange sekvenser av blanke. Denne blanke b|r --"-- derfor bare ignoreres. ; end else begin if TTestUtskrift then begin
+inspect ListeFil do begin SetPos(TestMarg1); OutText("---T '"); OutChar(C); OutText("' (Rank="); OutInt(Rank(C),3); OutText(")"); OutImage; end inspect;
+end if; NT := C; Detach; end if; end NyttTegn;
+F:-"prog " & " " & " var sil(40); " & " var i,k; " &
+" " & " var stor; " & " " & " " &
+" proc fjern in m; " & " var i; " & " begproc " & " i := 2*m; " &
+" while i<=40 do " & " sil(i) := 0; " & " i := i+m; " & " endwhile; " &
+" endproc; " & " " & "begprog " & " " &
+" " & " stor := 1000000; " & " " & " i := 0; " &
+" while i<=40 do " & " sil(i) := 1; " & " i := i+1; " & " endwhile; " &
+" " & " " & " k := 2; " & " while k<7 do " &
+" call fjern with k; " & " k := k+1; " & " endwhile; " & " " &
+" " & " if sil(2)<>1 then i := sil(stor); endif; " & " if sil(3)<>1 then i := sil(stor); endif; " & " if sil(5)=/=1 then i := sil(stor); endif; " &
+" if sil(7)=/=1 then i := sil(stor); endif; " & " if sil(11)=/=1 then i := sil(stor); endif; " & " if sil(13)=/=1 then i := sil(stor); endif; " & " if sil(17)=/=1 then i := sil(stor); endif; " &
+" if sil(19)=/=1 then i := sil(stor); endif; " & " if sil(23)=/=1 then i := sil(stor); endif; " & " if sil(29)=/=1 then i := sil(stor); endif; " & " if sil(31)=/=1 then i := sil(stor); endif; " &
+" if sil(37)=/=1 then i := sil(stor); endif; " & " " & " if sil(9)=0 then " & " else i := sil(stor); endif; " &
+" if sil(25)=0 then " & " else i := sil(stor); endif; " & " " & " i := 2; " &
+" while i<41 do " & " if sil(i)=1 then outint(4)i; endif; " & " i := i+1; " & " endwhile; " &
+" " & "endprog; "; Detach; while F.More do begin
+NesteNT := F.GetChar; if NesteNT = '-' and F.More then begin NesteNT := F.GetChar; NyttTegn('-'); NyttTegn(NesteNT);
+end else begin NyttTegn(NesteNT); end if; end while;
+Feil1("Slutten av programmet mangler"); end TegnGenerator; Link class Navn(Id, Nr); value Id;
+text Id; integer Nr; begin end Navn;
+ref(Head) NavneTab; integer procedure TallAvNavn(T); text T; begin
+ref(Navn) NP; integer NyttNr; boolean Funnet; NP :- NavneTab.First;
+while NP=/=none and not Funnet do begin if NP.Id = T then Funnet := true else NP :- NP.Suc; end while;
+if Funnet then begin TallAvNavn := NP.Nr; end else begin TallAvNavn := NyttNr := NavneTab.Cardinal+1;
+new Navn(T,NyttNr).Into(NavneTab); if NTestUtskrift then begin inspect ListeFil do begin SetPos(TestMarg1); OutText("---N Nytt navn (nr."); OutInt(NyttNr,4);
+OutText("): "); OutText(T); OutImage; end inspect; end if; end inspect;
+end TallAvNavn; text procedure NavnAvTall(N); integer N; begin
+ref(Navn) NP; boolean Funnet; NP :- NavneTab.First; while NP=/=none and not Funnet do begin
+if NP.Nr = N then Funnet := true else NP :- NP.Suc; end while; NavnAvTall :- Copy(if NP == none then "???" else NP.Id);
+end NavnAvTall; boolean procedure ErNokkelord(N); integer N; begin
+ErNokkelord := N <= Hwith; end ErNokkelord; Link class Deklarasjon(Navn, Adresse); integer Navn, Adresse;
+begin end Deklarasjon; Deklarasjon class VarDeklarasjon;; Deklarasjon class VektorDeklarasjon;;
+Deklarasjon class ProsedyreDeklarasjon; begin boolean HarInnParam, HarUtparam; end ProsedyreDeklarasjon;
+ref(Head) LokalDeklListe, GlobalDeklListe; boolean ErIProsedyre; ref(Deklarasjon) procedure LetIDeklListe(Liste, Id); ref(Head) Liste;
+integer Id; begin comment Let i angitt deklarasjons-liste etter Id. ; ref(Deklarasjon) D;
+boolean Funnet; D :- Liste.First; while D=/=none and not Funnet do begin if D.Navn = Id then Funnet := true
+else D :- D.Suc; end while; LetIDeklListe :- D; end LetIDeklListe;
+procedure NyDeklarasjon(D); ref(Deklarasjon) D; begin comment Sett en ny deklarasjon inn i tabellen i riktig liste. ;
+ref(Head) Liste; Liste :- if ErIProsedyre then LokalDeklListe else GlobalDeklListe; if LetIDeklListe(Liste,D.Navn) =/= none then Feil2(NavnAvTall(D.Navn), " er allerede deklarert");
+D.Into(Liste); end NyDeklarasjon; ref(Deklarasjon) procedure FinnDeklarasjon(Id); integer Id;
+begin ref(Deklarasjon) Dekl; if ErIProsedyre then Dekl :- LetIDeklListe(LokalDeklListe, Id); if Dekl == none then Dekl :- LetIDeklListe(GlobalDeklListe, Id);
+if Dekl == none then Feil2(NavnAvTall(Id), " er ikke deklarert"); FinnDeklarasjon :- Dekl; end FinnDeklarasjon; procedure InnIProsedyre;
+begin if ErIProsedyre then Feil1("Det er ulovlig } deklarere en prosedyre inne i en annen"); ErIProsedyre := true;
+end InnIProsedyre; procedure UtAvProsedyre; begin LokalDeklListe.Clear; ErIProsedyre := false;
+end UtAvProsedyre; ref(SymbolGenerator) Sgen; integer HS, BS; integer Hbegproc, Hbegprog, Hcall, Hdo, Helse, Hendif, Hendproc, Hendprog,
+Hendwhile, Hif, Hin, Hinint, Hinto, Hout, Houtint, Houtline, Hproc, Hprog, Hthen, Hvar, Hwhile, Hwith, Hnavn, Hkonst, Haritop, Hsammenlign, Hvenstrepar, Hhoyrepar, Hkomma, Hsemikolon, Htilordn; integer Bpluss, Bminus, Bganger, Bdivisjon, Bmindre, Bmindrelik, Blik, Bulik,
+Bstorre, Bstorrelik; class SymbolGenerator; hidden protected DetteSy, NyttSy; begin
+text DetteSy; procedure NyttSy(H, B, Sy); text Sy; integer H, B;
+begin comment Et nytt symbol er klart. Lag test-utskrift (om |nsket), --"-- og send symbolet videre til Fgen. ; if STestUtskrift then begin
+inspect ListeFil do begin SetPos(TestMarg1); OutText("---S "); OutInt(H,3); OutInt(B,11); SetPos(Pos+2); OutText(Sy); OutImage; end inspect;
+end if; HS := H; BS := B; Detach; end NyttSy; procedure LesNavn;
+begin comment Leser et navn (som ogs} kan v{re et reservert ord). ; text Id; integer IdNum;
+Id :- Blanks(80); while Letter(NT) or Digit(NT) do begin Id.PutChar(NT); Call(Tgen); end while;
+Id :- UpCase(Id.Strip); IdNum := TallAvNavn(Id); if ErNokkelord(IdNum) then NyttSy(IdNum,0,Id) else NyttSy(Hnavn,IdNum,Id);
+end LesNavn; procedure LesKonstant; begin comment Leser en numerisk konstant. ;
+text Buf; Buf :- Blanks(9); while Digit(NT) do begin if not Buf.More then
+Feil3("Numerisk konstant `", Buf, "..' er for stor"); Buf.PutChar(NT); Call(Tgen); end while; NyttSy(Hkonst,Buf.GetInt,Buf);
+end LesKontant; Detach; Call(Tgen); while true do begin
+while NT = ' ' do Call(Tgen); if Letter(NT) then LesNavn else if Digit(NT) then LesKonstant else if NT = '+' then begin NyttSy(Haritop,Bpluss,"+"); Call(Tgen) end else
+if NT = '-' then begin NyttSy(Haritop,Bminus,"-"); Call(Tgen) end else if NT = '*' then begin NyttSy(Haritop,Bganger,"*"); Call(Tgen) end else if NT = '/' then begin NyttSy(Haritop,Bdivisjon,"/"); Call(Tgen) end else if NT = '(' then begin NyttSy(Hvenstrepar,0,"("); Call(Tgen) end else
+if NT = ')' then begin NyttSy(Hhoyrepar,0,")"); Call(Tgen) end else if NT = ',' then begin NyttSy(Hkomma,0,","); Call(Tgen) end else if NT = ';' then begin NyttSy(Hsemikolon,0,";"); Call(Tgen) end else if NT = '<' then begin
+Call(Tgen); if NT = '=' then begin NyttSy(Hsammenlign,Bmindrelik,"<="); Call(Tgen); end else
+if NT = '>' then begin NyttSy(Hsammenlign,Bulik,"<>"); Call(Tgen); end else NyttSy(Hsammenlign,Bmindre,"<"); end else
+if NT = '=' then begin Call(Tgen); if NT = '/' then begin Call(Tgen);
+if NT = '=' then begin NyttSy(Hsammenlign,Bulik,"<>"); Call(Tgen); end else Feil3("Ulovlig tegn-kombinasjon: `=/", TextAvChar(NT), "'"); end else NyttSy(Hsammenlign,Blik,"=");
+end else if NT = '>' then begin Call(Tgen); if NT = '=' then begin
+NyttSy(Hsammenlign,Bstorrelik,">="); Call(Tgen); end else NyttSy(Hsammenlign,Bstorre,">"); end else if NT = ':' then begin
+Call(Tgen); if NT = '=' then begin NyttSy(Htilordn,0,":="); Call(Tgen); end else Feil3("Ulovlig tegn-kombinasjon: `:", TextAvChar(NT), "'");
+end else Feil3("Ulovlig tegn: `", TextAvChar(NT), "'"); end while; end SymbolGenerator; class VarInfo(Adresse);
+integer Adresse; begin comment Klasse (brukt av Fgen) for } lagre informasjon om en variabel- --"-- forekomst i Minila-programmet. Foruten variabelens Adresse
+--"-- lagres f|lgende opplysninger: --"-- Indeksert: `true' hvis variabelen var indeksert (f.eks. `A(I)'), --"-- `false' hvis kun en vanlig variabel (f.eks. `B'). --"-- VarIndeks: `true' hvis indeksen var en variabel (som i `A(I)'),
+--"-- `false' hvis indeksen var en konstant (som i `A(5)'). --"-- IndeksAdr: Indeks-variabelens adresse --"-- (kun aktuelt hvis Indeksert & VarIndeks). --"-- IndeksVerdi: Indeks-konstantens verdi
+--"-- (kun aktuelt hvis Indeksert & not Varindeks). ; integer IndeksAdr, IndeksVerdi; boolean Indeksert, VarIndeks; end VarInfo;
+ref(FlinkGenerator) Fgen; class FlinkGenerator; hidden protected Synlig; begin
+boolean Synlig; text array InstrNavn(0:25); integer array AritOpKode(1:4), BetOpKode(1:6);
+integer NesteInstr, NesteInt, ProcNivaa, TempUttrykk,
+TempBetingelse; integer Istop, Ildi, Isti, Ildc, Istc, Iaddi, Isubi, Imuli, Idivi, Iini, Iouti, Iolin, Ijmp, Ijrc, Ijlti, Ijlei, Ijeqi, Ijnei, Ijgti, Ijgei, Iseti, Iinci, Isetc, Iincc, Icic, Icci;
+procedure TestProc1(ProcId); text ProcId; begin comment Programmet er g}tt inn i en ny analyse-prosedyre.
+--"-- Gi en passende testutskrift. ; integer I; inspect ListeFil do begin SetPos(TestMarg1); OutText("---R ");
+for I := 1 step 1 until ProcNivaa do OutText(" "); OutText("Start "); OutText(ProcId); OutImage; end inspect; ProcNivaa := ProcNivaa+1;
+end TestProc1; procedure TestProc2(ProcId); text ProcId; begin
+comment Programmet er g}tt ut av en analyse-prosedyre. --"-- Gi en passende testutskrift. ; integer I; ProcNivaa := ProcNivaa-1;
+inspect ListeFil do begin SetPos(TestMarg1); OutText("---R "); for I := 1 step 1 until ProcNivaa do OutText(" "); OutText("Slutt "); OutText(ProcId); OutImage;
+end inspect; end TestProc2; procedure LagInstr(FK, AK, CK); integer FK, AK, CK;
+begin comment Genererer en Flink-instruksjon. ; if NesteInstr > FM.MaxInstr then Feil2("Programmet er for langt, ",
+"det er ikke nok plass i Flinks's instruksjonslager"); inspect FM do begin Func(NesteInstr) := FK; Adrs(NesteInstr) := AK; Corr(NesteInstr) := CK; end inspect;
+if FTestUtskrift then begin inspect ListeFil do begin SetPos(TestMarg2); OutText("---F"); OutInt(NesteInstr,14); OutText(": "); OutText(InstrNavn(FK));
+SetPos(TestMarg2+24); OutInt(AK,12); IF CK=1 then OutText(" *"); OutImage; end inspect; end if;
+NesteInstr := NesteInstr+1; end LagInstr; procedure LagHentVar(VI); ref(VarInfo) VI;
+begin comment Lager kode for } hente variabelen VI inn i I-reg. ; if VI.Indeksert then begin if VI.VarIndeks then LagInstr(Ildc, VI.IndeksAdr, 0)
+else LagInstr(Isetc, VI.IndeksVerdi, 0); end if; LagInstr(Ildi, VI.Adresse, if VI.Indeksert then 1 else 0); end LagHentVar;
+procedure LagSettVar(VI); ref(VarInfo) VI; begin comment Lager kode for } sette verdien i I-reg ned i variabelen VI. ;
+if VI.Indeksert then begin if VI.VarIndeks then LagInstr(Ildc, VI.IndeksAdr, 0) else LagInstr(Isetc, VI.IndeksVerdi, 0); end if;
+LagInstr(Isti, VI.Adresse, if VI.Indeksert then 1 else 0); end LagSettVar; procedure FyllGammelAdr(Lok, NyAdr); integer Lok, NyAdr;
+begin comment Opdater adresse-delen av den tidligere genererte instruksjonen --"-- i lokasjonen Lok til } v{re NyAdr. ; FM.Adrs(Lok) := NyAdr;
+if FTestUtskrift then begin inspect ListeFil do begin SetPos(TestMarg2); OutText("---F"); OutInt(Lok,14); OutText(">>>"); OutInt(NyAdr,15); OutImage;
+end inspect; end if; end FyllGammelAdr; integer procedure SettAvKonstant(Verdi);
+integer Verdi; begin comment Sett inn en ny konstant i Flink's heltallslager. --"-- Returner den nye konstantens adresse. ;
+if NesteInt > FM.MaxIntt then Feil1("Ikke mer plass i Flink's heltallslager"); if FTestUtskrift then begin inspect ListeFil do begin
+SetPos(TestMarg2); OutText("---F K"); OutInt(NesteInt,11); OutText(": "); OutInt(Verdi,16); OutImage; end inspect; end if;
+FM.IStore(NesteInt) := Verdi; SettAvKonstant := NesteInt; NesteInt := NesteInt+1; end SettAvKonstant; integer procedure SettAvVariabel(Id);
+integer Id; begin comment Sett av plass i Flink's heltallslager til en ny variabel. --"-- Returner den nye variabelens adresse. ;
+if NesteInt > FM.MaxIntt then Feil1("Ikke mer plass i Flink's heltallslager"); if FTestUtskrift then begin inspect ListeFil do begin
+SetPos(TestMarg2); OutText("---F V"); OutInt(NesteInt,11); OutText(": "); OutText(NavnAvTall(Id)); OutImage; end inspect; end if;
+SettAvVariabel := NesteInt; NesteInt := NesteInt+1; end SettAvVariabel; integer procedure SettAvVektor(AntElem, Id); integer AntElem, Id;
+begin comment Sett av plass i Flink's heltallslager til en ny vektor. --"-- Returner den nye vektorens start-adresse. ; if NesteInt+AntElem > FM.MaxIntt+1 then
+Feil1("Ikke mer plass i Flink's heltallslager"); if FTestUtskrift then begin inspect ListeFil do begin SetPos(TestMarg2); OutText("---F A"); OutInt(NesteInt,5);
+OutChar('-'); OutInt(NesteInt+AntElem-1,5); OutText(": "); OutText(NavnAvTall(Id)); OutImage; end inspect; end if;
+SettAvVektor := NesteInt; NesteInt := NesteInt+AntElem; end SettAvVektor; procedure Forvent(Sy); integer Sy;
+begin comment Forvent } finne symbolet Sy. Hvis HS <> Sy, --"-- kall feil-prosedyren. ; if HS <> Sy then begin
+Feil4("Det skulle kommet ", TextAvSymbol(Sy), " n}, ikke ", TextAvSymbol(HS)); end if; end Forvent;
+procedure LesBetingelse(TestAdresse); name TestAdresse; integer TestAdresse; begin
+comment Les en betingelse. Adressen til den instruksjonen som hopper --"-- hvis betingelsen var gal (= `false'), returneres i TestAdresse. ; integer BetOp; if RTestUtskrift then TestProc1("Betingelse");
+LesUttrykk; Forvent(Hsammenlign); BetOp := BS; LagInstr(Isti, TempBetingelse, 0); Call(Sgen); LesUttrykk; LagInstr(Isubi, TempBetingelse, 0);
+TestAdresse := NesteInstr; LagInstr(BetOpKode(BetOp), -1, 0); if RTestUtskrift then TestProc2("Betingelse"); end LesBetingelse; procedure LesCallSetning;
+begin ref(VarInfo) VIP; if RTestUtskrift then TestProc1("CallSetning"); Call(Sgen); Forvent(Hnavn);
+inspect FinnDeklarasjon(BS) when ProsedyreDeklarasjon do begin Call(Sgen); if HarInnParam then begin Forvent(Hwith); Call(Sgen); LesUttrykk;
+end if; LagInstr(Ijrc, Adresse, 0); if HarUtParam then begin Forvent(Hinto); Call(Sgen); LagSettVar(LesVariabel);
+end if; end otherwise Feil2(NavnAvTall(BS), " er ikke en prosedyre"); if RTestUtskrift then TestProc2("CallSetning"); end LesCallSetning;
+procedure LesDeklListe(Termin); integer Termin; begin comment Les en liste av deklarasjoner terminert av symbolet Termin. ;
+if RTestUtskrift then TestProc1("DeklListe"); while HS <> Termin do begin if HS = Hvar then LesVarDekl else if HS = Hproc then LesProcDekl else
+Feil2("En deklarasjon m} starte med VAR eller PROC, ikke ", TextAvSymbol(HS)); Forvent(Hsemikolon); Call(Sgen); end while;
+if RTestUtskrift then TestProc2("DeklListe"); end LesDeklListe; procedure LesIfSetning; begin
+integer TestAdresse, ElseAdresse; if RTestUtskrift then TestProc1("IfSetning"); Call(Sgen); LesBetingelse(TestAdresse); Forvent(Hthen); Call(Sgen); LesSetnListe(Helse, Hendif);
+if HS = Helse then begin ElseAdresse := NesteInstr; LagInstr(Ijmp, -1, 0); FyllGammelAdr(TestAdresse, NesteInstr); Call(Sgen); LesSetnListe(Hendif, -1);
+FyllGammelAdr(ElseAdresse, NesteInstr); end else begin FyllGammelAdr(TestAdresse, NesteInstr); end if;
+Call(Sgen); if RTestUtskrift then TestProc2("IfSetning"); end LesIfSetning; procedure LesOutintSetning;
+begin integer Bredde; if RTestUtskrift then TestProc1("OutintSetning"); Call(Sgen); Forvent(Hvenstrepar);
+Call(Sgen); Forvent(Hkonst); Bredde := BS; Call(Sgen); Forvent(Hhoyrepar); Call(Sgen); LesUttrykk; LagInstr(Iouti, Bredde, 0); if RTestUtskrift then TestProc2("OutintSetning");
+end LesOutintSetning; procedure LesOutlineSetning; begin if RTestUtskrift then TestProc1("OutlineSetning");
+LagInstr(Iolin, 0, 0); Call(Sgen); if RTestUtskrift then TestProc2("OutlineSetning"); end LesOutlineSetning; procedure LesProcDekl;
+begin ref(ProsedyreDeklarasjon) PD; integer PDnavn; integer InnParamAdr, UtParamAdr, ReturAdrAdr;
+if RTestUtskrift then TestProc1("ProcDekl"); Call(Sgen); Forvent(Hnavn); PDnavn:=bs; PD :- new ProsedyreDeklarasjon(PDnavn, NesteInstr); NyDeklarasjon(PD); ReturAdrAdr := SettAvVariabel(PDnavn);
+InnIProsedyre; Call(Sgen); if HS<>Hin and HS<>Hout and HS<>Hsemikolon then Feil2("Her kan det st} IN, OUT eller `;', ikke ", TextAvSymbol(HS));
+if HS = Hin then begin Call(Sgen); Forvent(Hnavn); PD.HarInnParam := true; InnParamAdr := SettAvVariabel(BS); NyDeklarasjon(new VarDeklarasjon(BS,InnParamAdr));
+Call(Sgen); end if; if HS<>Hout and HS<>Hsemikolon then Feil2("Her kan det st} OUT eller `;', ikke ", TextAvSymbol(HS));
+if HS = Hout then begin Call(Sgen); Forvent(Hnavn); PD.HarUtParam := true; UtParamAdr := SettAvVariabel(BS); NyDeklarasjon(new VarDeklarasjon(BS,UtParamAdr));
+Call(Sgen); end if; LagInstr(Istc, ReturAdrAdr, 0); if PD.HarInnParam then LagInstr(Isti, InnParamAdr, 0);
+Forvent(Hsemikolon); Call(Sgen); LesDeklListe(Hbegproc); Call(Sgen); LesSetnListe(Hendproc,-1); Call(Sgen); if PD.HarUtParam then LagInstr(Ildi, UtParamAdr, 0); LagInstr(Ildc, ReturAdrAdr, 0);
+LagInstr(Ijmp, 0, 1); UtAvProsedyre; if RTestUtskrift then TestProc2("ProcDekl"); end LesProcDekl;
+procedure LesProgram; begin if RTestUtskrift then TestProc1("Program"); LagInstr(Ijmp, -1, 0);
+Forvent(Hprog); Call(Sgen); LesDeklListe(Hbegprog); FyllGammelAdr(0, NesteInstr); Call(Sgen); LesSetnListe(Hendprog,-1); LagInstr(Istop, 0, 0);
+if RTestUtskrift then TestProc2("Program"); end LesProgram; procedure LesSetnListe(Termin1, Termin2); integer Termin1, Termin2;
+begin comment Les en setningsliste som avsluttes av ett av de to terminator- --"-- symbolene Termin1 eller Termin2. (Hvis listen kun har ett --"-- terminator-symbol, kan den andre parameteren settes til -1.) ;
+if RTestUtskrift then TestProc1("SetnListe"); while HS<>Termin1 and HS<>Termin2 do begin if HS = Hcall then LesCallSetning else if HS = Hif then LesIfSetning else
+if HS = Houtint then LesOutintSetning else if HS = Houtline then LesOutlineSetning else if HS = Hwhile then LesWhileSetning else if HS = Hnavn then LesTilordning else
+Feil2("En setning kan ikke starte med ", TextAvSymbol(HS)); Forvent(Hsemikolon); Call(Sgen); end while; if RTestUtskrift then TestProc2("SetnListe");
+end LesSetnListe; procedure LesTilordning; begin ref(VarInfo) VenstreSide;
+if RTestUtskrift then TestProc1("Tilordning"); VenstreSide :- LesVariabel; Forvent(Htilordn); Call(Sgen); LesUttrykk; LagSettVar(VenstreSide); if RTestUtskrift then TestProc2("Tilordning");
+end LesTilordning; procedure LesUttrykk; begin procedure LesOperand1;
+begin comment Leser f|rste (og muligens eneste) operand i et uttrykk. ; if HS = Hnavn then begin LagHentVar(LesVariabel);
+end else if HS = Hkonst then begin LagInstr(Iseti, BS, 0); Call(Sgen); end else
+if HS = Hinint then begin LagInstr(Iini, 0, 0); Call(Sgen); end else Feil2(TextAvSymbol(HS), " kan ikke brukes som operand i uttrykk");
+end LesOperand1; procedure LesOperand2(Opp); integer Opp; begin
+comment Leser andre operand til operatoren Op. ; ref(VarInfo) VI; if HS = Hnavn then begin VI :- LesVariabel;
+if VI.Indeksert then begin if VI.VarIndeks then LagInstr(Ildc, VI.IndeksAdr, 0) else LagInstr(Isetc, VI.IndeksVerdi, 0); end if;
+LagInstr(AritOpKode(Opp), VI.Adresse, if VI.Indeksert then 1 else 0); end else if HS = Hkonst then begin LagInstr(AritOpKode(Opp), SettAvKonstant(BS), 0);
+Call(Sgen); end else if HS = Hinint then begin LagInstr(Icic, 0, 0); LagInstr(Iini, 0, 0);
+LagInstr(Isti, TempUttrykk, 0); LagInstr(Icci, 0, 0); LagInstr(AritOpKode(Opp), TempUttrykk, 0); Call(Sgen); end else
+Feil2(TextAvSymbol(HS), " kan ikke brukes som operand i uttrykk"); end LesOperand2; integer OpNum; if RTestUtskrift then Testproc1("Uttrykk");
+LesOperand1; while HS = Haritop do begin OpNum := BS; Call(Sgen); LesOperand2(OpNum); end while;
+if RTestUtskrift then Testproc2("Uttrykk"); end LesUttrykk; procedure LesVarDekl; begin
+procedure LesNyVar; begin comment Les en ny variabel i en variabel-deklarasjon. ; integer VarId, MaxElem;
+Forvent(Hnavn); VarId := BS; Call(Sgen); if HS = Hvenstrepar then begin Call(Sgen); Forvent(Hkonst); MaxElem := BS; NyDeklarasjon(new VektorDeklarasjon(VarId,
+SettAvVektor(MaxElem+1,VarId))); Call(Sgen); Forvent(Hhoyrepar); Call(Sgen); end else begin NyDeklarasjon(new VarDeklarasjon(VarId,SettAvVariabel(VarId)));
+end; end LesNyVar; if RTestUtskrift then TestProc1("VarDekl"); Call(Sgen); LesNyVar;
+while HS = Hkomma do begin Call(Sgen); LesNyVar; end while; if RTestUtskrift then TestProc2("VarDekl");
+end LesVarDekl; ref(VarInfo) procedure LesVariabel; begin comment Leser en <Variabel>, men lager ingen kode. ;
+ref(Deklarasjon) VD, ID; ref(VarInfo) VI; if RTestUtskrift then TestProc1("Variabel"); Forvent(Hnavn); VD :- FinnDeklarasjon(BS);
+if VD is ProsedyreDeklarasjon then Feil2(NavnAvTall(VD.Navn), " er en prosedyre, ikke en variabel"); LesVariabel :- VI :- new VarInfo(VD.Adresse); Call(Sgen);
+if HS = Hvenstrepar then begin if VD is VarDeklarasjon then Feil2(NavnAvTall(VD.Navn), " er en vanlig variabel, og kan ikke indekseres");
+VI.Indeksert := true; Call(Sgen); if HS = Hnavn then begin ID :- FinnDeklarasjon(BS); if not(ID is VarDeklarasjon) then
+Feil2("En indeks m} v{re en vanlig variabel; det er ikke ", NavnAvTall(ID.Navn)); VI.VarIndeks := true; VI.IndeksAdr := ID.Adresse; end else
+if HS = Hkonst then begin VI.IndeksVerdi := BS; end else Feil2("En indeks m} v{re et navn eller en konstant, ikke ",
+TextAvSymbol(HS)); Call(Sgen); Forvent(Hhoyrepar); Call(Sgen); end else begin if VD is VektorDeklarasjon then
+Feil2(NavnAvTall(VD.Navn), " er en vektor, og skulle v{rt indeksert"); end if; if RTestUtskrift then TestProc2("Variabel"); end LesVariabel;
+procedure LesWhileSetning; begin integer WhileStart, TestAdresse; if RTestUtskrift then TestProc1("WhileSetning");
+WhileStart := NesteInstr; Call(Sgen); LesBetingelse(TestAdresse); Forvent(Hdo); Call(Sgen); LesSetnListe(Hendwhile, -1); Call(Sgen); LagInstr(Ijmp, WhileStart, 0);
+FyllGammelAdr(TestAdresse, NesteInstr);  if RTestUtskrift then TestProc2("WhileSetning"); end LesWhileSetning;
+begin procedure DefInstr(Id, Instr, InstrKode); name Instr; text Id;
+integer Instr, InstrKode; begin comment Definer en ny Flink-instruksjon. ; Instr := InstrKode; InstrNavn(InstrKode) :- Id;
+end DefInstr; integer X; boolean GammelNTest; GammelNTest := NTestUtskrift;
+NTestUtskrift := false; TempUttrykk := SettAvKonstant(0); TempBetingelse := SettAvKonstant(0); DefInstr("STOP", Istop, 0); DefInstr("LDI", Ildi, 1);
+DefInstr("STI", Isti, 2); DefInstr("LDC", Ildc, 3); DefInstr("STC", Istc, 4); DefInstr("ADDI", Iaddi, 5); DefInstr("SUBI", Isubi, 6); DefInstr("MULI", Imuli, 7); DefInstr("DIVI", Idivi, 8); DefInstr("INI", Iini, 9);
+DefInstr("OUTI", Iouti, 10); DefInstr("OLIN", Iolin, 11); DefInstr("JMP", Ijmp, 12); DefInstr("JRC", Ijrc, 13); DefInstr("JLTI", Ijlti, 14); DefInstr("JLEI", Ijlei, 15); DefInstr("JEQI", Ijeqi, 16); DefInstr("JNEI", Ijnei, 17);
+DefInstr("JGTI", Ijgti, 18); DefInstr("JGEI", Ijgei, 19); DefInstr("SETI", Iseti, 20); DefInstr("INCI", Iinci, 21); DefInstr("SETC", Isetc, 22); DefInstr("INCC", Iincc, 23); DefInstr("CIC", Icic, 24); DefInstr("CCI", Icci, 25);
+AritOpKode(Bpluss) := Iaddi; AritOpKode(Bminus) := Isubi; AritOpKode(Bganger) := Imuli; AritOpKode(Bdivisjon) := Idivi; BetOpKode(Bmindre) := Ijlei; BetOpKode(Bmindrelik) := Ijlti; BetOpKode(Blik) := Ijnei; BetOpKode(Bulik) := Ijeqi;
+BetOpKode(Bstorre) := Ijgei; BetOpKode(Bstorrelik) := Ijgti; NTestUtskrift := GammelNTest; end Initialisering; Detach;
+Call(Sgen); LesProgram; end FlinkGenerator; text procedure TextAvChar(C); character C;
+begin comment Lag en text av lengde 1 som inneholder C. ; text T; TextAvChar :- T :- Blanks(1); T.PutChar(C);
+end TextAvChar; text procedure TextAvSymbol(S); integer S; begin
+comment Lag en tekstlig representasjon av symbolet S. ; if S=Hnavn then TextAvSymbol :- "et navn" else if S=Hkonst then TextAvSymbol :- "en tall-konstant" else if S=Haritop then TextAvSymbol :- "en aritmetisk operator" else
+if S=Hsammenlign then TextAvSymbol :- "en sammenligningsoperator" else if S=Hvenstrepar then TextAvSymbol :- "`('" else if S=Hhoyrepar then TextAvSymbol :- "`)'" else if S=Hkomma then TextAvSymbol :- "`,'" else
+if S=Hsemikolon then TextAvSymbol :- "`;'" else if S=Htilordn then TextAvSymbol :- "`:='" else TextAvSymbol :- NavnAvTall(S); end TextAvSymbol;
+begin character C; FM :- new Flink(400,400,1); NavneTab :- new Head;
+LokalDeklListe :- new Head; GlobalDeklListe :- new Head; Hbegproc := TallAvNavn("BEGPROC"); Hbegprog := TallAvNavn("BEGPROG"); Hcall := TallAvNavn("CALL"); Hdo := TallAvNavn("DO"); Helse := TallAvNavn("ELSE"); Hendif := TallAvNavn("ENDIF");
+Hendproc := TallAvNavn("ENDPROC"); Hendprog := TallAvNavn("ENDPROG"); Hendwhile := TallAvNavn("ENDWHILE"); Hif := TallAvNavn("IF"); Hin := TallAvNavn("IN"); Hinint := TallAvNavn("ININT"); Hinto := TallAvNavn("INTO"); Hout := TallAvNavn("OUT");
+Houtint := TallAvNavn("OUTINT"); Houtline := TallAvNavn("OUTLINE"); Hproc := TallAvNavn("PROC"); Hprog := TallAvNavn("PROG"); Hthen := TallAvNavn("THEN"); Hvar := TallAvNavn("VAR"); Hwhile := TallAvNavn("WHILE"); Hwith := TallAvNavn("WITH");
+Hnavn := 23; Hkonst := 24; Haritop := 25; Hsammenlign := 26;
+Hvenstrepar := 27; Hhoyrepar := 28; Hkomma := 29; Hsemikolon := 30; Htilordn := 31; Bpluss := 1; Bminus := 2; Bganger := 3; Bdivisjon := 4;
+Bmindre := 1; Bmindrelik := 2; Blik := 3; Bulik := 4; Bstorre := 5; Bstorrelik := 6; TestMarg1 := 12; TestMarg2 := 32; Tgen :- new TegnGenerator;
+Sgen :- new SymbolGenerator; Fgen :- new FlinkGenerator; end initiering; Call(Fgen);
+begin character C; FM.Run; end;
+goto avslutt; error: sysout.image:=""; Avslutt:
+Tgen.LukkFil; inspect ListeFil do Close; if sysout.image.strip="   2   3   5   7  11  13  17  19  23  29  31  37" then begin
+sysout.image:=""; sysout.setpos(1); Outtext("Installation: No errors found"); outimage; return(0);
+end else begin sysout.image:=""; sysout.setpos(1);
+Outtext("*** Installation: Errors found ***"); outimage; return(1); end; end program
+%eof

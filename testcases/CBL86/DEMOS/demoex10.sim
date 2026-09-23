@@ -1,0 +1,50 @@
+begin  external class demos;
+
+     comment -------------------- program 10 -------------------- ;
+       demos begin
+         real rate;
+         ref(entity)user;  ref(res)hopper;
+         ref(idist)p, vol; ref(rdist)next;
+
+         boolean procedure and2(a, b); name a, b; boolean a, b;
+           and2 := if a then b else false;
+
+         entity class lorry;
+         begin real tleft, load, start;
+           new lorry("l").schedule(next.sample);
+           priority := p.sample;
+           load := 5*vol.sample;
+           tleft := load/rate;
+           if and2(user =/= none, priority > user.priority) then
+              user.interrupt(1);
+           while tleft > 0.0 do
+           begin hopper.acquire(1);
+             user :- current;
+             start := time;
+             hold(tleft);
+           doneorinterrupted: 
+             user :- none;
+             hopper.release(1);
+             if interrupted = 0 then tleft := 0.0 else
+             begin interrupted := 0.0;
+               tleft := tleft - (time-start);
+               priority := priority + 1;
+             end;
+           end;
+         end***lorry***;
+
+         outimage;  outimage;  outtext("programme # 10");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         rate   := 1.0;
+         p      :- new randint("priority", 1, 4);
+         vol    :- new randint("lorry load", 1, 3);
+         next   :- new negexp("next lorry", 1/12);
+         hopper :- new res("hopper", 1);
+         new lorry("l").schedule(0.0);
+         hold(120.0);
+         notrace;
+         hold(360.0);
+       end;
+
+end;

@@ -1,0 +1,8 @@
+class c59 ;
+   virtual: Label l;
+begin
+   integer i;
+   i:= 1;
+   goto l;
+l: i:= 2;
+end

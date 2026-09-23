@@ -1,0 +1,38 @@
+begin  external class demos;
+
+     comment -------------------- program 20 -------------------- ;
+         demos begin
+           ref(rdist)burst, next;
+           ref(waitq)cpuq;
+           ref(tally)thru;
+
+           entity class program;
+           begin
+             real t;
+             t := time;
+             new program("p").schedule(next.sample);
+             cpuq.wait;
+             thru.update(time-t);
+           end***program***;
+
+           entity class cpu;
+           begin
+             ref(entity)p;
+             p :-cpuq.coopt;
+             hold(burst.sample);
+             p.schedule(0.0);
+             repeat;
+           end***cpu***;
+
+           outimage;  outimage;  outtext("programme # 20");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           thru  :- new tally("thru times");
+           burst :- new negexp("cpu burst", 1.0);
+           next  :- new negexp("next job", 0.875);
+           cpuq  :- new waitq("cpu q");
+           new cpu("cpu").schedule(0.0);
+           new program("p").schedule(0.0);
+           hold(100.0);
+         end;
+
+end;

@@ -1636,9 +1636,8 @@ Declaration* Parser3::main_part() {
             }
             if( v->forward == 0 )
             {
-                // not found in this class, so it is an abstract declaration
+                // no match at this level; the specification remains visible so that a match in a subclass can be found
                 v->sym = sym;
-                qWarning() << "abstract declaration" << v->name << "in" << thisMod->name << v->pos.d_row;
             }
         }
     }

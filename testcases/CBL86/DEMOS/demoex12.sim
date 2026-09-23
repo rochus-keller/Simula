@@ -1,0 +1,52 @@
+begin  external class demos;
+
+     comment -------------------- program 12 -------------------- ;
+       demos begin
+         ref(waitq)tankq;
+         ref(rdist)arr;  ref(idist)size;
+         real pumprate, drate, setuptime;
+
+         entity class tanker;
+         begin
+           ref(shoretank)st;
+           integer load;
+           new tanker("t").schedule(arr.sample);
+           load := 5*size.sample;
+         awaitshoretank: 
+           tankq.find(st, st.free >= load);
+           hold(setuptime + load*pumprate);
+           st.free := st.free-load;
+           st.schedule(0.0);
+         end***tanker***;
+
+         entity class shoretank(free); integer free;
+         begin
+           integer max;
+           max := 70;
+         loop: reload: 
+           while free >= 20 do
+             tankq.wait;
+         discharge: 
+           hold((max-free)*drate);
+           free := max;
+           repeat;
+         end***shoretank***;
+
+         outimage;  outimage;  outtext("programme # 12");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         setuptime := 0.5;
+         pumprate  := 1.0;
+         drate     := 0.25;
+         arr       :- new negexp("arrivals", 0.125);
+         size      :- new randint("size", 3, 5);
+         tankq     :- new waitq("shore tanks");
+         new shoretank("s", 70).schedule(0.0);
+         new shoretank("s", 70).schedule(0.0);
+         new shoretank("s", 45).schedule(12.0);
+         new shoretank("s", 25).schedule(3.5);
+         new shoretank("s", 70).schedule(8.0);
+         new tanker("t").schedule(0.0);
+         hold(1000.0);
+       end;
+
+end;

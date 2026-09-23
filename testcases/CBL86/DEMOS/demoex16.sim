@@ -1,0 +1,47 @@
+begin  external class demos;
+
+     comment -------------------- program 16 -------------------- ;
+         demos begin
+           ref(rdist)burst, next, transfer;
+           ref(res)cpu, multi, disk;
+           ref(idist)ios;
+
+           entity class program;
+           begin
+             integer k, n;
+             multi.acquire(1);
+             n := ios.sample//10;
+             for k := 1 step 1 until n do
+             begin
+               cpu.acquire(1);
+               hold(burst.sample);
+               cpu.release(1);
+               disk.acquire(1);
+               hold(transfer.sample);
+               disk.release(1);
+             end;
+             multi.release(1);
+           end***program***;
+
+           integer k;
+
+         outimage;  outimage;  outtext("programme # 16");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+           burst    :- new negexp("cpu burst", 1.0);
+           next     :- new negexp("next job", 0.0875);
+           transfer :- new uniform("transfer", 0.005, 0.085);
+           ios      :- new randint("io's", 25, 75);
+           disk     :- new res("disk drive", 2);
+           cpu      :- new res("cpu", 1);
+           multi    :- new res("multi", 4);
+
+           for k := 1 step 1 until 7 do
+             new program("p").schedule(0.0);
+           while time < 100.0 do
+           begin
+             new program("p").schedule(0.0);
+             hold(next.sample);
+           end;
+         end;
+
+end;

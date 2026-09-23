@@ -1,0 +1,55 @@
+set -kv
+#
+# NOTE!!! simtst00 may take VERY LONG TIME to execute !!!!
+#
+set +kv
+# remove output file from simtst00
+rm out100
+#  make input file for simtst96
+cp src/data96 data96
+SIMULA=${1:?'Compiler name missing'}
+VERSION=${2:-0}
+WRKMAX=${3:-1}
+echo $SIMULA version:$VERSION wrkmax:$WRKMAX
+$SIMULA <<endcompile
+set option M
+set sysmode sport
+set version $VERSION
+compile src/simtst90.sim
+load
+simtst90 /w$WRKMAX
+compile src/simtst91.sim
+load
+simtst91 /w$WRKMAX
+compile src/simtst92.sim
+load
+simtst92 /w$WRKMAX
+compile src/simtst93.sim
+load
+simtst93 /w$WRKMAX
+compile src/simtst94.sim
+load
+simtst94 /w$WRKMAX
+compile src/simtst95.sim
+load
+simtst95 /w$WRKMAX
+compile src/simtst96.sim
+load
+simtst96 /w$WRKMAX
+compile src/simtst97.sim
+load
+simtst97 /w$WRKMAX
+compile src/simtst98.sim
+load
+simtst98 /w$WRKMAX
+compile src/simtst99.sim
+load
+simtst99 /w$WRKMAX
+compile src/simtst00.sim
+load
+simtst00
+exit
+endcompile
+# - get an idea of how badly simtst00 performed!!!
+lc -l out100*
+rm simtst* data96 auto*

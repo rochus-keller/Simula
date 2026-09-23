@@ -22,6 +22,12 @@
 #include <QtDebug>
 using namespace Sim;
 
+static inline bool isClassDecl(Declaration* d)
+{
+    return d->kind == Declaration::Class || d->kind == Declaration::StandardClass ||
+            d->kind == Declaration::ExternalClass;
+}
+
 Validator2::Validator2(AstModel* mdl, Importer * i, bool haveXref)
     : module(0), mdl(mdl), first(0), last(0), imp(i)
 {
@@ -66,6 +72,10 @@ bool Validator2::validate(Declaration* mod)
     Declaration* basicio = mdl->getBasicIo();
     if( basicio )
         scopeStack.push_back(basicio);
+    // the program acts as if embraced by "inspect sysin do inspect sysout do" 
+    Declaration* sysio = mdl->getSysIo();
+    if( sysio )
+        scopeStack.push_back(sysio);
 
     try {
         if( env )
@@ -74,6 +84,8 @@ bool Validator2::validate(Declaration* mod)
     } catch( ... ) {
     }
 
+    if( sysio )
+        scopeStack.pop_back();
     if( basicio )
         scopeStack.pop_back();
     if( env )
@@ -1303,11 +1315,21 @@ bool Validator2::CallExpr(Expression* e)
         if( d ) {
             if( d->kind == Declaration::Builtin )
                 checkBuiltinCall(d, e->rhs, e->pos);
+            else if( d->kind == Declaration::Procedure || isClassDecl(d) )
+                checkActuals(d, e->rhs, e->pos);
             e->setType(callResultType(d->getType(), e->rhs, e->pos));
             stdResultType(d, e);
         }
-    }else
+    }else {
+        if( e->lhs->kind == Expression::New ) {
+            // the parameters of an object generator are the ones of its class (4.7)
+            Type* t = e->lhs->getType();
+            Expression* cls = t && t->kind == Type::Ref ? t->getExpr() : 0;
+            if( cls && cls->d && isClassDecl(cls->d) )
+                checkActuals(cls->d, e->rhs, e->pos);
+        }
         e->setType(callResultType(e->lhs->getType(), e->rhs, e->pos));
+    }
 
     return true;
 }
@@ -1452,6 +1474,157 @@ void Validator2::checkArgs(const DeclList& params, Expression* args, const RowCo
     }
     if( n != params.size() )
         error(pos, QString("expecting %1 actual parameters, got %2").arg(params.size()).arg(n));
+}
+
+enum ParamKind { AnyPar, ArithPar, BoolPar, TextPar, RefPar, OtherPar };
+
+
+static ParamKind paramKind(Type* t)
+{
+    if( t == 0 )
+        return AnyPar;
+    switch( t->kind ) {
+    case Type::Integer:
+    case Type::ShortInteger:
+    case Type::Real:
+    case Type::LongReal:
+    case Type::Character:
+        // let the standard environment do conversions
+        return ArithPar;
+    case Type::Boolean:
+        return BoolPar;
+    case Type::Text:
+    case Type::Notext:
+        return TextPar;
+    case Type::Ref:
+    case Type::None:
+        return RefPar;
+    case Type::Array:
+    case Type::Switch:
+    case Type::Label:
+    case Type::Procedure:
+    case Type::NoType:
+        return OtherPar;
+    default:
+        return AnyPar;
+    }
+}
+
+static bool hasCall(Expression* e); 
+
+static bool hasCallList(Expression* e)
+{
+    for( ; e; e = e->next )
+        if( hasCall(e) )
+            return true;
+    return false;
+}
+
+static bool hasCall(Expression* e)
+{
+    if( e == 0 )
+        return false;
+    switch( e->kind ) {
+    case Expression::Call:
+    case Expression::New:
+        return true;
+    case Expression::DeclRef:
+        // a function designator without parameters is just the identifier
+        if( e->d && (e->d->kind == Declaration::Procedure || e->d->kind == Declaration::Builtin ||
+                     e->d->kind == Declaration::VirtualSpec || e->d->kind == Declaration::ExternalProc) )
+            return true;
+        break;
+    default:
+        break;
+    }
+    return hasCallList(e->lhs) || hasCallList(e->rhs) || hasCallList(e->condition);
+}
+
+static Declaration* designated(Expression* e)
+{
+    // the declaration a variable designator refers to
+    while( e && (e->kind == Expression::Subscript || e->kind == Expression::Dot ||
+                 e->kind == Expression::Call ||
+                 e->kind == Expression::AssignVal || e->kind == Expression::AssignRef) )
+        e = e->kind == Expression::Dot ? e->rhs : e->lhs;
+    return e && e->kind == Expression::DeclRef ? e->d : 0;
+}
+
+static bool assignsTo(Statement* s, Declaration* formal)
+{
+    for( ; s; s = s->next )
+    {
+        switch( s->kind ) {
+        case Statement::Assign:
+            // the left part list is a chain of assignment expressions (4.1)
+            for( Expression* a = s->rhs; a && (a->kind == Expression::AssignVal ||
+                                               a->kind == Expression::AssignRef); a = a->rhs )
+                if( designated(a->lhs) == formal )
+                    return true;
+            break;
+        case Statement::If:
+        case Statement::While:
+            if( assignsTo(s->elseStmt, formal) )
+                return true;
+            break;
+        case Statement::For:
+            if( designated(s->var) == formal )
+                return true;
+            break;
+        case Statement::Inspect:
+            for( Connection* c = s->conn; c; c = c->next )
+                if( assignsTo(c->body, formal) )
+                    return true;
+            if( assignsTo(s->otherwise, formal) )
+                return true;
+            break;
+        default:
+            break;
+        }
+        if( s->kind != Statement::Inspect && assignsTo(s->body, formal) )
+            return true;
+    }
+    return false;
+}
+
+void Validator2::checkNameActual(Declaration* formal, Expression* arg)
+{
+    // the left part of an assignment is evaluated before the right part 
+    if( formal->mode != Declaration::ModeName || !hasCall(arg) )
+        return;
+    Declaration* proc = formal->outer;
+    if( proc == 0 || !assignsTo(proc->body, formal) )
+        return;
+    qWarning() << qPrintable(QString(
+	"%1:%2:%3: warning: the actual parameter for the NAME formal "
+        "'%4' has a side effect and is assigned to; the evaluation order is not standard compliant!")
+	     .arg(sourcePath).arg(arg->pos.d_row).arg(arg->pos.d_col)
+	     .arg(formal->name.constData()));
+}
+
+void Validator2::checkActuals(Declaration* proc, Expression* args, const RowCol& pos)
+{
+    Q_UNUSED(pos);
+    DeclList chain;
+    for( Declaration* c = proc; c; c = isClassDecl(c) ? c->prefix : 0 )
+        chain.prepend(c); // the parameters of the prefix levels precede the ones of the class (4.7)
+    DeclList formals;
+    for( int i = 0; i < chain.size(); i++ )
+        for( Declaration* d = chain[i]->link; d; d = d->next )
+            if( d->kind == Declaration::Parameter )
+                formals << d;
+    int n = 0;
+    while( args && n < formals.size() )
+    {
+        const ParamKind f = paramKind(formals[n]->getType());
+        const ParamKind a = paramKind(args->getType());
+        if( f != AnyPar && f != OtherPar && a != AnyPar && a != OtherPar && f != a )
+            error(args->pos, QString("the actual parameter is not compatible with the formal parameter '%1'").
+                  arg(formals[n]->name.constData()));
+        checkNameActual(formals[n], args);
+        args = args->next;
+        n++;
+    }
 }
 
 void Validator2::checkVirtualMatch(Declaration* spec, Declaration* impl)
@@ -1673,11 +1846,6 @@ Type* Validator2::deref(Type* t)
     return t;
 }
 
-static inline bool isClassDecl(Declaration* d)
-{
-    return d->kind == Declaration::Class || d->kind == Declaration::StandardClass ||
-            d->kind == Declaration::ExternalClass;
-}
 
 bool Validator2::withinClass(Declaration* cls) const
 {

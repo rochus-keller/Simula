@@ -1,0 +1,3 @@
+integer procedure pb(n);
+   integer n;
+   begin end;

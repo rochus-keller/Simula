@@ -1,0 +1,30 @@
+begin  external class demos;
+
+     comment -------------------- program 18 -------------------- ;
+       demos begin
+         ref(bin)b;
+
+         entity class p;
+         begin
+           hold(3.0);
+           b.give(1);
+           repeat;
+         end***p***;
+
+         entity class c;
+         begin
+           b.take(2);
+           hold(2.0);
+           repeat;
+         end***c***;
+
+         outimage;  outimage;  outtext("programme # 18");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         trace;
+         b :- new bin("b", 2);
+         new p("p").schedule(0.0);
+         new c("c").schedule(6.0);
+         hold(25.0);
+       end;
+
+end;

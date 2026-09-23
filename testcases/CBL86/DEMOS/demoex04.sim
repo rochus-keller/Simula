@@ -1,0 +1,46 @@
+begin  external class demos;
+
+ comment -------------------- program 4 --------------------- ;
+     demos begin
+       ref(res)file;
+       ref(count)reads, writes;
+
+       entity class reader;
+       begin
+       read: 
+         file.acquire(1);
+         hold(2.0);
+         file.release(1);
+         reads.update(1);
+       use: 
+         hold(5.0);
+         repeat;
+       end***reader***;
+
+       entity class writer;
+       begin
+       gather: 
+         hold(5.0);
+       write: 
+         file.acquire(3);
+         hold(3.0);
+         file.release(3);
+         writes.update(1);
+         repeat;
+       end***writer***;
+
+       outimage;  outimage;  outtext("programme # 4");
+       outimage;  outimage;  outimage;  outimage;  outimage;
+       trace;
+       reads  :- new count("reads");
+       writes :- new count("writes");
+       file   :- new res("file", 3);
+       new reader("r").schedule(0.0);
+       new writer("w").schedule(0.0);
+       new reader("r").schedule(0.0);
+       new reader("r").schedule(2.0);
+       new writer("w").schedule(1.0);
+       hold(25.0);
+     end;
+
+end;

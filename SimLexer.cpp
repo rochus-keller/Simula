@@ -432,7 +432,8 @@ Token Lexer::comment()
     if( d_packComments )
     {
         t = Token(Tok_Comment,startLine, startCol + 1, str.size(), str.toLatin1() );
-        d_colNr += str.size();
+        // the comment can span lines, so str.size() is not the length on the current line
+        d_colNr = semiPos != -1 ? semiPos : d_line.size();
         t.d_sourcePath = d_sourcePath;
         d_lastToken = t;
     }else

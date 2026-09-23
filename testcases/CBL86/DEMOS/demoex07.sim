@@ -1,0 +1,78 @@
+begin  external class demos;
+
+     comment -------------------- program 7 --------------------- ;
+       demos begin
+         integer k;
+         ref(histogram)thru;
+         ref(waitq)array requestq(1:6);
+         ref(res)array terminal(1:6);
+         ref(bin)buffers;
+         ref(rdist)arrivals, keyin, process, read;
+         ref(idist)terminals;
+
+         entity class scanner;
+         begin integer n; boolean b; ref(query)q;
+           for n := 1 step 1 until 6 do
+           begin
+         rotate: 
+             hold(0.0027);
+         test: 
+             b := requestq(n).length > 0;
+             hold(0.0027);
+             if b then
+             begin
+         transfer: 
+               q :- requestq(n).coopt;
+               buffers.take(1);
+               hold(0.0117);
+               q.schedule(0.0);
+             end;
+           end;
+           repeat;
+         end***scanner***;
+
+         entity class query;
+         begin integer n; real t;
+           new query("query").schedule(arrivals.sample);
+           t := time;
+           n := terminals.sample;
+         joinqanddialrequest: 
+           terminal(n).acquire(1);
+           hold(keyin.sample);
+         awaitprocessing: 
+           requestq(n).wait;
+         processing: 
+           hold(process.sample);
+         sendreply: 
+           hold(0.0397);
+           buffers.give(1);
+         readreply: 
+           hold(read.sample);
+           terminal(n).release(1);
+           thru.update(time-t);
+         end***query***;
+
+
+
+         outimage;  outimage;  outtext("programme # 7");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         arrivals  :- new negexp("arr", 5.0);
+         terminals :- new randint("terminals", 1, 6);
+         keyin     :- new uniform("key in", 0.3, 0.5);
+         process   :- new uniform("process", 0.05, 0.10);
+         read      :- new uniform("read", 0.6, 0.8);
+         thru      :- new histogram("thru times", 1.0, 11.0, 10);
+
+         for k := 1 step 1 until 6 do
+         begin
+           requestq(k) :- new waitq(edit("request", k));
+           terminal(k):- new res(edit("terminal", k), 1);
+         end;
+
+         buffers :- new bin("buffers", 3);
+         new scanner("scanner").schedule(0.0);
+         new query("q").schedule(0.0);
+         hold(20.0);
+       end;
+
+end;

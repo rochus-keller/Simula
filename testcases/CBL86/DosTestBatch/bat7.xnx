@@ -1,0 +1,46 @@
+#  remove files used by test 79
+rm sxcvz*
+#  make nonempty file used by test 77 (contents irrelevant)
+copy bat7.xnx any77
+SIMULA=${1:?'Compiler name missing'}
+VERSION=${2:-0}
+WRKMAX=${3:-1}
+echo $SIMULA version:$VERSION wrkmax:$WRKMAX
+$SIMULA <<endcompile
+set option M
+set sysmode sport
+set version $VERSION
+compile src/simtst70.sim
+load
+simtst70 /w$WRKMAX
+compile src/simtst71.sim
+load
+simtst71 /w$WRKMAX
+compile src/simtst72.sim
+load
+simtst72 /w$WRKMAX
+compile src/simtst73.sim
+load
+simtst73 /w$WRKMAX
+compile src/simtst74.sim
+load
+simtst74 /w$WRKMAX
+compile src/simtst75.sim
+load
+simtst75 /w$WRKMAX
+compile src/simtst76.sim
+load
+simtst76 /w$WRKMAX
+compile src/simtst77.sim
+load
+simtst77 /w$WRKMAX
+compile src/simtst78.sim
+load
+simtst78 /w$WRKMAX
+compile src/simtst79.sim
+load
+simtst79 /w$WRKMAX
+exit
+endcompile
+#  remove files used by test 77,79
+rm simtst* autolink.par any77 sx*

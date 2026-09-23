@@ -1,0 +1,5 @@
+integer procedure pa(n);
+  integer n;
+  begin external integer procedure pb;
+    if n<10 then pa:= n+pb(n+1);
+  end;

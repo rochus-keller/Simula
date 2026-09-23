@@ -1,0 +1,60 @@
+#  remove files that should be created
+rm direct85 sx*
+#  make nonempty input file for simtst80/89 (contents irrelevant)
+cp bat8.xnx any8089
+#  make nonempty input file for simtst81/89 (contents irrelevant)
+cp bat8.xnx any8189
+#  make input file for simtst86
+cp src/sysin86 sysin86
+#  make input file for simtst88
+cp src/sysin88 sysin88
+#  make input file for simtst89
+cp src/sysin89 sysin89
+SIMULA=${1:?'Compiler name missing'}
+VERSION=${2:-0}
+WRKMAX=${3:-1}
+echo $SIMULA version:$VERSION wrkmax:$WRKMAX
+$SIMULA <<endcompile
+set option M
+set sysmode sport
+set version $VERSION
+compile src/simtst80.sim
+load
+simtst80 /w$WRKMAX
+compile src/simtst81.sim
+load
+simtst81 /w$WRKMAX
+compile src/simtst82.sim
+load
+simtst82 /w$WRKMAX
+compile src/simtst83.sim
+load
+simtst83 /w$WRKMAX
+compile src/simtst84.sim
+load
+simtst84 /w$WRKMAX
+compile src/simtst85.sim
+load
+simtst85 /w$WRKMAX
+compile src/simtst86.sim
+load
+simtst86 <sysin86 /w$WRKMAX
+compile src/simtst87.sim
+load
+simtst87 /w$WRKMAX
+CC
+CC    result should be
+CC     384.6   1220.8
+CC     158.4    975.3
+CC
+compile src/simtst88.sim
+load
+simtst88 <sysin88 /w$WRKMAX
+compile src/simtst89.sim
+load
+simtst89 <sysin89 /w$WRKMAX
+exit
+endcompile
+# direct85 should not exist (accessmode PURGE)
+# print84 should be inspected for erroneous output
+rm simtst* autolink.par direct85 sysin8? any8* sx* print84

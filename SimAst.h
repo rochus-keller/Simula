@@ -403,6 +403,7 @@ namespace Sim
         Declaration* getSimSet() const;
         Declaration* getSimulation() const;
         Declaration* getPrimitiveText() const;
+        Declaration* getSysIo() const;
         SimulaVersion getVersion() const { return version; }
         void setVersion(SimulaVersion v) { version = v; }
         void clear();

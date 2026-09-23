@@ -230,38 +230,9 @@ BEGIN
 		REF(infile) PROCEDURE sysin; EXTERNAL;
 		REF(printfile) PROCEDURE sysout; EXTERNAL;
 
-        COMMENT --- the connected attributes of sysin ---;
-        BOOLEAN PROCEDURE endfile; EXTERNAL;
-        PROCEDURE inimage; EXTERNAL;
-        BOOLEAN PROCEDURE inrecord; EXTERNAL;
-        CHARACTER PROCEDURE inchar; EXTERNAL;
-        BOOLEAN PROCEDURE lastitem; EXTERNAL;
-        TEXT PROCEDURE intext(w); INTEGER w; EXTERNAL;
-        INTEGER PROCEDURE inint; EXTERNAL;
-        LONG REAL PROCEDURE inreal; EXTERNAL;
-        INTEGER PROCEDURE infrac; EXTERNAL;
-
-        COMMENT --- the connected attributes of sysout ---;
-        TEXT PROCEDURE image; EXTERNAL;
-        PROCEDURE setpos(i); INTEGER i; EXTERNAL;
-        INTEGER PROCEDURE pos; EXTERNAL;
-        BOOLEAN PROCEDURE more; EXTERNAL;
-        INTEGER PROCEDURE length; EXTERNAL;
-        PROCEDURE outimage; EXTERNAL;
-        PROCEDURE outrecord; EXTERNAL;
-        PROCEDURE breakoutimage; EXTERNAL;
-        BOOLEAN PROCEDURE checkpoint; EXTERNAL;
-        PROCEDURE outchar(c); CHARACTER c; EXTERNAL;
-        PROCEDURE outtext(t); TEXT t; EXTERNAL;
-        PROCEDURE outint(i, w); INTEGER i, w; EXTERNAL;
-        PROCEDURE outfix(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
-        PROCEDURE outreal(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
-        PROCEDURE outfrac(i, n, w); INTEGER i, n, w; EXTERNAL;
-        INTEGER PROCEDURE line; EXTERNAL;
-        INTEGER PROCEDURE page; EXTERNAL;
-        INTEGER PROCEDURE linesperpage(n); INTEGER n; EXTERNAL;
-        PROCEDURE spacing(n); INTEGER n; EXTERNAL;
-        PROCEDURE eject(n); INTEGER n; EXTERNAL;
+        COMMENT --- the attributes of sysin and sysout are not attributes of
+                    basicio, but of the connection blocks embracing the
+                    program, and are declared in the pseudo-class sysio___ ;
 
       	PROCEDURE terminate_program; EXTERNAL;
         PROCEDURE detach; EXTERNAL;
@@ -484,6 +455,44 @@ BEGIN
 
 	! This is NOT valid Simula code but a representation of the 
 	! built-in attributes for the compiler's symbol table;
+
+	CLASS sysio___; ! Pseudo-class;
+	BEGIN
+		COMMENT --- the attributes of sysin, visible in the program as if it
+		            were enclosed in "inspect sysin do" (10.1) ;
+		BOOLEAN PROCEDURE endfile; EXTERNAL;
+		PROCEDURE inimage; EXTERNAL;
+		BOOLEAN PROCEDURE inrecord; EXTERNAL;
+		CHARACTER PROCEDURE inchar; EXTERNAL;
+		BOOLEAN PROCEDURE lastitem; EXTERNAL;
+		TEXT PROCEDURE intext(w); INTEGER w; EXTERNAL;
+		INTEGER PROCEDURE inint; EXTERNAL;
+		LONG REAL PROCEDURE inreal; EXTERNAL;
+		INTEGER PROCEDURE infrac; EXTERNAL;
+
+		COMMENT --- the attributes of sysout, which take precedence over those
+		            of sysin for the names both files have (10.1) ;
+		TEXT PROCEDURE image; EXTERNAL;
+		PROCEDURE setpos(i); INTEGER i; EXTERNAL;
+		INTEGER PROCEDURE pos; EXTERNAL;
+		BOOLEAN PROCEDURE more; EXTERNAL;
+		INTEGER PROCEDURE length; EXTERNAL;
+		PROCEDURE outimage; EXTERNAL;
+		PROCEDURE outrecord; EXTERNAL;
+		PROCEDURE breakoutimage; EXTERNAL;
+		BOOLEAN PROCEDURE checkpoint; EXTERNAL;
+		PROCEDURE outchar(c); CHARACTER c; EXTERNAL;
+		PROCEDURE outtext(t); TEXT t; EXTERNAL;
+		PROCEDURE outint(i, w); INTEGER i, w; EXTERNAL;
+		PROCEDURE outfix(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
+		PROCEDURE outreal(r, n, w); LONG REAL r; INTEGER n, w; EXTERNAL;
+		PROCEDURE outfrac(i, n, w); INTEGER i, n, w; EXTERNAL;
+		INTEGER PROCEDURE line; EXTERNAL;
+		INTEGER PROCEDURE page; EXTERNAL;
+		INTEGER PROCEDURE linesperpage(n); INTEGER n; EXTERNAL;
+		PROCEDURE spacing(n); INTEGER n; EXTERNAL;
+		PROCEDURE eject(n); INTEGER n; EXTERNAL;
+	END;
 
 	CLASS primitive_text___; ! Pseudo-class;
 	BEGIN

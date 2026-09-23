@@ -99,6 +99,8 @@ namespace Sim {
         void stdResultType(Declaration* proc, Expression* e);
         Declaration* external(Declaration* d);
         void checkArgs(const DeclList& params, Expression* args, const RowCol& pos);
+        void checkActuals(Declaration* proc, Expression* args, const RowCol& pos);
+        void checkNameActual(Declaration* formal, Expression* arg);
         void checkVirtualMatch(Declaration* spec, Declaration* impl);
         void markInheritedVirtuals(Declaration* prefix, Declaration* scope);
         bool assigCompat(Type* lhs, Type* rhs, bool isRefAssign);

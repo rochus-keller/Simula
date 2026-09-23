@@ -464,6 +464,11 @@ Declaration *AstModel::getPrimitiveText() const
     return findInScope(getEnv(), Lexer::toId("primitive_text___"));
 }
 
+Declaration *AstModel::getSysIo() const
+{
+    return findInScope(getEnv(), Lexer::toId("sysio___"));
+}
+
 void AstModel::clear()
 {
     clearGlobals();

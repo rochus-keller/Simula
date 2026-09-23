@@ -1,0 +1,34 @@
+begin  external class demos;
+
+     comment -------------------- program 19 -------------------- ;
+       demos begin
+         ref(waitq)q;
+
+         entity class p;
+         begin ref(entity)e;
+           e :- q.coopt;
+           hold(2.0);
+           e.schedule(time);
+           repeat;
+         end***p***;
+
+         entity class c;
+         begin
+           q.wait;
+           repeat;
+         end***c***;
+
+         outimage;  outimage;  outtext("programme # 19");
+         outimage;  outimage;  outimage;  outimage;  outimage;
+         q :- new waitq("waiting");
+         trace;
+         new p("p").schedule(0.0);
+         new p("p").schedule(5.0);
+         new c("c").schedule(0.0);
+         new c("c").schedule(1.0);
+         new c("c").schedule(2.0);
+         new c("c").schedule(3.0);
+         hold(35.0);
+       end;
+
+end;

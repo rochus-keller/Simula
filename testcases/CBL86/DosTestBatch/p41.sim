@@ -1,0 +1,6 @@
+procedure p41 (A,i); 
+name i;
+integer array A; integer i;
+begin
+   A(i):= i;
+end;

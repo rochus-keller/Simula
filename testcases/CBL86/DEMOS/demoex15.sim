@@ -1,0 +1,38 @@
+begin  external class demos;
+
+     comment -------------------- program 15 -------------------- ;
+         demos begin
+           real slice;
+           ref(rdist)burst, next;
+           ref(res)cpu, multi;
+
+           entity class program;
+           begin
+             real tleft, t;
+
+             new program("p").schedule(next.sample);
+             multi.acquire(1);
+             tleft := burst.sample;
+             while tleft > 0.0 do
+             begin
+               cpu.acquire(1);
+               t := if tleft < slice then tleft else slice;
+               hold(t);
+               tleft := tleft - t;
+               cpu.release(1);
+             end;
+             multi.release(1);
+           end***program***;
+
+           outimage;  outimage;  outtext("programme # 15");
+           outimage;  outimage;  outimage;  outimage;  outimage;
+           burst :- new negexp("cpu burst", 1.0);
+           next  :- new negexp("next job", 0.875);
+           cpu   :- new res("cpu", 1);
+           multi :- new res("multilevel", 4);
+           slice := 0.040;
+           new program("p").schedule(0.0);
+           hold(50.0);
+         end;
+
+end;

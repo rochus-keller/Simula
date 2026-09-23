@@ -1,0 +1,40 @@
+SIMULA=${1:?'Compiler name missing'}
+VERSION=${2:-0}
+WRKMAX=${3:-1}
+echo $SIMULA version:$VERSION wrkmax:$WRKMAX
+$SIMULA <<endcompile
+set option M
+set sysmode sport
+set version $VERSION
+date
+compile src/simtst01.sim
+load
+simtst01 /w$WRKMAX
+compile src/simtst02.sim
+load
+simtst02 /w$WRKMAX
+compile src/simtst03.sim
+load
+simtst03 /w$WRKMAX
+compile src/simtst04.sim
+load
+simtst04 /w$WRKMAX
+compile src/simtst05.sim
+load
+simtst05 /w$WRKMAX
+compile src/simtst06.sim
+load
+simtst06 /w$WRKMAX
+compile src/simtst07.sim
+load
+simtst07 /w$WRKMAX
+compile src/simtst08.sim
+load
+simtst08 /w$WRKMAX
+compile src/simtst09.sim
+load
+simtst09 /w$WRKMAX
+exit
+endcompile
+date
+rm simtst* autolink.par
