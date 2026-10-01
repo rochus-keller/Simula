@@ -63,6 +63,7 @@ namespace Sim {
         void LabelDecl(Declaration* d);
 
         void Type_(Type* t);
+        void DeclType(Declaration* d);
 
         void Body(Statement* s);
         void StatSeq(Statement* s);
@@ -111,6 +112,7 @@ namespace Sim {
         Type* deref(Type* t);
 
         Declaration* resolve(Atom sym, bool classOnly = false);
+        Declaration* resolveHiding(Atom sym);
         Declaration* resolveClass(Expression* name);
         Declaration* findAttr(Declaration* cls, Atom sym, bool inclusive, bool remote, bool classOnly = false);
         bool withinClass(Declaration* cls) const;
@@ -143,6 +145,8 @@ namespace Sim {
             Scope(Declaration* dd = 0, quint8 k = OwnScope):d(dd),kind(k){}
         };
         QList<Scope> scopeStack;
+        Declaration* paramOf; 
+        bool qualCheck; 
         Symbol* first;
         Symbol* last;
         QHash<Declaration*, QList<Symbol*> > xref;

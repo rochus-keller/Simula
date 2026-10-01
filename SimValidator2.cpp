@@ -29,7 +29,7 @@ static inline bool isClassDecl(Declaration* d)
 }
 
 Validator2::Validator2(AstModel* mdl, Importer * i, bool haveXref)
-    : module(0), mdl(mdl), first(0), last(0), imp(i)
+    : module(0), mdl(mdl), first(0), last(0), imp(i), paramOf(0), qualCheck(false)
 {
     Q_ASSERT(mdl);
     if( haveXref )
@@ -184,6 +184,10 @@ void Validator2::Decl(Declaration *d)
 
         // a declaration referenced before it was reached is validated in its own context
         const QList<Scope> saved = scopeStack;
+        Declaration* savedParamOf = paramOf;
+        const bool savedQualCheck = qualCheck;
+        paramOf = 0;
+        qualCheck = false;
         for( int i = scopeStack.size() - 1; i >= 0; i-- ) {
             if( scopeStack[i].d == d->outer ) {
                 scopeStack.erase(scopeStack.begin() + i + 1, scopeStack.end());
@@ -233,6 +237,8 @@ void Validator2::Decl(Declaration *d)
         }
 
         scopeStack = saved;
+        paramOf = savedParamOf;
+        qualCheck = savedQualCheck;
     }
 }
 
@@ -306,8 +312,7 @@ void Validator2::ClassDecl(Declaration* d)
                 markRef(member->forward, member->pos);
                 checkVirtualMatch(member, member->forward);
             }
-            if( member->getType() )
-                Type_(member->getType());
+            DeclType(member);
         }
         member = member->next;
     }
@@ -377,8 +382,7 @@ void Validator2::markInheritedVirtuals(Declaration* prefix, Declaration* scope)
 void Validator2::ProcDecl(Declaration* d)
 {
     // Validate return type
-    if( d->getType() )
-        Type_(d->getType());
+    DeclType(d);
 
     // the formal parameters are local to a fictitious block embracing the procedure body block
     // so the body block may redeclare a formal parameter
@@ -410,10 +414,23 @@ void Validator2::ProcDecl(Declaration* d)
     scopeStack.pop_back();
 }
 
+void Validator2::DeclType(Declaration* d)
+{
+    if( d->getType() == 0 )
+        return;
+    // the qualification of a parameter is resolved in the scope enclosing the procedure,
+    Declaration* outer = paramOf;
+    const bool qual = qualCheck;
+    paramOf = d->kind == Declaration::Parameter ? d->outer : 0;
+    qualCheck = true;
+    Type_(d->getType());
+    paramOf = outer;
+    qualCheck = qual;
+}
+
 void Validator2::VarDecl(Declaration* d)
 {
-    if( d->getType() )
-        Type_(d->getType());
+    DeclType(d);
 
     if( d->init )
         Expr(d->init);
@@ -421,8 +438,7 @@ void Validator2::VarDecl(Declaration* d)
 
 void Validator2::ArrayDecl(Declaration* d)
 {
-    if( d->getType() )
-        Type_(d->getType());
+    DeclType(d);
 }
 
 void Validator2::SwitchDecl(Declaration* d)
@@ -437,8 +453,7 @@ void Validator2::SwitchDecl(Declaration* d)
 
 void Validator2::ParamDecl(Declaration* d)
 {
-    if( d->getType() )
-        Type_(d->getType());
+    DeclType(d);
 
     Expression* e = d->nameRef;
     while( e )
@@ -631,6 +646,7 @@ void Validator2::Type_(Type* t)
                 bound = bound->next;
             }
         }
+        Type_(t->getType()); 
         break;
     case Type::Ref:
         if( t->getExpr() ) {
@@ -1943,11 +1959,37 @@ Declaration* Validator2::resolve(Atom sym, bool classOnly)
     return 0;
 }
 
+Declaration* Validator2::resolveHiding(Atom sym)
+{
+    Declaration* res = resolve(sym, false);
+    if( res == 0 || paramOf == 0 )
+        return res;
+
+    Declaration* bodyScope = paramOf->body ? paramOf->body->scope : 0;
+    if( res->outer != paramOf && res->outer != bodyScope )
+        return res;
+
+    const QList<Scope> saved = scopeStack;
+    for( int i = scopeStack.size() - 1; i >= 0; i-- )
+        if( scopeStack[i].d == paramOf || scopeStack[i].d == bodyScope )
+            scopeStack.removeAt(i);
+    res = resolve(sym, false);
+    scopeStack = saved;
+    if( res && ( res->outer == paramOf || res->outer == bodyScope ) )
+        res = 0;
+    return res;
+}
+
 Declaration* Validator2::resolveClass(Expression* name)
 {
-    // a class identifier in a qualification is resolved ignoring non-class
-    // declarations of the same name in inner scopes
+    // a class identifier in a qualification is an identifier like any other, so an
+    // inner declaration of the same name hides the class and makes the qualification illegal
     Declaration* cls = resolve(name->a, true);
+    Declaration* hiding = qualCheck ? resolveHiding(name->a) : 0;
+    if( cls && hiding && hiding != cls && !isClassDecl(hiding) )
+        error(name->pos, QString("'%1' has illegal qualification: the class is hidden by "
+                                 "the declaration in line %2")
+              .arg(name->a).arg(hiding->pos.d_row));
     if( cls )
     {
         markRef(cls, name->pos);

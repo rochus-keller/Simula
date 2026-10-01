@@ -350,17 +350,36 @@ Token Lexer::identifier()
         return token( Tok_identifier, off, str.toLatin1() );
 }
 
+static inline bool isRadix(int r)
+{
+    return r == 2 || r == 4 || r == 8 || r == 16;
+}
+
+static inline bool isRadixDigit(QChar c, int radix)
+{
+    const int v = c.isDigit() ? c.digitValue() :
+                  ( c.toUpper().unicode() >= 'A' && c.toUpper().unicode() <= 'F' ?
+                        10 + c.toUpper().unicode() - 'A' : -1 );
+    return v >= 0 && v < radix;
+}
+
 Token Lexer::number()
 {
-    int off = 0;
-    while( true )
+    int off = digits(0);
+
+    const QChar r = lookAhead(off);
+    if( off > 0 && ( r == 'R' || r == 'r' ) )
     {
-        const QChar c = lookAhead(off);
-        if( !c.isDigit() )
-            break;
-        else
-            off++;
+        QString prefix = d_line.mid(d_colNr, off);
+        prefix.remove('_');
+        const int radix = prefix.toInt();
+        const int len = isRadix(radix) ? radix_digits(off+1, radix) : 0;
+        if( len == 0 || lookAhead(off+1+len).isLetterOrNumber() || lookAhead(off+1+len) == '_' )
+            return token( Tok_Invalid, off + 1 + len, "invalid radix_number" );
+        off += 1 + len;
+        return token( Tok_unsigned_integer, off, d_line.mid(d_colNr, off).toLatin1() );
     }
+
     bool isReal = false;
 
     const int decflen = decimal_fraction(off);
@@ -578,6 +597,31 @@ Token Lexer::character()
     return token( Tok_character, off, str.toLatin1() );
 }
 
+int Lexer::digits(int off)
+{
+    // digits ::= digit { [_] digit }, the underscore is only a separator (1.5)
+    const int origOff = off;
+    while( lookAhead(off).isDigit() )
+    {
+        off++;
+        if( lookAhead(off) == '_' && lookAhead(off+1).isDigit() )
+            off++;
+    }
+    return off - origOff;
+}
+
+int Lexer::radix_digits(int off, int radix)
+{
+    const int origOff = off;
+    while( isRadixDigit(lookAhead(off), radix) )
+    {
+        off++;
+        if( lookAhead(off) == '_' && isRadixDigit(lookAhead(off+1), radix) )
+            off++;
+    }
+    return off - origOff;
+}
+
 int Lexer::exponential_part(int off)
 {
     int origOff = off;
@@ -601,14 +645,7 @@ int Lexer::exponential_part(int off)
         }
         if( !o.isDigit() )
             return -1; // token( Tok_Invalid, off, "invalid real" );
-        while( true )
-        {
-            const QChar c = lookAhead(off);
-            if( !c.isDigit() )
-                break;
-            else
-                off++;
-        }
+        off += digits(off);
     }
     return off - origOff;
 }
@@ -620,14 +657,7 @@ int Lexer::decimal_fraction(int off)
     if( o1 == '.' )
     {
         off++;
-        while( true )
-        {
-            const QChar c = lookAhead(off);
-            if( !c.isDigit() )
-                break;
-            else
-                off++;
-        }
+        off += digits(off);
     }
     return off - origOff;
 }

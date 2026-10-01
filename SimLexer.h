@@ -63,6 +63,8 @@ namespace Sim
         Token character();
         int exponential_part(int off);
         int decimal_fraction(int off);
+        int digits(int off);
+        int radix_digits(int off, int radix);
     private:
         QIODevice* d_in;
         quint32 d_lineNr;

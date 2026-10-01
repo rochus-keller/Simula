@@ -99,6 +99,7 @@ namespace Sim
 
         // Type
         uint ownsexpr : 1;
+        uint specified : 1; // proc: the parameters in subs are the signature
 
         RowCol pos;
 
@@ -406,6 +407,8 @@ namespace Sim
         Declaration* getSysIo() const;
         SimulaVersion getVersion() const { return version; }
         void setVersion(SimulaVersion v) { version = v; }
+        bool getCimDialect() const { return cimDialect; }
+        void setCimDialect(bool on) { cimDialect = on; }
         void clear();
 
         static Declaration* resolveInClass(Declaration* cls, Atom name);
@@ -420,6 +423,7 @@ namespace Sim
         Declaration* currentScope() const;
         Type* newType(Type::Kind k);
         SimulaVersion version;
+        bool cimDialect;
         QList<Declaration*> scopes;
         Declaration* globalScope;
         Type* basicTypes[Type::MaxBasicType];

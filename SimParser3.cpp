@@ -1992,6 +1992,8 @@ Statement* Parser3::Common_Base_conditional_statement() {
             expect(Tok_ELSE, false, "Common_Base_conditional_statement");
             ifStmt->elseStmt = statement();
         }
+    } else if( la.d_type == Tok_Semi || la.d_type == Tok_END ) {
+        // the then branch is a dummy statement (4.11)
     } else {
         invalid("Common_Base_conditional_statement");
     }
@@ -2437,10 +2439,28 @@ void Parser3::specification_part(Declaration* parent) {
     Type* type = specifier(isArray, isProcedure);
 
     TokenList ids = identifier_list();
+
+    Type* sig = 0;
+    if( FIRST_procedure_specification(la.d_type) && mdl->getCimDialect() &&
+            versionCheck(Sim86, "procedure specification") ) {
+        Token id;
+        sig = procedure_specification(id);
+        if( !isProcedure || ids.size() != 1 )
+        {
+            error(id, "a procedure specification requires a single formal procedure identifier");
+            delete sig;
+            sig = 0;
+        }else if( id.d_type == Tok_identifier && id.d_id != ids.first().d_id )
+            error(id, "the procedure specification must repeat the formal procedure identifier");
+        if( sig && sig->getType() == 0 && type )
+            sig->setType(type);
+    }
+
     expect(Tok_Semi, false, "specification_part");
 
     // Update parameter types
     bool typeUsed = false;
+    bool sigUsed = false;
     for( int i = 0; i < ids.size(); i++ ) {
         Declaration* param = parent->link;
         while( param ) {
@@ -2451,8 +2471,12 @@ void Parser3::specification_part(Declaration* parent) {
                     // a formal array remains a parameter, the array is its type
                     param->setType(arrType);
                 } else if( isProcedure ) {
-                    Type* procType = new Type(Type::Procedure);
-                    procType->setType(type);
+                    Type* procType = sig;
+                    if( procType == 0 ) {
+                        procType = new Type(Type::Procedure);
+                        procType->setType(type);
+                    }else
+                        sigUsed = true;
                     param->setType(procType);
                 } else {
                     param->setType(type);
@@ -2470,7 +2494,7 @@ void Parser3::specification_part(Declaration* parent) {
         if( ids[i].d_type != Tok_Invalid )
             error(ids[i], "specifier not used");
     }
-    if( type && !typeUsed && !type->owned )
+    if( type && (!typeUsed || (sigUsed && sig->getType() != type)) && !type->owned )
         delete type;
 }
 
@@ -2500,6 +2524,7 @@ Type* Parser3::toProcType(Type* resultType, Declaration* heading)
 {
     Type* res = new Type(Type::Procedure);
     res->setType(resultType);
+    res->specified = true;
 
     Declaration* param = heading->link;
     heading->link = 0;
@@ -2765,7 +2790,14 @@ void Parser3::bound_pair_list(QList<Expression*>& bounds) {
 
 void Parser3::bound_pair(QList<Expression*>& bounds) {
     Expression* lower = expression();
-    expect(Tok_Colon, false, "bound_pair");
+    if( la.d_type == Tok_ColonMinus ) {
+        // make sure "ref(Simset) array A(-3:-1);" is correctly parsed
+        la.d_type = Tok_Minus;
+        la.d_val = "-";
+        la.d_colNr += 1;
+        la.d_len = 1;
+    } else
+        expect(Tok_Colon, false, "bound_pair");
     Expression* upper = expression();
 
     bounds.append(lower);
@@ -3439,10 +3471,23 @@ Expression* Parser3::logical_value() {
     }
 }
 
+static quint64 toInteger(const QByteArray& str)
+{
+    QByteArray s = str;
+    s.replace('_',"");
+    int pos = s.indexOf('R');
+    if( pos < 0 )
+        pos = s.indexOf('r');
+    if( pos >= 0 )
+        return s.mid(pos+1).toULongLong(0, s.left(pos).toInt());
+    return s.toULongLong();
+}
+
 static double toReal(const QByteArray& str)
 {
     // the exponent symbol is & for real, && for long real, alternatively # or U+23E8
     QByteArray s = str;
+    s.replace('_',"");
     int len = 2;
     int pos = s.indexOf("&&");
     if( pos < 0 ) {
@@ -3471,7 +3516,7 @@ Expression* Parser3::unsigned_number() {
     if( la.d_type == Tok_unsigned_integer ) {
         expect(Tok_unsigned_integer, false, "unsigned_number");
         Expression* expr = new Expression(Expression::UnsignedConst, toRowCol(cur));
-        expr->u = cur.d_val.toULongLong();
+        expr->u = toInteger(cur.d_val);
         return expr;
     } else if( la.d_type == Tok_decimal_number ) {
         expect(Tok_decimal_number, false, "unsigned_number");

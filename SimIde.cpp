@@ -2911,7 +2911,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("me@rochus-keller.ch");
     a.setOrganizationDomain("github.com/rochus-keller/Simula");
     a.setApplicationName("Simula 67 IDE (LuaJIT)");
-    a.setApplicationVersion("0.1.4");
+    a.setApplicationVersion("0.1.5");
     a.setStyle("Fusion");    
     QFontDatabase::addApplicationFont(":/fonts/DejaVuSansMono.ttf"); // "DejaVu Sans Mono"
 

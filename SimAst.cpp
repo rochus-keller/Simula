@@ -62,7 +62,7 @@ Node::Node(Meta m) :
 #endif
     meta(m), isExternal(0), ownstype(0), owned(0), type(0), mode(0),
     visi(0), id(0), isVirtual(0), re(0), prior(0), before(0), ownsexpr(0),validated(0), hasErrors(0),
-    paren(0), lng(0)
+    paren(0), lng(0), specified(0)
 {
 #ifdef SIM_TRACK_LEFTOVERS
     nodes << this;
@@ -401,7 +401,7 @@ Connection::~Connection() {
         delete next;
 }
 
-AstModel::AstModel(SimulaVersion v) : version(v), globalScope(0) {
+AstModel::AstModel(SimulaVersion v) : version(v), cimDialect(false), globalScope(0) {
 
     initGlobals();
 }
