@@ -104,8 +104,10 @@ namespace Sim {
         Type* specifier(bool& isArray, bool& isProcedure);
         void specification_part(Declaration* parent);
         Type* procedure_specification(Token& id);
-        Declaration* external_item();
-        QList<Declaration*> external_list();
+        Declaration* procedure_specification(Token& id, Type*& resultType);
+        void foreign_procedure(Declaration* item, quint8 kind);
+        Declaration* external_item(quint8 kind);
+        QList<Declaration*> external_list(quint8 kind);
         void external_declaration();
         Token external_identifier();
         Declaration* switch_declaration();

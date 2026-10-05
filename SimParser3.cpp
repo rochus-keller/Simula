@@ -1615,14 +1615,14 @@ Declaration* Parser3::main_part() {
     DeclList virts = virtual_part();
     classDecl->body = class_body();
 
-    if( classDecl->body && classDecl->body->scope )
+    if( classDecl->body && classDecl->body->getScope() )
     {
         for( int i = 0; i < virts.size(); i++ )
         {
             Declaration* v = virts[i];
             Atom sym = v->sym;
             v->sym = 0;
-            Declaration* d = classDecl->body->scope->link;
+            Declaration* d = classDecl->body->getScope()->link;
             while( d )
             {
                 if( d->sym == sym )
@@ -2498,10 +2498,10 @@ void Parser3::specification_part(Declaration* parent) {
         delete type;
 }
 
-Type* Parser3::procedure_specification(Token& id) {
+Declaration* Parser3::procedure_specification(Token& id, Type*& resultType) {
     expect(Tok_IS, false, "procedure_specification");
 
-    Type* resultType = 0;
+    resultType = 0;
     if( FIRST_type(la.d_type) )
         resultType = type();
     expect(Tok_PROCEDURE, false, "procedure_specification");
@@ -2517,7 +2517,48 @@ Type* Parser3::procedure_specification(Token& id) {
             Statement::deleteAll(body);
     }
 
+    return heading;
+}
+
+Type* Parser3::procedure_specification(Token& id) {
+    Type* resultType = 0;
+    Declaration* heading = procedure_specification(id, resultType);
     return toProcType(resultType, heading);
+}
+
+void Parser3::foreign_procedure(Declaration* item, quint8 kind)
+{
+    // a signature and the local identifier, the external item the external identifier
+    Token id;
+    Type* resultType = 0;
+    Declaration* heading = procedure_specification(id, resultType);
+
+    item->kind = Declaration::Procedure;
+    item->extKind = kind;
+    item->isExternal = true;
+    item->setType(resultType ? resultType : mdl->getType(Type::NoType));
+    if( id.d_type == Tok_identifier )
+    {
+        item->sym = id.d_id;
+        item->name = id.d_val;
+    }
+
+    Declaration* param = heading->link;
+    heading->link = 0;
+    Declaration* last = 0;
+    while( param )
+    {
+        Declaration* next = param->next;
+        param->next = 0;
+        param->outer = item;
+        if( last )
+            last->next = param;
+        else
+            item->link = param;
+        last = param;
+        param = next;
+    }
+    Declaration::deleteAll(heading);
 }
 
 Type* Parser3::toProcType(Type* resultType, Declaration* heading)
@@ -2541,7 +2582,7 @@ Type* Parser3::toProcType(Type* resultType, Declaration* heading)
     return res;
 }
 
-Declaration* Parser3::external_item() {
+Declaration* Parser3::external_item(quint8 kind) {
     Token localName;
     if( (peek(1).d_type == Tok_identifier && peek(2).d_type == Tok_Eq) ) {
         expect(Tok_identifier, false, "external_item");
@@ -2555,17 +2596,20 @@ Declaration* Parser3::external_item() {
     Declaration* extDecl = mdl->addDecl( name.d_id, name.d_val, Declaration::ExternalProc);
     extDecl->pos = toRowCol(name);
     extDecl->nameRef = new Expression(Expression::Identifier, toRowCol(extName));
-    extDecl->nameRef->a = extName.d_type == Tok_string ?
-                Lexer::toId(extName.d_val) : extName.d_id;
+    if( kind == Declaration::CeeExt || kind == Declaration::LuaExt )
+        extDecl->nameRef->a = Lexer::toStr(extName.d_val);
+    else
+        extDecl->nameRef->a = extName.d_type == Tok_string ?
+                    Lexer::toId(extName.d_val) : extName.d_id;
     return extDecl;
 }
 
-QList<Declaration*> Parser3::external_list() {
+QList<Declaration*> Parser3::external_list(quint8 kind) {
     QList<Declaration*> res;
-    res << external_item();
+    res << external_item(kind);
     while( la.d_type == Tok_Comma ) {
         expect(Tok_Comma, false, "external_list");
-        res << external_item();
+        res << external_item(kind);
     }
     return res;
 }
@@ -2575,11 +2619,33 @@ void Parser3::external_declaration() {
 
     if( la.d_type == Tok_identifier || FIRST_type(la.d_type) || la.d_type == Tok_PROCEDURE ) {
         // SIM86: optional kind identifier
-        Atom kind = 0;
+        Token kind;
         if( la.d_type == Tok_identifier ) {
             if( versionCheck(Sim86, "external kind") ) {
                 expect(Tok_identifier, false, "external_declaration");
-                kind = cur.d_id;
+                kind = cur;
+            }
+        }
+
+        quint8 extKind = Declaration::NoExt;
+        bool foreign = false; // implemented in another language, i.e. with a specification
+        if( kind.d_type == Tok_identifier )
+        {
+            if( qstricmp(kind.d_val.constData(), "simula") == 0 )
+                extKind = Declaration::SimulaExt;
+            else if( qstricmp(kind.d_val.constData(), "c") == 0 )
+            {
+                extKind = Declaration::CeeExt;
+                foreign = true;
+            }else if( qstricmp(kind.d_val.constData(), "lua") == 0 )
+            {
+                extKind = Declaration::LuaExt;
+                foreign = true;
+            }else
+            {
+                error(kind, QString("the external language '%1' is not supported").
+                      arg(kind.d_val.constData()));
+                foreign = true; // parse it like one, the error is already reported
             }
         }
 
@@ -2590,35 +2656,32 @@ void Parser3::external_declaration() {
 
         expect(Tok_PROCEDURE, false, "external_declaration");
 
-        QList<Declaration*> list = external_list();
+        QList<Declaration*> list = external_list(extKind);
 
         if( FIRST_procedure_specification(la.d_type) &&
                 versionCheck(Sim86, "procedure specification") )
         {
-            Token id;
-            Type* sig = procedure_specification(id);
             Declaration* proc = list.size() == 1 ? list.first() : 0;
-            if( proc && t == 0 && kind != 0 )
+            if( proc && t == 0 && foreign )
+                foreign_procedure(proc, extKind);
+            else
             {
-                proc->setType(sig);
-                if( id.d_type == Tok_identifier )
-                {
-                    // the specification declares the local identifier, external_item the external one
-                    proc->sym = id.d_id;
-                    proc->name = id.d_val;
-                }
-            }else
-            {
+                Token id;
+                Type* sig = procedure_specification(id);
                 error(id, "a procedure specification requires an external kind and a single, untyped external item");
                 delete sig;
             }
         }else
+        {
+            if( foreign )
+                error(cur, "an external procedure of another language requires a procedure specification");
             foreach( Declaration* proc, list )
                 proc->setType(t);
+        }
 
     } else if( la.d_type == Tok_CLASS ) {
         expect(Tok_CLASS, false, "external_declaration");
-        QList<Declaration*> list = external_list();
+        QList<Declaration*> list = external_list(Declaration::SimulaExt);
         foreach( Declaration* cls, list )
             cls->kind = Declaration::ExternalClass;
     } else {

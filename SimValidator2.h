@@ -52,6 +52,7 @@ namespace Sim {
         void DeclSeq(Declaration* d);
         void ClassDecl(Declaration* d);
         void ProcDecl(Declaration* d);
+        void ForeignProc(Declaration* d);
         void VarDecl(Declaration* d);
         void ArrayDecl(Declaration* d);
         void SwitchDecl(Declaration* d);

@@ -278,7 +278,7 @@ void Validator2::ClassDecl(Declaration* d)
 
     ProtectionPart(d);
 
-    checkDuplicates(d->body ? d->body->scope : 0, d);
+    checkDuplicates(d->body ? d->body->getScope() : 0, d);
 
     // Open class scope
     scopeStack.push_back(d);
@@ -329,7 +329,7 @@ void Validator2::ClassDecl(Declaration* d)
         member = member->next;
     }
 
-    markInheritedVirtuals(d->prefix, d->body ? d->body->scope : 0);
+    markInheritedVirtuals(d->prefix, d->body ? d->body->getScope() : 0);
 
     if( d->body )
         Body(d->body);
@@ -341,7 +341,7 @@ static Declaration* findVirtualSpec(Declaration* cls, Atom name)
 {
     while( cls )
     {
-        if( cls->hidden.contains(name) )
+        if( cls->hides(name) )
             // hiding a virtual disables further matching at inner levels
             return 0;
         Declaration* v = cls->link;
@@ -387,8 +387,8 @@ void Validator2::ProcDecl(Declaration* d)
     // the formal parameters are local to a fictitious block embracing the procedure body block
     // so the body block may redeclare a formal parameter
     checkDuplicates(d);
-    if( d->body && d->body->scope )
-        checkDuplicates(d->body->scope);
+    if( d->body && d->body->getScope() )
+        checkDuplicates(d->body->getScope());
 
     // Open procedure scope
     scopeStack.push_back(d);
@@ -412,6 +412,53 @@ void Validator2::ProcDecl(Declaration* d)
         Body(d->body);
 
     scopeStack.pop_back();
+
+    if( d->extKind )
+        ForeignProc(d);
+}
+
+static bool isForeignType(Type* t)
+{
+    if( t == 0 )
+        return false;
+    switch( t->kind ) {
+    case Type::Integer:
+    case Type::ShortInteger:
+    case Type::Real:
+    case Type::LongReal:
+    case Type::Character:
+    case Type::Boolean:
+    case Type::Text:
+        return true;
+    default:
+        return false;
+    }
+}
+
+void Validator2::ForeignProc(Declaration* d)
+{
+    if( d->extKind != Declaration::CeeExt )
+    {
+        error(d->pos, "the external language is not supported");
+        return;
+    }
+
+    Type* res = d->getType();
+    if( res && res->kind != Type::NoType && !isForeignType(res) )
+        error(d->pos, "this result type is not supported for an external C procedure");
+
+    Declaration* param = d->link;
+    while( param && param->kind == Declaration::Parameter )
+    {
+        Type* t = param->getType();
+        if( !isForeignType(t) )
+            error(param->pos, QString("the type of the parameter '%1' is not supported "
+                                      "for an external C procedure").arg(param->name.constData()));
+        else if( param->mode == Declaration::ModeName && t->kind == Type::Text )
+            error(param->pos, "a text parameter called by name is not supported "
+                              "for an external C procedure");
+        param = param->next;
+    }
 }
 
 void Validator2::DeclType(Declaration* d)
@@ -518,8 +565,9 @@ void Validator2::ExternalDecl(Declaration* d)
 
 void Validator2::ProtectionPart(Declaration* cls)
 {
-    foreach( const Declaration::Prot& p, cls->prot )
+    for( int i = 0; i < cls->prot.size(); i++ )
     {
+        const Declaration::Prot p = cls->prot[i];
         // a class parameter is an attribute too
         Declaration* here = AstModel::findInScope(cls, p.sym, true);
         if( p.flags & Declaration::Prot::Hide )
@@ -549,7 +597,7 @@ void Validator2::ProtectionPart(Declaration* cls)
             }
             if( here )
                 here->visi = Declaration::Protected;
-            cls->hidden.append(p.sym);
+            cls->prot[i].flags |= Declaration::Prot::Hides;
         }else
         {
             if( here == 0 )
@@ -1902,7 +1950,7 @@ int Validator2::contextHides(Declaration* cls, Atom sym) const
         Declaration* p = scopeStack[i].kind == OwnScope ?
                     scopeStack[i].d->prefix : scopeStack[i].d;
         for( ; p; p = p->prefix )
-            if( p->hidden.contains(sym) )
+            if( p->hides(sym) )
                 hides++;
         return hides;
     }
@@ -1965,7 +2013,7 @@ Declaration* Validator2::resolveHiding(Atom sym)
     if( res == 0 || paramOf == 0 )
         return res;
 
-    Declaration* bodyScope = paramOf->body ? paramOf->body->scope : 0;
+    Declaration* bodyScope = paramOf->body ? paramOf->body->getScope() : 0;
     if( res->outer != paramOf && res->outer != bodyScope )
         return res;
 

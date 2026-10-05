@@ -62,7 +62,7 @@ Node::Node(Meta m) :
 #endif
     meta(m), isExternal(0), ownstype(0), owned(0), type(0), mode(0),
     visi(0), id(0), isVirtual(0), re(0), prior(0), before(0), ownsexpr(0),validated(0), hasErrors(0),
-    paren(0), lng(0), specified(0)
+    paren(0), lng(0), specified(0), extKind(0)
 {
 #ifdef SIM_TRACK_LEFTOVERS
     nodes << this;
@@ -199,6 +199,19 @@ Declaration::~Declaration() {
     default:
         break;
     }
+}
+
+bool Declaration::hides(Atom sym) const
+{
+    for( int i = 0; i < prot.size(); i++ )
+        if( prot[i].sym == sym && (prot[i].flags & Prot::Hides) )
+            return true;
+    return false;
+}
+
+Atom Declaration::extName() const
+{
+    return nameRef && nameRef->kind == Expression::Identifier ? nameRef->a : 0;
 }
 
 Declaration *Declaration::find(const char *id, bool recursive) const
@@ -504,9 +517,9 @@ Declaration* AstModel::findInScope(Declaration* scope, const char *sym, bool inc
         d = d->next;
     }
 
-    if( includeBodyscope && scope->kind == Declaration::Class && scope->body && scope->body->scope )
+    if( includeBodyscope && scope->kind == Declaration::Class && scope->body && scope->body->getScope() )
     {
-        d = scope->body->scope->link;
+        d = scope->body->getScope()->link;
         while( d ) {
             if( d->sym == sym )
                 return d;

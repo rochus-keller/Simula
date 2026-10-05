@@ -91,6 +91,7 @@ namespace Sim
         uint isVirtual : 1;
         uint isExternal : 1;
         uint id : 16;
+        uint extKind : 3; 
 
         // Statement
         uint re : 1; // reactivate
@@ -100,6 +101,8 @@ namespace Sim
         // Type
         uint ownsexpr : 1;
         uint specified : 1; // proc: the parameters in subs are the signature
+
+        // used: 45
 
         RowCol pos;
 
@@ -156,6 +159,7 @@ namespace Sim
             Invalid, Module, Program, Class, Procedure, Block, Variable, Array, Switch,
             Parameter, VirtualSpec, ExternalProc, ExternalClass, LabelDecl, Builtin, StandardClass
         };
+        enum ExtKind { NoExt, SimulaExt, CeeExt, LuaExt };
         enum ParamMode { ModeDefault, ModeValue, ModeName };
         enum Visi { NA, Private, Protected, Public };
 #ifdef _DEBUG
@@ -163,7 +167,7 @@ namespace Sim
 #endif
 
         struct Prot {
-            enum Flags { Hide = 1, Protect = 2 };
+            enum Flags { Hide = 1, Protect = 2, Hides = 4 };
             Atom sym;
             RowCol pos;
             quint8 flags;
@@ -172,7 +176,6 @@ namespace Sim
 
         QByteArray name;
         Atom sym; // the internalized, lower-case version of name
-        QList<Atom> hidden; // attributes hidden at this prefix level
         QList<Prot> prot; // the protection part of a class, applied by the validator
 
         Declaration* link;   // Members/Locals
@@ -202,6 +205,9 @@ namespace Sim
 
 
         Declaration(Kind k = Invalid);
+
+        bool hides(Atom sym) const; 
+        Atom extName() const; 
 
         Declaration* find(const char* id, bool recursive = true) const;
         Declaration* getModule();
